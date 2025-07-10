@@ -2,6 +2,7 @@ import { Text, View, StyleSheet, Button, Alert } from "react-native";
 import { useAuth0 } from 'react-native-auth0';
 import { Href, router } from 'expo-router';
 import { useEffect } from 'react';
+import React from "react";
 
 
 export default function LoginScreen() {

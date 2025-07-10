@@ -1,8 +1,9 @@
 import { Stack } from "expo-router";
 import { Auth0Provider } from "react-native-auth0";
 import * as WebBrowser from 'expo-web-browser';
-WebBrowser.maybeCompleteAuthSession();
+import React from "react";
 
+WebBrowser.maybeCompleteAuthSession();
 
 export default function RootLayout() {
   return (
