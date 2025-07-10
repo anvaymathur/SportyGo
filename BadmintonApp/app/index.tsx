@@ -9,9 +9,9 @@ export default function Index() {
   useEffect(() => {
     if (!isLoading) {
       if (user) {
-        router.replace('/(tabs)' as Href);
+        router.replace('/');
       } else {
-        router.replace('/(auth)/login' as Href);
+        router.replace('/auth/login');
       }
     }
   }, [user, isLoading]);

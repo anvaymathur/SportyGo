@@ -15,6 +15,7 @@ export default function LoginScreen() {
 
     const onLogin = async () => {
         try {
+            console.log("Starting authorize()");
             await authorize()
         } catch (e) {
             Alert.alert('Error', 'Failed to login');
