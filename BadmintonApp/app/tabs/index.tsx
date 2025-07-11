@@ -1,3 +1,4 @@
+import React from "react";
 import { Text, View, StyleSheet } from "react-native";
 import { useAuth0 } from 'react-native-auth0';
 

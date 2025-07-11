@@ -1,6 +1,7 @@
 import { Text, View, StyleSheet, Button } from "react-native";
 import { useAuth0 } from 'react-native-auth0';
 import { Href, router } from 'expo-router';
+import React from "react";
 
 export default function ProfileScreen() {
   const { user, clearSession } = useAuth0();

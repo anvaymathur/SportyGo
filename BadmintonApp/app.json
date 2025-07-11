@@ -36,19 +36,29 @@
       ],
       [
         "react-native-auth0",
-          {
-            "domain": "dev-6oulj204w6qwe4dk.us.auth0.com",
-            "clientId": "CHYISQSTA3BStcmW4Yrz9ThiLV0PFUdv",
-            "packageName": "com.aravmathur.BadmintonApp"
-          }
+        {
+          "domain": "dev-6oulj204w6qwe4dk.us.auth0.com",
+          "clientId": "CHYISQSTA3BStcmW4Yrz9ThiLV0PFUdv",
+          "packageName": "com.aravmathur.BadmintonApp"
+        }
       ],
-      "./plugins/withAuth0Intent.js"
+
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "manifestPlaceholders": {
+              "auth0Domain": "dev-6oulj204w6qwe4dk.us.auth0.com",
+              "auth0Scheme": "com.aravmathur.badmintonapp.auth0"
+            }
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
     },
     "extra": {
-      "router": {},
       "eas": {
         "projectId": "924db136-fd31-46f2-af62-994f01ed1b96"
       }

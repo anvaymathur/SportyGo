@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useAuth0 } from 'react-native-auth0';
 import { Href, router } from 'expo-router';
 import { View, Text, StyleSheet } from 'react-native';
+import React from 'react';
 
 export default function Index() {
   const { user, isLoading } = useAuth0();
