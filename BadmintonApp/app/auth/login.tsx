@@ -1,37 +1,26 @@
-import { Text, View, StyleSheet, Button, Alert } from "react-native";
-import { useAuth0, User } from 'react-native-auth0';
-import { Href, router } from 'expo-router';
+import { Text, View, StyleSheet, Button } from "react-native";
+import { useAuth0 } from 'react-native-auth0';
+import { router } from 'expo-router';
 import React, { useEffect } from "react";
 
 
 export default function LoginScreen() {
-    const { authorize, user, error, isLoading, clearSession } = useAuth0();
+    const { authorize, user, error, isLoading } = useAuth0();
 
     useEffect(() => {
-        if (user) {
-          router.replace('/(tabs)' as Href);
-        }
-      }, [user]);
-
-    const onLogin = async () => {
+      if (!isLoading && user) {
+        console.log("user:", user);
+        router.replace('/tabs/profile');
+      }
+    }, [user, isLoading]);
+    
+      const onLogin = async () => {
         try {
-            console.log("Starting authorize()");
-            await authorize();
+          await authorize();   
         } catch (e) {
-            Alert.alert('Error', 'Failed to login');
-            console.log(e);
+          console.error(e);
         }
-    }
-
-    const onLogout = async () => {
-        try {
-            await clearSession();
-        }
-        catch (e) {
-            Alert.alert('Error', 'Failed to logout');
-            console.log(e);
-        }
-    }
+      };
 
     if (isLoading) {
         return (
@@ -46,7 +35,6 @@ export default function LoginScreen() {
       <Text style={styles.title}>Welcome to BadmintonApp</Text>
       <Text>You are not logged in</Text>
       <Button onPress={onLogin} title="Log In" />
-      <Button onPress={onLogout} title="Log Out" />
       {error && <Text style={styles.error}>{error.message}</Text>}
     </View>
   );
@@ -70,8 +58,4 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
 });
-    
-function useEffect(arg0: () => void, arg1: (User | null)[]) {
-    throw new Error("Function not implemented.");
-}
 

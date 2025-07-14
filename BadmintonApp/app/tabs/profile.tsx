@@ -9,7 +9,7 @@ export default function ProfileScreen() {
   const onLogout = async () => {
     try {
       await clearSession();
-      router.replace('/(auth)/login' as Href);
+      router.replace('/auth/login' );
     } catch (e) {
       console.log('Logout error:', e);
     }

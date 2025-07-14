@@ -1,23 +1,23 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth0 } from 'react-native-auth0';
-import { Href, router } from 'expo-router';
+import { router } from 'expo-router';
 import { View, Text, StyleSheet } from 'react-native';
 import React from 'react';
 
 export default function Index() {
   const { user, isLoading } = useAuth0();
+  const [initializing, setInitializing] = useState(true);
 
   useEffect(() => {
-    if (!isLoading) {
+    if (!isLoading && initializing) {
+      setInitializing(false);
       if (user) {
-        router.replace('/');
+        router.replace('/tabs/profile' ); 
       } else {
         router.replace('/auth/login');
       }
     }
-  }, [user, isLoading]);
-
-  // Show loading screen while checking authentication
+  }, [user, isLoading, initializing]);
   return (
     <View style={styles.container}>
       <Text style={styles.text}>Loading...</Text>

@@ -16,7 +16,7 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.aravmathur.BadmintonApp"
+      "package": "com.aravmathur.badmintonapp"
     },
     "web": {
       "bundler": "metro",
@@ -39,7 +39,7 @@
         {
           "domain": "dev-6oulj204w6qwe4dk.us.auth0.com",
           "clientId": "CHYISQSTA3BStcmW4Yrz9ThiLV0PFUdv",
-          "packageName": "com.aravmathur.BadmintonApp"
+          "packageName": "com.aravmathur.badmintonapp"
         }
       ],
 
