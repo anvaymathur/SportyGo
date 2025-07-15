@@ -3,6 +3,7 @@ import { View, Text, TextInput, Button, TouchableOpacity, StyleSheet, Alert, Pla
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { router } from 'expo-router';
+import { createEvent } from './firebase/services_firestore2';
 
 const GROUPS = [
   'Basketball Club',
@@ -87,11 +88,30 @@ export default function CreateGameSession() {
   const handleSubmit = async () => {
     if (!validate()) return;
     setLoading(true);
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      // Build EventDoc object
+      const event = {
+        id: '', // Firestore will generate the ID
+        GroupID: group,
+        Title: 'Game Session', // You can add a title field to the form if needed
+        EventDate: new Date(
+          gameDate.getFullYear(),
+          gameDate.getMonth(),
+          gameDate.getDate(),
+          gameTime.getHours(),
+          gameTime.getMinutes()
+        ),
+        Location: location,
+        CutoffDate: votingCutoff,
+        CreatorID: 'auth0sub', // Replace with actual user ID if available
+      };
+      await createEvent(event);
       setLoading(false);
       setSuccess(true);
-    }, 1000);
+    } catch (e) {
+      setLoading(false);
+      Alert.alert('Error', 'Failed to create event.');
+    }
   };
 
   const handleCancel = () => {

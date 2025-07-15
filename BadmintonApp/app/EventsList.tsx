@@ -1,6 +1,7 @@
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, SafeAreaView, Dimensions, TextInput } from 'react-native';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { router } from 'expo-router';
+import { listenGroupEvents } from './firebase/services_firestore2';
 
 type Event = {
   id: number;
@@ -15,78 +16,36 @@ type Event = {
   isVotingOpen: boolean;
 };
 
-const MOCK_EVENTS: Event[] = [
-  {
-    id: 1,
-    title: "Weekly Basketball Game",
-    date: "Saturday, July 12, 2025",
-    time: "3:00 PM - 5:00 PM",
-    location: "Community Sports Center",
-    group: "Basketball Club",
-    description: "Join us for our weekly basketball game! All skill levels welcome.",
-    attendeeCount: 10,
-    votingCutoff: "Friday, July 11, 2025 at 6:00 PM",
-    isVotingOpen: true
-  },
-  {
-    id: 2,
-    title: "Chess Tournament",
-    date: "Sunday, July 13, 2025",
-    time: "2:00 PM - 6:00 PM",
-    location: "Library Conference Room",
-    group: "Chess Club",
-    description: "Monthly chess tournament with prizes for top players.",
-    attendeeCount: 8,
-    votingCutoff: "Saturday, July 12, 2025 at 8:00 PM",
-    isVotingOpen: true
-  },
-  {
-    id: 3,
-    title: "Gaming Night",
-    date: "Friday, July 18, 2025",
-    time: "7:00 PM - 11:00 PM",
-    location: "Student Union",
-    group: "Gaming Group",
-    description: "Multiplayer gaming night featuring popular games.",
-    attendeeCount: 15,
-    votingCutoff: "Thursday, July 17, 2025 at 9:00 PM",
-    isVotingOpen: true
-  },
-  {
-    id: 4,
-    title: "Soccer Practice",
-    date: "Tuesday, July 15, 2025",
-    time: "6:00 PM - 8:00 PM",
-    location: "University Soccer Field",
-    group: "Soccer Team",
-    description: "Regular team practice session.",
-    attendeeCount: 12,
-    votingCutoff: "Monday, July 14, 2025 at 6:00 PM",
-    isVotingOpen: false
-  },
-  {
-    id: 5,
-    title: "Board Game Night",
-    date: "Wednesday, July 16, 2025",
-    time: "6:30 PM - 10:30 PM",
-    location: "Campus Center",
-    group: "Board Game Society",
-    description: "Strategy and party games for all skill levels.",
-    attendeeCount: 6,
-    votingCutoff: "Tuesday, July 15, 2025 at 8:00 PM",
-    isVotingOpen: true
-  }
-];
+const GROUP_ID = 'QMwpMlPfs1sxTs1zD0aQ'; // Replace with actual group ID
 
 export default function EventsList() {
-  const [events, setEvents] = useState<Event[]>(MOCK_EVENTS);
+  const [events, setEvents] = useState<any[]>([]); // Use any[] for Firestore events
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'voting-open' | 'voting-closed'>('all');
+
+  useEffect(() => {
+    const unsubscribe = listenGroupEvents(GROUP_ID, setEvents);
+    return () => unsubscribe();
+  }, []);
+
+  // Map Firestore events to UI event shape
+  const mappedEvents = events.map(event => ({
+    id: event.id,
+    title: event.Title,
+    date: event.EventDate instanceof Date ? event.EventDate.toDateString() : new Date(event.EventDate.seconds ? event.EventDate.seconds * 1000 : event.EventDate).toDateString(),
+    time: event.EventDate instanceof Date ? event.EventDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : new Date(event.EventDate.seconds ? event.EventDate.seconds * 1000 : event.EventDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    location: event.Location,
+    group: event.GroupID,
+    description: event.Title,
+    attendeeCount: 0, // You can update this if you track attendees
+    votingCutoff: event.CutoffDate instanceof Date ? event.CutoffDate.toDateString() : new Date(event.CutoffDate.seconds ? event.CutoffDate.seconds * 1000 : event.CutoffDate).toDateString(),
+    isVotingOpen: new Date() < (event.CutoffDate instanceof Date ? event.CutoffDate : new Date(event.CutoffDate.seconds ? event.CutoffDate.seconds * 1000 : event.CutoffDate)),
+  }));
 
   const { width } = Dimensions.get('window');
   const isSmallScreen = width < 375;
 
-  const filteredEvents = events.filter((event: Event) => {
+  const filteredEvents = mappedEvents.filter((event: any) => {
     const matchesSearch = event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          event.group.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          event.location.toLowerCase().includes(searchQuery.toLowerCase());

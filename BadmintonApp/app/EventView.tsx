@@ -1,6 +1,7 @@
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert, Animated, SafeAreaView, Dimensions } from 'react-native';
 import { useState, useEffect, useRef } from 'react';
 import { useLocalSearchParams, router } from 'expo-router';
+import { castVote, listenVoteCounts, getEvent } from './firebase/services_firestore2';
 
 type Attendee = {
   id: number;
@@ -172,14 +173,24 @@ const MOCK_EVENTS_DATA: { [key: number]: EventData } = {
 
 export default function EventView() {
   const params = useLocalSearchParams();
-  const eventId = parseInt(params.eventId as string) || 1;
+  const eventId = params.eventId as string; // Use string for Firestore
   
-  const [eventData, setEventData] = useState<EventData>(MOCK_EVENTS_DATA[eventId] || MOCK_EVENTS_DATA[1]);
+  const [eventData, setEventData] = useState<any>(null);
   const [currentFilter, setCurrentFilter] = useState<'all' | 'Going' | 'Maybe' | 'Not Going'>('all');
   const [isVotingOpen, setIsVotingOpen] = useState(true);
   const [countdown, setCountdown] = useState('');
   const [userVoteStatus, setUserVoteStatus] = useState('Select your response above');
   const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  const [voteCounts, setVoteCounts] = useState({ going: 0, maybe: 0, not: 0 });
+  const [userVote, setUserVote] = useState<null | 'going' | 'maybe' | 'not'>(null);
+
+  useEffect(() => {
+    if (!eventId) return;
+    getEvent(eventId).then(data => {
+      setEventData(data);
+    });
+  }, [eventId]);
 
   // Countdown timer effect
   useEffect(() => {
@@ -218,47 +229,22 @@ export default function EventView() {
     return () => clearInterval(interval);
   }, []);
 
-  const getVoteCounts = () => {
-    const counts = { 'Going': 0, 'Maybe': 0, 'Not Going': 0 };
-    eventData.attendees.forEach((attendee: Attendee) => {
-      counts[attendee.response]++;
-    });
-    return counts;
-  };
-
-  const handleVote = (vote: 'Going' | 'Maybe' | 'Not Going') => {
+  const handleVote = async (vote: 'going' | 'maybe' | 'not') => {
     if (!isVotingOpen) {
       Alert.alert('Voting Closed', 'Voting has closed for this event.');
       return;
     }
-
-    const previousVote = eventData.currentUser.response;
-    const newEventData = { ...eventData };
-    
-    // Update current user's vote
-    newEventData.currentUser.response = vote;
-    
-    // Add or update user in attendees list
-    const userIndex = newEventData.attendees.findIndex((a: Attendee) => a.id === newEventData.currentUser.id);
-    if (userIndex === -1) {
-      newEventData.attendees.push({
-        id: newEventData.currentUser.id,
-        name: newEventData.currentUser.name,
-        response: vote,
-        avatar: "YU"
-      });
-    } else {
-      newEventData.attendees[userIndex].response = vote;
+    try {
+      await castVote(eventId, vote);
+      setUserVote(vote);
+      setUserVoteStatus(`You voted: ${vote.charAt(0).toUpperCase() + vote.slice(1)}`);
+      Animated.sequence([
+        Animated.timing(scaleAnim, { toValue: 1.2, duration: 150, useNativeDriver: true }),
+        Animated.timing(scaleAnim, { toValue: 1, duration: 150, useNativeDriver: true })
+      ]).start();
+    } catch (e) {
+      Alert.alert('Error', 'Failed to cast vote.');
     }
-    
-    setEventData(newEventData);
-    setUserVoteStatus(`You voted: ${vote}`);
-    
-    // Animate the vote count
-    Animated.sequence([
-      Animated.timing(scaleAnim, { toValue: 1.2, duration: 150, useNativeDriver: true }),
-      Animated.timing(scaleAnim, { toValue: 1, duration: 150, useNativeDriver: true })
-    ]).start();
   };
 
   const getResponseIcon = (response: string) => {
@@ -267,9 +253,9 @@ export default function EventView() {
   };
 
   const getFilteredAttendees = () => {
-    let filtered = eventData.attendees;
+    let filtered = eventData?.attendees || []; // Use eventData?.attendees
     if (currentFilter !== 'all') {
-      filtered = eventData.attendees.filter((attendee: Attendee) => attendee.response === currentFilter);
+      filtered = filtered.filter((attendee: Attendee) => attendee.response === currentFilter);
     }
     
     // Sort: Going first, then Maybe, then Not Going
@@ -277,7 +263,6 @@ export default function EventView() {
     return filtered.sort((a: Attendee, b: Attendee) => sortOrder[a.response] - sortOrder[b.response]);
   };
 
-  const counts = getVoteCounts();
   const filteredAttendees = getFilteredAttendees();
 
   const { width } = Dimensions.get('window');
@@ -294,18 +279,18 @@ export default function EventView() {
         {/* Event Header */}
         <View style={styles.eventHeader}>
         <View style={styles.eventBadge}>
-          <Text style={styles.eventBadgeText}>{eventData.event.group}</Text>
+          <Text style={styles.eventBadgeText}>{eventData?.group}</Text>
         </View>
-        <Text style={styles.eventTitle}>{eventData.event.title}</Text>
-        <Text style={styles.eventDescription}>{eventData.event.description}</Text>
+        <Text style={styles.eventTitle}>{eventData?.title}</Text>
+        <Text style={styles.eventDescription}>{eventData?.description}</Text>
         
         <View style={styles.eventDetails}>
           <View style={styles.eventDetail}>
             <Text style={styles.eventDetailIcon}>📅</Text>
             <View style={styles.eventDetailContent}>
               <Text style={styles.eventDetailLabel}>Date & Time</Text>
-              <Text style={styles.eventDetailValue}>{eventData.event.date}</Text>
-              <Text style={styles.eventDetailSub}>{eventData.event.time}</Text>
+              <Text style={styles.eventDetailValue}>{eventData?.date}</Text>
+              <Text style={styles.eventDetailSub}>{eventData?.time}</Text>
             </View>
           </View>
           
@@ -313,7 +298,7 @@ export default function EventView() {
             <Text style={styles.eventDetailIcon}>📍</Text>
             <View style={styles.eventDetailContent}>
               <Text style={styles.eventDetailLabel}>Location</Text>
-              <Text style={styles.eventDetailValue}>{eventData.event.location}</Text>
+              <Text style={styles.eventDetailValue}>{eventData?.location}</Text>
             </View>
           </View>
           
@@ -321,7 +306,7 @@ export default function EventView() {
             <Text style={styles.eventDetailIcon}>⏰</Text>
             <View style={styles.eventDetailContent}>
               <Text style={styles.eventDetailLabel}>Voting Closes</Text>
-              <Text style={styles.eventDetailValue}>{eventData.event.votingCutoff}</Text>
+              <Text style={styles.eventDetailValue}>{eventData?.votingCutoff}</Text>
               <Text style={[styles.eventDetailCountdown, !isVotingOpen && styles.countdownClosed]}>
                 {countdown}
               </Text>
@@ -341,38 +326,38 @@ export default function EventView() {
         
         <View style={styles.votingButtons}>
           <TouchableOpacity 
-            style={[styles.voteBtn, styles.voteBtnGoing, eventData.currentUser.response === 'Going' && styles.voteBtnActive]}
-            onPress={() => handleVote('Going')}
+            style={[styles.voteBtn, styles.voteBtnGoing, userVote === 'going' && styles.voteBtnActive]}
+            onPress={() => handleVote('going')}
             disabled={!isVotingOpen}
           >
             <Text style={styles.voteBtnIcon}>✓</Text>
             <Text style={styles.voteBtnLabel}>Going</Text>
             <Animated.Text style={[styles.voteBtnCount, { transform: [{ scale: scaleAnim }] }]}>
-              {counts.Going}
+              {voteCounts.going}
             </Animated.Text>
           </TouchableOpacity>
           
           <TouchableOpacity 
-            style={[styles.voteBtn, styles.voteBtnMaybe, eventData.currentUser.response === 'Maybe' && styles.voteBtnActive]}
-            onPress={() => handleVote('Maybe')}
+            style={[styles.voteBtn, styles.voteBtnMaybe, userVote === 'maybe' && styles.voteBtnActive]}
+            onPress={() => handleVote('maybe')}
             disabled={!isVotingOpen}
           >
             <Text style={styles.voteBtnIcon}>?</Text>
             <Text style={styles.voteBtnLabel}>Maybe</Text>
             <Animated.Text style={[styles.voteBtnCount, { transform: [{ scale: scaleAnim }] }]}>
-              {counts.Maybe}
+              {voteCounts.maybe}
             </Animated.Text>
           </TouchableOpacity>
           
           <TouchableOpacity 
-            style={[styles.voteBtn, styles.voteBtnNotGoing, eventData.currentUser.response === 'Not Going' && styles.voteBtnActive]}
-            onPress={() => handleVote('Not Going')}
+            style={[styles.voteBtn, styles.voteBtnNotGoing, userVote === 'not' && styles.voteBtnActive]}
+            onPress={() => handleVote('not')}
             disabled={!isVotingOpen}
           >
             <Text style={styles.voteBtnIcon}>✗</Text>
             <Text style={styles.voteBtnLabel}>Not Going</Text>
             <Animated.Text style={[styles.voteBtnCount, { transform: [{ scale: scaleAnim }] }]}>
-              {counts['Not Going']}
+              {voteCounts.not}
             </Animated.Text>
           </TouchableOpacity>
         </View>
@@ -386,7 +371,7 @@ export default function EventView() {
       <View style={styles.card}>
         <View style={styles.attendeesHeader}>
           <Text style={styles.sectionTitle}>Attendees</Text>
-          <Text style={styles.attendeeCount}>{eventData.attendees.length} responses</Text>
+          <Text style={styles.attendeeCount}>{eventData?.attendees?.length || 0} responses</Text>
         </View>
         
         <View style={styles.attendeeFilters}>
@@ -395,7 +380,7 @@ export default function EventView() {
             onPress={() => setCurrentFilter('all')}
           >
             <Text style={styles.filterBtnText}>All</Text>
-            <Text style={styles.filterCount}>{eventData.attendees.length}</Text>
+            <Text style={styles.filterCount}>{eventData?.attendees?.length || 0}</Text>
           </TouchableOpacity>
           
           <TouchableOpacity 
@@ -403,7 +388,7 @@ export default function EventView() {
             onPress={() => setCurrentFilter('Going')}
           >
             <Text style={styles.filterBtnText}>Going</Text>
-            <Text style={styles.filterCount}>{counts.Going}</Text>
+            <Text style={styles.filterCount}>{voteCounts.going}</Text>
           </TouchableOpacity>
           
           <TouchableOpacity 
@@ -411,7 +396,7 @@ export default function EventView() {
             onPress={() => setCurrentFilter('Maybe')}
           >
             <Text style={styles.filterBtnText}>Maybe</Text>
-            <Text style={styles.filterCount}>{counts.Maybe}</Text>
+            <Text style={styles.filterCount}>{voteCounts.maybe}</Text>
           </TouchableOpacity>
           
           <TouchableOpacity 
@@ -419,7 +404,7 @@ export default function EventView() {
             onPress={() => setCurrentFilter('Not Going')}
           >
             <Text style={styles.filterBtnText}>Not Going</Text>
-            <Text style={styles.filterCount}>{counts['Not Going']}</Text>
+            <Text style={styles.filterCount}>{voteCounts.not}</Text>
           </TouchableOpacity>
         </View>
         
