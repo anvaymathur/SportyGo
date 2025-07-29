@@ -14,7 +14,7 @@ export default function Index() {
       if (user) {
         router.replace('/tabs/profile' ); 
       } else {
-        router.replace('/auth/login');
+        router.replace('/userSetup/login');
       }
     }
   }, [user, isLoading, initializing]);

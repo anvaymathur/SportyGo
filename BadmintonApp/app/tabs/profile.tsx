@@ -1,6 +1,6 @@
 import { Text, View, StyleSheet, Button } from "react-native";
 import { useAuth0 } from 'react-native-auth0';
-import { Href, router } from 'expo-router';
+import { router } from 'expo-router';
 import React from "react";
 
 export default function ProfileScreen() {
@@ -9,7 +9,7 @@ export default function ProfileScreen() {
   const onLogout = async () => {
     try {
       await clearSession();
-      router.replace('/auth/login' );
+      router.replace('/userSetup/login' );
     } catch (e) {
       console.log('Logout error:', e);
     }
@@ -25,6 +25,7 @@ export default function ProfileScreen() {
         </>
       )}
       <Button onPress={onLogout} title="Log Out" />
+      <Button onPress={() => router.replace('/userSetup/setupProfile')} title="Setup Profile" />
     </View>
   );
 }
