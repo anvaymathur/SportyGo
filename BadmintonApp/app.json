@@ -16,7 +16,7 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.arav_mathur.BadmintonApp"
+      "package": "com.aravmathur.badmintonapp"
     },
     "web": {
       "bundler": "metro",
@@ -33,13 +33,32 @@
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
+      ],
+      [
+        "react-native-auth0",
+        {
+          "domain": "dev-6oulj204w6qwe4dk.us.auth0.com",
+          "clientId": "CHYISQSTA3BStcmW4Yrz9ThiLV0PFUdv",
+          "packageName": "com.aravmathur.badmintonapp"
+        }
+      ],
+
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "manifestPlaceholders": {
+              "auth0Domain": "dev-6oulj204w6qwe4dk.us.auth0.com",
+              "auth0Scheme": "com.aravmathur.badmintonapp.auth0"
+            }
+          }
+        }
       ]
     ],
     "experiments": {
       "typedRoutes": true
     },
     "extra": {
-      "router": {},
       "eas": {
         "projectId": "924db136-fd31-46f2-af62-994f01ed1b96"
       }
