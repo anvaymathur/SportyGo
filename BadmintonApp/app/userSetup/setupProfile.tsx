@@ -3,12 +3,13 @@ import React, { useEffect, useState } from "react";
 import { Button, Input, YStack, XStack, Text, Avatar, H1, H2 } from 'tamagui'
 import { router } from "expo-router";
 import { useAuth0 } from "react-native-auth0";
+import { PhoneInput } from "../components/phoneInput";
 
 export default function SetupProfile() {
     const {user} = useAuth0()
     const [name, setName] = useState('')
     const [email, setEmail] = useState('')
-    const [phone, setPhoneNumber] = useState('')
+    const [phone, setPhone] = useState('')
     const [address, setAddress] = useState('')
 
     useEffect(() => {
@@ -20,7 +21,7 @@ export default function SetupProfile() {
         }
 
         if (user && user.phoneNumber){
-            setPhoneNumber(user.phoneNumber)
+            setPhone(user.phoneNumber)
         }
         if (user && user.address){
             setAddress(user.address)
@@ -29,40 +30,13 @@ export default function SetupProfile() {
 
    function createProfile(): void{
 
-        if (name && email && phone){
-            router.replace('/tabs/profile')
+        if (name && email && phone.length == 10){
+            // router.replace('/tabs/profile')
+            console.log('Required Information is there')
+        } else{
+            console.log('Required information is not there')
         }
    }
-
-   
-   const formatThePhoneNumber = (
-    value: string,
-    onChange: (phoneNumber: string) => void,) => {
-
-    const cleanedValue = value.replace(/\D/g, '');
-
-    let formattedValue = ``;
-
-    if (cleanedValue.length > 1) {
-      // Slice the first segment in 3s
-      formattedValue += ` (${cleanedValue.slice(1, 4)})`;
-
-      // Slice the second segment in 3s
-      formattedValue += ` ${cleanedValue.slice(4, 7)}-`;
-
-      // Slice the third segment in 4s
-      formattedValue += ` ${cleanedValue.slice(7)}`;
-
-      console.log(formattedValue)
-      formattedValue = formattedValue.replace(
-        /(\d{3})(\d{3})(\d{4})/,
-        '$1-$2-$3',
-      );
-    }
-    // Set the formatted phone number and call the onChange callback
-    setPhoneNumber(formattedValue.trim());
-    onChange(formattedValue.trim());
-  };
 
     return (
         <View style={{ flex: 1, backgroundColor: 'white' }}>
@@ -132,12 +106,16 @@ export default function SetupProfile() {
                         style={{ borderRadius: 8 }}
                     />
                     
+                    {/* <PhoneInput/> */}
                     <Input
                         keyboardType="numeric"
                         inputMode="numeric"
-                        maxLength={18}
+                        maxLength={10}
                         value={phone}
-                        onChangeText={(text) => formatThePhoneNumber(text, setPhoneNumber)}
+                        onChangeText={(text) => {
+                            const onlyDigits = text.replace(/\D/g, '')
+                            setPhone(onlyDigits)
+                        }}
                         placeholder="Phone"
                         borderColor="$green10"
                         borderWidth={1}

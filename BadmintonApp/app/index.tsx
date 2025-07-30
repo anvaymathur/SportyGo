@@ -12,7 +12,7 @@ export default function Index() {
     if (!isLoading && initializing) {
       setInitializing(false);
       if (user) {
-        router.replace('/tabs/profile' ); 
+        router.replace('/userSetup/setupProfile' ); 
       } else {
         router.replace('/userSetup/login');
       }

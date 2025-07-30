@@ -15,7 +15,6 @@ export default function RootLayout() {
       <TamaguiProvider config={config}>
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(userSetup)" redirect={true} />
-          <Stack.Screen name="(tabs)" redirect={true} />
           <Stack.Screen name="index"/>
         </Stack>
       </TamaguiProvider>
