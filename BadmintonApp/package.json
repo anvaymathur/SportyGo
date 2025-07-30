@@ -47,7 +47,7 @@
     "react-native-screens": "~4.4.0",
     "react-native-web": "~0.19.6",
     "react-native-webview": "13.12.5",
-    "tamagui": "^1.126.7"
+    "tamagui": "^1.126.7",
     "uuid": "^11.1.0"
   },
   "devDependencies": {
