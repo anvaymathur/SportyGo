@@ -1,22 +1,22 @@
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert, Animated, SafeAreaView, Dimensions } from 'react-native';
 import { useState, useEffect, useRef } from 'react';
 import { useLocalSearchParams, router } from 'expo-router';
-import { castVote, listenVoteCounts, getEvent } from './firebase/services_firestore2';
-
+import { castVote, listenVoteCounts, getEvent } from '../firebase/services_firestore2';
+import { VoteDoc, VoteStatus } from '../firebase/types_index';
 
 export default function EventView() {
   const params = useLocalSearchParams();
   const eventId = params.eventId as string; // Use string for Firestore
   
   const [eventData, setEventData] = useState<any>(null);
-  const [currentFilter, setCurrentFilter] = useState<'all' | 'Going' | 'Maybe' | 'Not Going'>('all');
+  const [currentFilter, setCurrentFilter] = useState<'all' | 'going' | 'maybe' | 'not'>('all');
   const [isVotingOpen, setIsVotingOpen] = useState(true);
   const [countdown, setCountdown] = useState('');
   const [userVoteStatus, setUserVoteStatus] = useState('Select your response above');
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const [voteCounts, setVoteCounts] = useState({ going: 0, maybe: 0, not: 0 });
-  const [userVote, setUserVote] = useState<null | 'going' | 'maybe' | 'not'>(null);
+  const [userVote, setUserVote] = useState<null | VoteStatus>(null);
 
   useEffect(() => {
     if (!eventId) return;
@@ -25,9 +25,20 @@ export default function EventView() {
     });
   }, [eventId]);
 
+  // Listen to vote counts
+  useEffect(() => {
+    if (!eventId) return;
+    const unsubscribe = listenVoteCounts(eventId, (counts) => {
+      setVoteCounts(counts);
+    });
+    return unsubscribe;
+  }, [eventId]);
+
   // Countdown timer effect
   useEffect(() => {
-    const votingCutoff = new Date('2025-07-11T18:00:00');
+    if (!eventData?.CutoffDate) return;
+    
+    const votingCutoff = new Date(eventData.CutoffDate.toDate ? eventData.CutoffDate.toDate() : eventData.CutoffDate);
     
     const updateCountdown = () => {
       const now = new Date();
@@ -60,9 +71,9 @@ export default function EventView() {
     const interval = setInterval(updateCountdown, 1000);
     
     return () => clearInterval(interval);
-  }, []);
+  }, [eventData]);
 
-  const handleVote = async (vote: 'going' | 'maybe' | 'not') => {
+  const handleVote = async (vote: VoteStatus) => {
     if (!isVotingOpen) {
       Alert.alert('Voting Closed', 'Voting has closed for this event.');
       return;
@@ -81,22 +92,20 @@ export default function EventView() {
   };
 
   const getResponseIcon = (response: string) => {
-    const icons = { 'Going': '✓', 'Maybe': '?', 'Not Going': '✗' };
+    const icons = { 'going': '✓', 'maybe': '?', 'not': '✗' };
     return icons[response as keyof typeof icons] || '';
   };
 
-  const getFilteredAttendees = () => {
-    let filtered = eventData?.attendees || []; // Use eventData?.attendees
-    if (currentFilter !== 'all') {
-      filtered = filtered.filter((attendee: Attendee) => attendee.response === currentFilter);
-    }
-    
-    // Sort: Going first, then Maybe, then Not Going
-    const sortOrder = { 'Going': 1, 'Maybe': 2, 'Not Going': 3 };
-    return filtered.sort((a: Attendee, b: Attendee) => sortOrder[a.response] - sortOrder[b.response]);
+  const getTotalResponses = () => {
+    return voteCounts.going + voteCounts.maybe + voteCounts.not;
   };
 
-  const filteredAttendees = getFilteredAttendees();
+  const getFilteredCount = () => {
+    if (currentFilter === 'all') {
+      return getTotalResponses();
+    }
+    return voteCounts[currentFilter] || 0;
+  };
 
   const { width } = Dimensions.get('window');
   const isSmallScreen = width < 375;
@@ -200,11 +209,11 @@ export default function EventView() {
         </View>
       </View>
 
-      {/* Attendees Section */}
+      {/* Vote Summary Section */}
       <View style={styles.card}>
         <View style={styles.attendeesHeader}>
-          <Text style={styles.sectionTitle}>Attendees</Text>
-          <Text style={styles.attendeeCount}>{eventData?.attendees?.length || 0} responses</Text>
+          <Text style={styles.sectionTitle}>Vote Summary</Text>
+          <Text style={styles.attendeeCount}>{getTotalResponses()} total responses</Text>
         </View>
         
         <View style={styles.attendeeFilters}>
@@ -213,49 +222,41 @@ export default function EventView() {
             onPress={() => setCurrentFilter('all')}
           >
             <Text style={styles.filterBtnText}>All</Text>
-            <Text style={styles.filterCount}>{eventData?.attendees?.length || 0}</Text>
+            <Text style={styles.filterCount}>{getTotalResponses()}</Text>
           </TouchableOpacity>
           
           <TouchableOpacity 
-            style={[styles.filterBtn, currentFilter === 'Going' && styles.filterBtnActive]}
-            onPress={() => setCurrentFilter('Going')}
+            style={[styles.filterBtn, currentFilter === 'going' && styles.filterBtnActive]}
+            onPress={() => setCurrentFilter('going')}
           >
             <Text style={styles.filterBtnText}>Going</Text>
             <Text style={styles.filterCount}>{voteCounts.going}</Text>
           </TouchableOpacity>
           
           <TouchableOpacity 
-            style={[styles.filterBtn, currentFilter === 'Maybe' && styles.filterBtnActive]}
-            onPress={() => setCurrentFilter('Maybe')}
+            style={[styles.filterBtn, currentFilter === 'maybe' && styles.filterBtnActive]}
+            onPress={() => setCurrentFilter('maybe')}
           >
             <Text style={styles.filterBtnText}>Maybe</Text>
             <Text style={styles.filterCount}>{voteCounts.maybe}</Text>
           </TouchableOpacity>
           
           <TouchableOpacity 
-            style={[styles.filterBtn, currentFilter === 'Not Going' && styles.filterBtnActive]}
-            onPress={() => setCurrentFilter('Not Going')}
+            style={[styles.filterBtn, currentFilter === 'not' && styles.filterBtnActive]}
+            onPress={() => setCurrentFilter('not')}
           >
             <Text style={styles.filterBtnText}>Not Going</Text>
             <Text style={styles.filterCount}>{voteCounts.not}</Text>
           </TouchableOpacity>
         </View>
         
-        <View style={styles.attendeesList}>
-          {filteredAttendees.map((attendee: Attendee) => (
-            <View style={styles.attendeeItem}>
-              <View style={styles.attendeeAvatar}>
-                <Text style={styles.attendeeAvatarText}>{attendee.avatar}</Text>
-              </View>
-              <View style={styles.attendeeInfo}>
-                <Text style={styles.attendeeName}>{attendee.name}</Text>
-              </View>
-              <View style={[styles.attendeeResponse, styles[`attendeeResponse${attendee.response.replace(' ', '')}` as keyof typeof styles] as any]}>
-                <Text style={styles.attendeeResponseIcon}>{getResponseIcon(attendee.response)}</Text>
-                <Text style={styles.attendeeResponseText}>{attendee.response}</Text>
-              </View>
-            </View>
-          ))}
+        <View style={styles.voteSummary}>
+          <Text style={styles.summaryText}>
+            {currentFilter === 'all' 
+              ? `Total responses: ${getTotalResponses()}`
+              : `${currentFilter.charAt(0).toUpperCase() + currentFilter.slice(1)}: ${getFilteredCount()}`
+            }
+          </Text>
         </View>
       </View>
       </ScrollView>
@@ -538,5 +539,15 @@ const styles = StyleSheet.create({
   attendeeResponseText: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  voteSummary: {
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+  },
+  summaryText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
   },
 }); 

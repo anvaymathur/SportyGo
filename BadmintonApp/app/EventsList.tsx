@@ -1,7 +1,7 @@
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, SafeAreaView, Dimensions, TextInput } from 'react-native';
 import { useState, useEffect } from 'react';
 import { router } from 'expo-router';
-import { listenGroupEvents } from './firebase/services_firestore2';
+import { listenGroupEvents } from '../firebase/services_firestore2';
 
 type Event = {
   id: number;
@@ -28,19 +28,22 @@ export default function EventsList() {
     return () => unsubscribe();
   }, []);
 
-  // Map Firestore events to UI event shape
+    // Map Firestore events to UI event shape
   const mappedEvents = events.map(event => ({
-    id: event.id,
-    title: event.Title,
-    date: event.EventDate instanceof Date ? event.EventDate.toDateString() : new Date(event.EventDate.seconds ? event.EventDate.seconds * 1000 : event.EventDate).toDateString(),
-    time: event.EventDate instanceof Date ? event.EventDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : new Date(event.EventDate.seconds ? event.EventDate.seconds * 1000 : event.EventDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    location: event.Location,
-    group: event.GroupID,
-    description: event.Title,
-    attendeeCount: 0, // You can update this if you track attendees
-    votingCutoff: event.CutoffDate instanceof Date ? event.CutoffDate.toDateString() : new Date(event.CutoffDate.seconds ? event.CutoffDate.seconds * 1000 : event.CutoffDate).toDateString(),
-    isVotingOpen: new Date() < (event.CutoffDate instanceof Date ? event.CutoffDate : new Date(event.CutoffDate.seconds ? event.CutoffDate.seconds * 1000 : event.CutoffDate)),
-  }));
+      id: event.id || event.docId || event._id, // Use the actual Firestore doc ID
+      title: event.Title,
+      date: event.EventDate instanceof Date ? event.EventDate.toDateString() : new Date(event.EventDate.seconds ? event.EventDate.seconds * 1000 : event.EventDate).toDateString(),
+      time: event.EventDate instanceof Date ? event.EventDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : new Date(event.EventDate.seconds ? event.EventDate.seconds * 1000 : event.EventDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      location: typeof event.Location === 'string' ? event.Location : 
+                (event.Location && typeof event.Location === 'object' && event.Location._lat && event.Location._long) 
+                  ? `${event.Location._lat.toFixed(6)}, ${event.Location._long.toFixed(6)}` 
+                  : 'Location not specified',
+      group: event.GroupID,
+      description: event.Title,
+      attendeeCount: 0, // You can update this if you track attendees
+      votingCutoff: event.CutoffDate instanceof Date ? event.CutoffDate.toDateString() : new Date(event.CutoffDate.seconds ? event.CutoffDate.seconds * 1000 : event.CutoffDate).toDateString(),
+      isVotingOpen: new Date() < (event.CutoffDate instanceof Date ? event.CutoffDate : new Date(event.CutoffDate.seconds ? event.CutoffDate.seconds * 1000 : event.CutoffDate)),
+    }));
 
   const { width } = Dimensions.get('window');
   const isSmallScreen = width < 375;
@@ -48,7 +51,7 @@ export default function EventsList() {
   const filteredEvents = mappedEvents.filter((event: any) => {
     const matchesSearch = event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          event.group.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         event.location.toLowerCase().includes(searchQuery.toLowerCase());
+                         (typeof event.location === 'string' && event.location.toLowerCase().includes(searchQuery.toLowerCase()));
     
     const matchesFilter = selectedFilter === 'all' ||
                          (selectedFilter === 'voting-open' && event.isVotingOpen) ||
@@ -75,6 +78,10 @@ export default function EventsList() {
 
   const handleEventPress = (event: Event) => {
     // Navigate to the EventView with the event data
+    if (!event.id) {
+      console.error('Event ID is missing:', event);
+      return;
+    }
     router.push({
       pathname: '/EventView',
       params: { eventId: event.id.toString() }

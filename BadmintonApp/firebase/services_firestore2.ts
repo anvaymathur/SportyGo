@@ -1,7 +1,7 @@
 // services/firestore.ts
 import {
   getFirestore, collection, doc, setDoc, getDoc, updateDoc, writeBatch, onSnapshot,
-  increment, CollectionReference, QueryDocumentSnapshot, DocumentData,
+  increment, CollectionReference, QueryDocumentSnapshot, DocumentData, getDocs, query, where,
 } from "firebase/firestore";
 import { db } from "./index";
 import { UserDoc, GroupDoc, EventDoc, VoteShard } from "./types_index";
@@ -42,6 +42,27 @@ export async function createGroup(userId: string, group: Omit<GroupDoc, "ownerId
   });
   await batch.commit();
   return groupId;
+}
+
+export async function getGroups(): Promise<GroupDoc[]> {
+  const groupsCol = collection(db, "groups");
+  const snapshot = await getDocs(groupsCol);
+  const groups: GroupDoc[] = [];
+  snapshot.forEach(doc => {
+    groups.push({ id: doc.id, ...doc.data() } as GroupDoc);
+  });
+  return groups;
+}
+
+export async function getUserGroups(userId: string): Promise<GroupDoc[]> {
+  const groupsCol = collection(db, "groups");
+  const q = query(groupsCol, where("memberIds", "array-contains", userId));
+  const snapshot = await getDocs(q);
+  const groups: GroupDoc[] = [];
+  snapshot.forEach(doc => {
+    groups.push({ id: doc.id, ...doc.data() } as GroupDoc);
+  });
+  return groups;
 }
 
 function incrementOrPushToArray(groupId: string) {
@@ -106,8 +127,18 @@ export function listenGroupEvents(groupId: string, callback: (events: EventDoc[]
   return onSnapshot(eventsCol, snap => {
     const result: EventDoc[] = [];
     snap.forEach(doc => {
-      const evt = doc.data() as EventDoc;
-      if (evt.GroupID === groupId) result.push(evt);
+      const evt = doc.data();
+      if (evt.GroupID === groupId) {
+        result.push({ 
+          id: doc.id, 
+          GroupID: evt.GroupID,
+          Title: evt.Title,
+          EventDate: evt.EventDate,
+          Location: evt.Location,
+          CutoffDate: evt.CutoffDate,
+          CreatorID: evt.CreatorID
+        } as EventDoc);
+      }
     });
     callback(result);
   });

@@ -1,20 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, Button, TouchableOpacity, StyleSheet, Alert, Platform } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { router } from 'expo-router';
-import { createEvent } from './firebase/services_firestore2';
-
-const GROUPS = [
-  'Basketball Club',
-  'Chess Club',
-  'Gaming Group',
-  'Soccer Team',
-  'Board Game Society',
-  'Esports Club',
-  'Tennis Club',
-  'Volleyball Group',
-];
+import { createEvent, getGroups } from '../firebase/services_firestore2';
+import { GroupDoc } from '../firebase/types_index';
 
 type FormErrors = {
   gameDate?: string;
@@ -39,11 +29,32 @@ export default function CreateGameSession() {
   const [showVotingCutoff, setShowVotingCutoff] = useState(false);
   const [group, setGroup] = useState('');
 
+  // State for groups
+  const [groups, setGroups] = useState<GroupDoc[]>([]);
+  const [loadingGroups, setLoadingGroups] = useState(true);
+
   // State for errors
   const [errors, setErrors] = useState<FormErrors>({});
   // State for success
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Fetch groups on component mount
+  useEffect(() => {
+    const fetchGroups = async () => {
+      try {
+        setLoadingGroups(true);
+        const fetchedGroups = await getGroups();
+        setGroups(fetchedGroups);
+      } catch (error) {
+        Alert.alert('Error', 'Failed to load groups.');
+      } finally {
+        setLoadingGroups(false);
+      }
+    };
+
+    fetchGroups();
+  }, []);
 
   // Validation helpers
   const validate = () => {
@@ -117,7 +128,7 @@ export default function CreateGameSession() {
   const handleCancel = () => {
     Alert.alert('Cancel', 'Are you sure you want to cancel? All entered data will be lost.', [
       { text: 'No' },
-      { text: 'Yes', onPress: resetForm },
+      { text: 'Yes', onPress: () => router.back() },
     ]);
   };
 
@@ -225,10 +236,11 @@ export default function CreateGameSession() {
                 selectedValue={group}
                 onValueChange={setGroup}
                 style={styles.picker}
+                enabled={!loadingGroups}
               >
-                <Picker.Item label="Select a group" value="" />
-                {GROUPS.map(g => (
-                  <Picker.Item label={g} value={g} />
+                <Picker.Item label={loadingGroups ? "Loading groups..." : "Select a group"} value="" />
+                {groups.map(g => (
+                  <Picker.Item key={g.id} label={g.Name} value={g.id} />
                 ))}
               </Picker>
             </View>
