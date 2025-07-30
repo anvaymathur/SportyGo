@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weekly Basketball Game - Basketball Club</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Event Header -->
+        <header class="event-header">
+            <div class="event-header__content">
+                <div class="event-badge">
+                    <span class="event-badge__text">Basketball Club</span>
+                </div>
+                <h1 class="event-title">Weekly Basketball Game</h1>
+                <p class="event-description">Join us for our weekly basketball game! All skill levels welcome. Bring your own water bottle and wear comfortable athletic shoes.</p>
+                
+                <div class="event-details">
+                    <div class="event-detail">
+                        <div class="event-detail__icon">📅</div>
+                        <div class="event-detail__content">
+                            <div class="event-detail__label">Date & Time</div>
+                            <div class="event-detail__value">Saturday, July 12, 2025</div>
+                            <div class="event-detail__sub">3:00 PM - 5:00 PM</div>
+                        </div>
+                    </div>
+                    
+                    <div class="event-detail">
+                        <div class="event-detail__icon">📍</div>
+                        <div class="event-detail__content">
+                            <div class="event-detail__label">Location</div>
+                            <div class="event-detail__value">Community Sports Center</div>
+                        </div>
+                    </div>
+                    
+                    <div class="event-detail">
+                        <div class="event-detail__icon">⏰</div>
+                        <div class="event-detail__content">
+                            <div class="event-detail__label">Voting Closes</div>
+                            <div class="event-detail__value">Friday, July 11, 2025 at 6:00 PM</div>
+                            <div class="event-detail__countdown" id="countdown">Closes in 2 days, 22 hours</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Voting Section -->
+        <section class="voting-section">
+            <div class="card">
+                <div class="card__body">
+                    <h2 class="section-title">Will you be attending?</h2>
+                    <div class="voting-status" id="votingStatus">
+                        <span class="status status--success">Voting Open</span>
+                    </div>
+                    
+                    <div class="voting-buttons">
+                        <button class="vote-btn vote-btn--going" data-vote="Going">
+                            <span class="vote-btn__icon">✓</span>
+                            <span class="vote-btn__label">Going</span>
+                            <span class="vote-btn__count" id="goingCount">6</span>
+                        </button>
+                        
+                        <button class="vote-btn vote-btn--maybe" data-vote="Maybe">
+                            <span class="vote-btn__icon">?</span>
+                            <span class="vote-btn__label">Maybe</span>
+                            <span class="vote-btn__count" id="maybeCount">2</span>
+                        </button>
+                        
+                        <button class="vote-btn vote-btn--not-going" data-vote="Not Going">
+                            <span class="vote-btn__icon">✗</span>
+                            <span class="vote-btn__label">Not Going</span>
+                            <span class="vote-btn__count" id="notGoingCount">2</span>
+                        </button>
+                    </div>
+                    
+                    <div class="user-vote-status" id="userVoteStatus">
+                        <p class="user-vote-text">Select your response above</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Attendees Section -->
+        <section class="attendees-section">
+            <div class="card">
+                <div class="card__body">
+                    <div class="attendees-header">
+                        <h2 class="section-title">Attendees</h2>
+                        <div class="attendee-count">
+                            <span id="totalAttendees">10</span> responses
+                        </div>
+                    </div>
+                    
+                    <div class="attendee-filters">
+                        <button class="filter-btn filter-btn--active" data-filter="all">
+                            All <span class="filter-count">10</span>
+                        </button>
+                        <button class="filter-btn" data-filter="Going">
+                            Going <span class="filter-count">6</span>
+                        </button>
+                        <button class="filter-btn" data-filter="Maybe">
+                            Maybe <span class="filter-count">2</span>
+                        </button>
+                        <button class="filter-btn" data-filter="Not Going">
+                            Not Going <span class="filter-count">2</span>
+                        </button>
+                    </div>
+                    
+                    <div class="attendees-list" id="attendeesList">
+                        <!-- Attendees will be populated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
