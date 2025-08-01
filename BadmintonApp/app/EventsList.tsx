@@ -1,74 +1,129 @@
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, SafeAreaView, Dimensions, TextInput } from 'react-native';
 import { useState, useEffect } from 'react';
 import { router } from 'expo-router';
-import { listenGroupEvents } from '../firebase/services_firestore2';
-import React from 'react';
-import Auth0, { useAuth0 } from 'react-native-auth0';
-
-type Event = {
-  id: number;
-  title: string;
-  date: string;
-  time: string;
-  location: string;
-  group: string;
-  description: string;
-  attendeeCount: number;
-  votingCutoff: string;
-  isVotingOpen: boolean;
-};
+import { listenGroupEvents, getVoteCounts, getUserVote } from '../firebase/services_firestore2';
+import { EventDoc, VoteStatus } from '../firebase/types_index';
 
 const GROUP_ID = 'QMwpMlPfs1sxTs1zD0aQ'; // Replace with actual group ID
 
 export default function EventsList() {
-  const [events, setEvents] = useState<any[]>([]); // Use any[] for Firestore events
+  const [events, setEvents] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedFilter, setSelectedFilter] = useState<'all' | 'voting-open' | 'voting-closed'>('all');
+  const [selectedFilter, setSelectedFilter] = useState<'all' | 'voting-open' | 'voting-closed' | 'my-events'>('all');
+  const [mappedEvents, setMappedEvents] = useState<any[]>([]);
   
-  const {clearSession} = useAuth0()
+  const userId = 'default-user';
 
-  const onLogout = async () => {
-    try {
-      await clearSession();
-      router.replace('/userSetup/login' );
-    } catch (e) {
-      console.log('Logout error:', e);
-    }
+  // Helper functions
+  const parseFirestoreDate = (date: any) => {
+    if (date instanceof Date) return date;
+    return new Date(date.seconds ? date.seconds * 1000 : date);
   };
+
+  const formatDate = (date: any) => parseFirestoreDate(date).toDateString();
+  const formatTime = (date: any) => parseFirestoreDate(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const formatLocation = (location: any) => {
+    if (typeof location === 'string') return location;
+    if (location?._lat && location?._long) return `${location._lat.toFixed(6)}, ${location._long.toFixed(6)}`;
+    return 'Location not specified';
+  };
+
+  const mapEventToUI = (event: any, voteCounts: any, userVote: any) => ({
+    id: event.id || event.docId || event._id,
+    title: event.Title,
+    date: formatDate(event.EventDate),
+    time: formatTime(event.EventDate),
+    location: formatLocation(event.Location),
+    group: event.GroupID || 'Unknown Group',
+    description: event.Title,
+    attendeeCount: voteCounts.going + voteCounts.maybe + voteCounts.not,
+    votingCutoff: formatDate(event.CutoffDate),
+    isVotingOpen: new Date() < parseFirestoreDate(event.CutoffDate),
+    userVote,
+    eventDate: parseFirestoreDate(event.EventDate),
+  });
 
   useEffect(() => {
     const unsubscribe = listenGroupEvents(GROUP_ID, setEvents);
     return () => unsubscribe();
   }, []);
 
-    // Map Firestore events to UI event shape
-  const mappedEvents = events.map(event => ({
-      id: event.id || event.docId || event._id, // Use the actual Firestore doc ID
-      title: event.Title,
-      date: event.EventDate instanceof Date ? event.EventDate.toDateString() : new Date(event.EventDate.seconds ? event.EventDate.seconds * 1000 : event.EventDate).toDateString(),
-      time: event.EventDate instanceof Date ? event.EventDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : new Date(event.EventDate.seconds ? event.EventDate.seconds * 1000 : event.EventDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      location: typeof event.Location === 'string' ? event.Location : 
-                (event.Location && typeof event.Location === 'object' && event.Location._lat && event.Location._long) 
-                  ? `${event.Location._lat.toFixed(6)}, ${event.Location._long.toFixed(6)}` 
-                  : 'Location not specified',
-      group: event.GroupID,
-      description: event.Title,
-      attendeeCount: 0, // You can update this if you track attendees
-      votingCutoff: event.CutoffDate instanceof Date ? event.CutoffDate.toDateString() : new Date(event.CutoffDate.seconds ? event.CutoffDate.seconds * 1000 : event.CutoffDate).toDateString(),
-      isVotingOpen: new Date() < (event.CutoffDate instanceof Date ? event.CutoffDate : new Date(event.CutoffDate.seconds ? event.CutoffDate.seconds * 1000 : event.CutoffDate)),
-    }));
+  useEffect(() => {
+    const fetchEventsWithVoteCounts = async () => {
+      const eventsWithCounts = await Promise.all(
+        events.map(async (event) => {
+          try {
+            const voteCounts = await getVoteCounts(event.id);
+            const userVote = await getUserVote(event.id, userId);
+            const totalAttendees = voteCounts.going + voteCounts.maybe + voteCounts.not;
+            
+            return {
+              id: event.id || event.docId || event._id,
+              title: event.Title,
+              date: event.EventDate instanceof Date ? event.EventDate.toDateString() : new Date(event.EventDate.seconds ? event.EventDate.seconds * 1000 : event.EventDate).toDateString(),
+              time: event.EventDate instanceof Date ? event.EventDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : new Date(event.EventDate.seconds ? event.EventDate.seconds * 1000 : event.EventDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              location: typeof event.Location === 'string' ? event.Location : 
+                        (event.Location && typeof event.Location === 'object' && event.Location._lat && event.Location._long) 
+                          ? `${event.Location._lat.toFixed(6)}, ${event.Location._long.toFixed(6)}` 
+                          : 'Location not specified',
+              group: event.GroupID || 'Unknown Group',
+              description: event.Title,
+              attendeeCount: totalAttendees,
+              votingCutoff: event.CutoffDate instanceof Date ? event.CutoffDate.toDateString() : new Date(event.CutoffDate.seconds ? event.CutoffDate.seconds * 1000 : event.CutoffDate).toDateString(),
+              isVotingOpen: new Date() < (event.CutoffDate instanceof Date ? event.CutoffDate : new Date(event.CutoffDate.seconds ? event.CutoffDate.seconds * 1000 : event.CutoffDate)),
+              userVote: userVote,
+              eventDate: event.EventDate instanceof Date ? event.EventDate : new Date(event.EventDate.seconds ? event.EventDate.seconds * 1000 : event.EventDate),
+            };
+          } catch (error) {
+            console.error('Error fetching vote counts for event:', event.id, error);
+            return {
+              id: event.id || event.docId || event._id,
+              title: event.Title,
+              date: event.EventDate instanceof Date ? event.EventDate.toDateString() : new Date(event.EventDate.seconds ? event.EventDate.seconds * 1000 : event.EventDate).toDateString(),
+              time: event.EventDate instanceof Date ? event.EventDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : new Date(event.EventDate.seconds ? event.EventDate.seconds * 1000 : event.EventDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              location: typeof event.Location === 'string' ? event.Location : 
+                        (event.Location && typeof event.Location === 'object' && event.Location._lat && event.Location._long) 
+                          ? `${event.Location._lat.toFixed(6)}, ${event.Location._long.toFixed(6)}` 
+                          : 'Location not specified',
+              group: event.GroupID || 'Unknown Group',
+              description: event.Title,
+              attendeeCount: 0, // Fallback if vote counts fail
+              votingCutoff: event.CutoffDate instanceof Date ? event.CutoffDate.toDateString() : new Date(event.CutoffDate.seconds ? event.CutoffDate.seconds * 1000 : event.CutoffDate).toDateString(),
+              isVotingOpen: new Date() < (event.CutoffDate instanceof Date ? event.CutoffDate : new Date(event.CutoffDate.seconds ? event.CutoffDate.seconds * 1000 : event.CutoffDate)),
+              userVote: null,
+              eventDate: event.EventDate instanceof Date ? event.EventDate : new Date(event.EventDate.seconds ? event.EventDate.seconds * 1000 : event.EventDate),
+            };
+          }
+        })
+      );
+      
+      // Sort events by date (earliest first)
+      const sortedEvents = eventsWithCounts.sort((a, b) => {
+        return a.eventDate.getTime() - b.eventDate.getTime();
+      });
+      
+      setMappedEvents(sortedEvents);
+    };
+
+    if (events.length > 0) {
+      fetchEventsWithVoteCounts();
+    } else {
+      setMappedEvents([]);
+    }
+  }, [events, userId]);
 
   const { width } = Dimensions.get('window');
   const isSmallScreen = width < 375;
 
   const filteredEvents = mappedEvents.filter((event: any) => {
     const matchesSearch = event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         event.group.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         (event.group && event.group.toLowerCase().includes(searchQuery.toLowerCase())) ||
                          (typeof event.location === 'string' && event.location.toLowerCase().includes(searchQuery.toLowerCase()));
     
     const matchesFilter = selectedFilter === 'all' ||
                          (selectedFilter === 'voting-open' && event.isVotingOpen) ||
-                         (selectedFilter === 'voting-closed' && !event.isVotingOpen);
+                         (selectedFilter === 'voting-closed' && !event.isVotingOpen) ||
+                         (selectedFilter === 'my-events' && event.userVote === 'going');
     
     return matchesSearch && matchesFilter;
   });
@@ -78,18 +133,27 @@ export default function EventsList() {
     const now = new Date();
     const timeDiff = eventDateObj.getTime() - now.getTime();
     
-    if (timeDiff <= 0) return 'Today';
+    // Check if event is in the past
+    if (timeDiff < 0) {
+      const daysAgo = Math.floor(Math.abs(timeDiff) / (1000 * 60 * 60 * 24));
+      if (daysAgo === 0) return 'Today';
+      if (daysAgo === 1) return 'Yesterday';
+      if (daysAgo < 7) return `${daysAgo} days ago`;
+      const weeksAgo = Math.floor(daysAgo / 7);
+      return `${weeksAgo} week${weeksAgo > 1 ? 's' : ''} ago`;
+    }
     
+    // Event is in the future
     const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
-    if (days === 0) return 'Tomorrow';
-    if (days === 1) return 'In 1 day';
+    if (days === 0) return 'Today';
+    if (days === 1) return 'Tomorrow';
     if (days < 7) return `In ${days} days`;
     
     const weeks = Math.floor(days / 7);
     return `In ${weeks} week${weeks > 1 ? 's' : ''}`;
   };
 
-  const handleEventPress = (event: Event) => {
+  const handleEventPress = (event: any) => {
     // Navigate to the EventView with the event data
     if (!event.id) {
       console.error('Event ID is missing:', event);
@@ -98,7 +162,7 @@ export default function EventsList() {
     router.push({
       pathname: '/EventView',
       params: { eventId: event.id.toString() }
-    } as any);
+    });
   };
 
   return (
@@ -129,6 +193,15 @@ export default function EventsList() {
           </TouchableOpacity>
           
           <TouchableOpacity
+            style={[styles.filterButton, selectedFilter === 'my-events' && styles.filterButtonActive]}
+            onPress={() => setSelectedFilter('my-events')}
+          >
+            <Text style={[styles.filterButtonText, selectedFilter === 'my-events' && styles.filterButtonTextActive]}>
+              My Events
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
             style={[styles.filterButton, selectedFilter === 'voting-open' && styles.filterButtonActive]}
             onPress={() => setSelectedFilter('voting-open')}
           >
@@ -145,6 +218,8 @@ export default function EventsList() {
               Voting Closed
             </Text>
           </TouchableOpacity>
+
+
         </View>
       </View>
 
@@ -158,7 +233,7 @@ export default function EventsList() {
             </Text>
           </View>
         ) : (
-          filteredEvents.map((event: Event) => (
+          filteredEvents.map((event: any) => (
             <TouchableOpacity
               key={event.id}
               style={styles.eventCard}
@@ -166,18 +241,21 @@ export default function EventsList() {
               activeOpacity={0.7}
             >
               <View style={styles.cardHeader}>
-                <View style={styles.groupBadge}>
-                  <Text style={styles.groupBadgeText}>{event.group}</Text>
-                </View>
-                <View style={[styles.votingStatus, event.isVotingOpen ? styles.votingOpen : styles.votingClosed]}>
-                  <Text style={styles.votingStatusText}>
-                    {event.isVotingOpen ? 'Voting Open' : 'Voting Closed'}
-                  </Text>
+                <View style={styles.headerLeft}>
+                  <View style={[styles.votingStatus, event.isVotingOpen ? styles.votingOpen : styles.votingClosed]}>
+                    <Text style={styles.votingStatusText}>
+                      {event.isVotingOpen ? 'Voting Open' : 'Voting Closed'}
+                    </Text>
+                  </View>
+                  {event.userVote === 'going' && (
+                    <View style={styles.goingBadge}>
+                      <Text style={styles.goingBadgeText}>Going</Text>
+                    </View>
+                  )}
                 </View>
               </View>
 
               <Text style={styles.eventTitle}>{event.title}</Text>
-              <Text style={styles.eventDescription}>{event.description}</Text>
 
               <View style={styles.eventDetails}>
                 <View style={styles.detailRow}>
@@ -213,17 +291,10 @@ export default function EventsList() {
       {/* Floating Action Button */}
       <TouchableOpacity
         style={styles.fab}
-        onPress={() => router.push('/CreateGameSession' as any) }
+        onPress={() => router.push('/CreateGameSession')}
         activeOpacity={0.8}
       >
         <Text style={styles.fabText}>+</Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={styles.signOutTemp}
-        onPress={onLogout}
-        activeOpacity={0.8}
-      >
-        <Text style={styles.fabText}>SO</Text>
       </TouchableOpacity>
     </SafeAreaView>
   );
@@ -314,6 +385,22 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 12,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  goingBadge: {
+    backgroundColor: '#28a745',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  goingBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '600',
   },
   groupBadge: {
     backgroundColor: '#007bff',
@@ -434,21 +521,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 24,
     left: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#007bff',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  signOutTemp: {
-    position: 'absolute',
-    bottom: 24,
-    left: 284,
     width: 56,
     height: 56,
     borderRadius: 28,
