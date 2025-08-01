@@ -26,10 +26,9 @@ export async function updateUserProfile(uid: string, data: Partial<UserDoc>) {
 import { v4 as uuidv4 } from 'uuid';
 
 export async function createGroup(userId: string, group: Omit<GroupDoc, "ownerId" | "memberIds" | "createdAt">) {
-  const groupId = uuidv4();
-  const groupRef = doc(db, "groups", groupId);
+  const groupRef = doc(collection(db, "groups"));
+  const groupId = groupRef.id
   const now = new Date();
-
   const batch = writeBatch(db);
   batch.set(groupRef, {
     ...group,

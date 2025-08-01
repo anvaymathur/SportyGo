@@ -13,7 +13,7 @@ export default function LoginScreen() {
       if (user["https://badmintonapp.com/is_signup"]){
         router.replace('/userSetup/setupProfile');
       } else { 
-        router.replace('/EventsList')
+        router.replace('/groups/displayGroups')
       }
     }
   }, [user, isLoading]);

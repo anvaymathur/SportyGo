@@ -16,7 +16,7 @@ export default function Index() {
       setInitializing(false);
 
       if (user) {
-          router.replace('/EventsList' );  
+        router.replace('/groups/displayGroups' as any );
       } else {
         router.replace('/userSetup/login');
       }
