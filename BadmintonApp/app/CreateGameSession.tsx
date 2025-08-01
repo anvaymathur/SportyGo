@@ -7,6 +7,7 @@ import { createEvent, getGroups } from '../firebase/services_firestore2';
 import { GroupDoc } from '../firebase/types_index';
 
 type FormErrors = {
+  title?: string;
   gameDate?: string;
   gameTime?: string;
   location?: string;
@@ -20,6 +21,7 @@ export default function CreateGameSession() {
   tomorrow.setDate(tomorrow.getDate() + 1);
 
   // State for form fields
+  const [title, setTitle] = useState('');
   const [gameDate, setGameDate] = useState(tomorrow);
   const [showGameDate, setShowGameDate] = useState(false);
   const [gameTime, setGameTime] = useState(new Date());
@@ -59,6 +61,9 @@ export default function CreateGameSession() {
   // Validation helpers
   const validate = () => {
     const newErrors: FormErrors = {};
+    if (!title || title.trim().length < 3) {
+      newErrors.title = 'Title must be at least 3 characters';
+    }
     if (!gameDate || gameDate < new Date(today.setHours(0,0,0,0))) {
       newErrors.gameDate = 'Game date cannot be in the past';
     }
@@ -104,7 +109,7 @@ export default function CreateGameSession() {
       const event = {
         id: '', // Firestore will generate the ID
         GroupID: group,
-        Title: 'Game Session', // You can add a title field to the form if needed
+        Title: title.trim(),
         EventDate: new Date(
           gameDate.getFullYear(),
           gameDate.getMonth(),
@@ -133,6 +138,7 @@ export default function CreateGameSession() {
   };
 
   const resetForm = () => {
+    setTitle('');
     setGameDate(tomorrow);
     setGameTime(new Date());
     setLocation('');
@@ -148,7 +154,7 @@ export default function CreateGameSession() {
   };
 
   const handleViewSessions = () => {
-    router.push('/EventsList' as any);
+    router.push('/EventsList');
   };
 
   return (
@@ -162,6 +168,19 @@ export default function CreateGameSession() {
       </View>
       {!success ? (
         <View style={styles.form}>
+          {/* Title */}
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Event Title</Text>
+            <TextInput
+              style={[styles.input, errors.title && styles.inputError]}
+              value={title}
+              onChangeText={setTitle}
+              placeholder="Enter event title (e.g., 'Weekend Tournament')"
+              autoCapitalize="words"
+            />
+            {errors.title && <Text style={styles.error}>{errors.title}</Text>}
+          </View>
+
           {/* Game Date */}
           <View style={styles.formGroup}>
             <Text style={styles.label}>Game Date</Text>
