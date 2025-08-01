@@ -1,12 +1,15 @@
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert, Animated, SafeAreaView, Dimensions } from 'react-native';
 import { useState, useEffect, useRef } from 'react';
 import { useLocalSearchParams, router } from 'expo-router';
-import { castVote, listenVoteCounts, getEvent } from '../firebase/services_firestore2';
+import { castVote, listenVoteCounts, getEvent, getUserVote } from '../firebase/services_firestore2';
 import { VoteDoc, VoteStatus } from '../firebase/types_index';
 
 export default function EventView() {
   const params = useLocalSearchParams();
   const eventId = params.eventId as string; // Use string for Firestore
+  
+  // For now, using a default user ID. In a real app, this would come from authentication
+  const userId = 'default-user';
   
   const [eventData, setEventData] = useState<any>(null);
   const [currentFilter, setCurrentFilter] = useState<'all' | 'going' | 'maybe' | 'not'>('all');
@@ -33,6 +36,27 @@ export default function EventView() {
     });
     return unsubscribe;
   }, [eventId]);
+
+  // Fetch user's previous vote
+  useEffect(() => {
+    if (!eventId || !userId) return;
+    
+    const fetchUserVote = async () => {
+      try {
+        const previousVote = await getUserVote(eventId, userId);
+        setUserVote(previousVote);
+        if (previousVote) {
+          setUserVoteStatus(`You voted: ${previousVote.charAt(0).toUpperCase() + previousVote.slice(1)}`);
+        } else {
+          setUserVoteStatus('Select your response above');
+        }
+      } catch (error) {
+        console.error('Error fetching user vote:', error);
+      }
+    };
+    
+    fetchUserVote();
+  }, [eventId, userId]);
 
   // Countdown timer effect
   useEffect(() => {
@@ -79,7 +103,7 @@ export default function EventView() {
       return;
     }
     try {
-      await castVote(eventId, vote);
+      await castVote(eventId, vote, userId);
       setUserVote(vote);
       setUserVoteStatus(`You voted: ${vote.charAt(0).toUpperCase() + vote.slice(1)}`);
       Animated.sequence([
@@ -120,19 +144,30 @@ export default function EventView() {
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         {/* Event Header */}
         <View style={styles.eventHeader}>
-        <View style={styles.eventBadge}>
-          <Text style={styles.eventBadgeText}>{eventData?.group}</Text>
-        </View>
-        <Text style={styles.eventTitle}>{eventData?.title}</Text>
-        <Text style={styles.eventDescription}>{eventData?.description}</Text>
+
+        <Text style={styles.eventTitle}>{eventData?.Title}</Text>
         
         <View style={styles.eventDetails}>
           <View style={styles.eventDetail}>
             <Text style={styles.eventDetailIcon}>📅</Text>
             <View style={styles.eventDetailContent}>
               <Text style={styles.eventDetailLabel}>Date & Time</Text>
-              <Text style={styles.eventDetailValue}>{eventData?.date}</Text>
-              <Text style={styles.eventDetailSub}>{eventData?.time}</Text>
+              <Text style={styles.eventDetailValue}>
+                {eventData?.EventDate ? 
+                  (eventData.EventDate instanceof Date ? 
+                    eventData.EventDate.toDateString() : 
+                    new Date(eventData.EventDate.seconds ? eventData.EventDate.seconds * 1000 : eventData.EventDate).toDateString()
+                  ) : 'Date not set'
+                }
+              </Text>
+              <Text style={styles.eventDetailSub}>
+                {eventData?.EventDate ? 
+                  (eventData.EventDate instanceof Date ? 
+                    eventData.EventDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 
+                    new Date(eventData.EventDate.seconds ? eventData.EventDate.seconds * 1000 : eventData.EventDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                  ) : 'Time not set'
+                }
+              </Text>
             </View>
           </View>
           
@@ -140,7 +175,13 @@ export default function EventView() {
             <Text style={styles.eventDetailIcon}>📍</Text>
             <View style={styles.eventDetailContent}>
               <Text style={styles.eventDetailLabel}>Location</Text>
-              <Text style={styles.eventDetailValue}>{eventData?.location}</Text>
+              <Text style={styles.eventDetailValue}>
+                {typeof eventData?.Location === 'string' ? eventData.Location : 
+                 (eventData?.Location && typeof eventData.Location === 'object' && eventData.Location._lat && eventData.Location._long) 
+                   ? `${eventData.Location._lat.toFixed(6)}, ${eventData.Location._long.toFixed(6)}` 
+                   : 'Location not specified'
+                }
+              </Text>
             </View>
           </View>
           
@@ -148,7 +189,14 @@ export default function EventView() {
             <Text style={styles.eventDetailIcon}>⏰</Text>
             <View style={styles.eventDetailContent}>
               <Text style={styles.eventDetailLabel}>Voting Closes</Text>
-              <Text style={styles.eventDetailValue}>{eventData?.votingCutoff}</Text>
+              <Text style={styles.eventDetailValue}>
+                {eventData?.CutoffDate ? 
+                  (eventData.CutoffDate instanceof Date ? 
+                    eventData.CutoffDate.toDateString() : 
+                    new Date(eventData.CutoffDate.seconds ? eventData.CutoffDate.seconds * 1000 : eventData.CutoffDate).toDateString()
+                  ) : 'Date not set'
+                }
+              </Text>
               <Text style={[styles.eventDetailCountdown, !isVotingOpen && styles.countdownClosed]}>
                 {countdown}
               </Text>
