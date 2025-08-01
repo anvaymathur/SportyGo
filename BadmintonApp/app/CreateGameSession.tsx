@@ -127,7 +127,7 @@ export default function CreateGameSession() {
         ),
         Location: location,
         CutoffDate: votingCutoff,
-        CreatorID: 'auth0sub', // Replace with actual user ID if available
+        CreatorID: userId, // Replace with actual user ID if available
       };
       await createEvent(event);
       setLoading(false);
