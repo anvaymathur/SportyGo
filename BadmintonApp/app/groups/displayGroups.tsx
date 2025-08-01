@@ -17,6 +17,8 @@ import { getGroups, getUserGroups } from '../../firebase/services_firestore2';
 import { useAuth0 } from "react-native-auth0";
 import { router } from "expo-router";
 import { GroupDoc } from '../../firebase/types_index';
+import { sharedState } from "../shared";
+
 
 export default function DisplayGroups() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -110,16 +112,19 @@ export default function DisplayGroups() {
               </Text>
             ) : (
               filteredTeams.map((group) => (
-                <Card
-                  key={group.id}
-                  bg="$green2"
-                  borderRadius="$4"
-                  p="$4"
-                  borderWidth={1}
-                  borderColor="$green6"
-                  onPress={() => router.push('/EventsList')}
-                  mt={10}
-                >
+                                  <Card
+                    key={group.id}
+                    bg="$green2"
+                    borderRadius="$4"
+                    p="$4"
+                    borderWidth={1}
+                    borderColor="$green6"
+                    onPress={() => {
+                      sharedState.groupPressedId = group.id;
+                      router.push('/EventsList');
+                    }}
+                    mt={20}
+                  >
                   <XStack verticalAlign="center" space="$3">
                     {/* Team Details */}
                     <YStack flex={1} space="$1">

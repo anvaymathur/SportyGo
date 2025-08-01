@@ -3,8 +3,9 @@ import { View, Text, TextInput, Button, TouchableOpacity, StyleSheet, Alert, Pla
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { router } from 'expo-router';
-import { createEvent, getGroups } from '../firebase/services_firestore2';
+import { createEvent, getGroups, getUserGroups } from '../firebase/services_firestore2';
 import { GroupDoc } from '../firebase/types_index';
+import { useAuth0 } from 'react-native-auth0';
 
 type FormErrors = {
   title?: string;
@@ -18,6 +19,13 @@ type FormErrors = {
 export default function CreateGameSession() {
   const today = new Date();
   const tomorrow = new Date(today);
+  const {user} = useAuth0()
+  let userId = 'default-user'
+
+  if (user && user.sub){
+    userId = user.sub
+  }
+
   tomorrow.setDate(tomorrow.getDate() + 1);
 
   // State for form fields
