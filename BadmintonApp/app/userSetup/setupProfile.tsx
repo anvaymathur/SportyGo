@@ -43,7 +43,7 @@ export default function SetupProfile() {
                 Address: ''
             }
             await createUserProfile(user.sub,userProfile)
-            router.replace('/groups/createGroup')
+            router.replace('/groups/displayGroups')
         } else {
             Alert.alert(
                 "Missing Information",

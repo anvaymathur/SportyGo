@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Button, TouchableOpacity, StyleSheet, Alert, Platform } from 'react-native';
+import { View, Text, TextInput, Button, TouchableOpacity, StyleSheet, Alert, Platform, ScrollView } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { router } from 'expo-router';
@@ -167,6 +167,7 @@ export default function CreateGameSession() {
         <Text style={styles.subtitle}>Set up a new game session for your group</Text>
       </View>
       {!success ? (
+        <ScrollView>
         <View style={styles.form}>
           {/* Title */}
           <View style={styles.formGroup}>
@@ -276,6 +277,7 @@ export default function CreateGameSession() {
             </TouchableOpacity>
           </View>
         </View>
+        </ScrollView>
       ) : (
         <View style={styles.successMessage}>
           <Text style={styles.successIcon}>✓</Text>

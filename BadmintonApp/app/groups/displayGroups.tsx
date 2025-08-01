@@ -24,7 +24,17 @@ export default function DisplayGroups() {
   const [groups, setGroups] = useState<GroupDoc[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const {user} = useAuth0()
+  const {user, clearSession} = useAuth0()
+
+  const onLogout = async () => {
+    try {
+      await clearSession();
+      router.replace('/userSetup/login' );
+    } catch (e) {
+      console.log('Logout error:', e);
+    }
+  };
+
 
   const loadGroups = async () => {
     if (user && user.sub) {
@@ -32,7 +42,6 @@ export default function DisplayGroups() {
         setLoading(true);
         const groupsData = await getUserGroups(user.sub);
         setGroups(groupsData);
-        console.log("Raw Firebase groups:", groupsData);
       } catch (error) {
         console.error("Error loading groups:", error);
       } finally {
@@ -59,7 +68,7 @@ export default function DisplayGroups() {
           justify="space-between"
           verticalAlign="center"
         >
-          <H1 color="green" fontWeight="bold">
+          <H1 color="green" fontWeight="bold" mb={40}>
             My Groups
           </H1>
         </XStack>
@@ -108,8 +117,8 @@ export default function DisplayGroups() {
                   p="$4"
                   borderWidth={1}
                   borderColor="$green6"
-                  onPress={() => console.log("Group pressed:", group)}
-                  mt={40}
+                  onPress={() => router.push('/EventsList')}
+                  mt={10}
                 >
                   <XStack verticalAlign="center" space="$3">
                     {/* Team Details */}
@@ -155,6 +164,30 @@ export default function DisplayGroups() {
             Create Group
         </Button>
         </ScrollView>
+
+         {/* Floating Action Button */}
+         <Button
+          position="absolute"
+          circular
+          b={20}
+          r={20}
+          width={56}
+          height={56
+
+          }
+          bg="$green10"
+          borderWidth={0}
+          onPress={onLogout}
+          shadowColor="$green8"
+          shadowOffset={{ width: 0, height: 2 }}
+          shadowOpacity={0.25}
+          shadowRadius={3.84}
+          elevation={5}
+          color='white'
+          
+        >
+          SO
+        </Button>
       </YStack>
   );
 }
