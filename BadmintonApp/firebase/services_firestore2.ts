@@ -4,7 +4,7 @@ import {
   increment, CollectionReference, QueryDocumentSnapshot, DocumentData, getDocs, query, where,
 } from "firebase/firestore";
 import { db } from "./index";
-import { UserDoc, GroupDoc, EventDoc, VoteShard } from "./types_index";
+import { UserDoc, GroupDoc, EventDoc, VoteShard, VoteStatus } from "./types_index";
 
 const NUM_SHARDS = 10;
 
@@ -66,7 +66,9 @@ export async function getUserGroups(userId: string): Promise<GroupDoc[]> {
 }
 
 function incrementOrPushToArray(groupId: string) {
-  return groupId; // You'll likely want arrayUnion, but Firestore Web SDK doesn't currently support it directly in batch. Write separately if needed.
+  // This is a placeholder. In a real implementation, you'd use arrayUnion
+  // For now, we'll handle group membership separately if needed
+  return groupId;
 }
 
 // --- EVENTS ---
@@ -99,10 +101,63 @@ export async function getEvent(eventId: string) {
 }
 
 // --- SHARDED VOTE SYSTEM ---
-export async function castVote(eventId: string, status: keyof VoteShard) {
-  const shard = Math.floor(Math.random() * NUM_SHARDS);
-  const shardRef = doc(db, "events", eventId, "voteShards", shard.toString());
-  await updateDoc(shardRef, { [status]: increment(1) });
+export async function castVote(eventId: string, status: keyof VoteShard, userId: string = 'default-user') {
+  // Check if user has already voted
+  const userVoteRef = doc(db, "events", eventId, "userVotes", userId);
+  const userVoteSnap = await getDoc(userVoteRef);
+  
+  const batch = writeBatch(db);
+  
+  if (userVoteSnap.exists()) {
+    // User has voted before - update their vote
+    const previousVote = userVoteSnap.data()?.status;
+    
+    if (previousVote === status) {
+      // Same vote - no change needed
+      return;
+    }
+    
+    // Remove previous vote from shards
+    const prevShard = Math.floor(Math.random() * NUM_SHARDS);
+    const prevShardRef = doc(db, "events", eventId, "voteShards", prevShard.toString());
+    batch.update(prevShardRef, { [previousVote]: increment(-1) });
+    
+    // Add new vote to shards
+    const newShard = Math.floor(Math.random() * NUM_SHARDS);
+    const newShardRef = doc(db, "events", eventId, "voteShards", newShard.toString());
+    batch.update(newShardRef, { [status]: increment(1) });
+    
+    // Update user's vote record
+    batch.set(userVoteRef, {
+      status,
+      votedAt: new Date(),
+      userId
+    });
+  } else {
+    // First time voting - just add the vote
+    const shard = Math.floor(Math.random() * NUM_SHARDS);
+    const shardRef = doc(db, "events", eventId, "voteShards", shard.toString());
+    batch.update(shardRef, { [status]: increment(1) });
+    
+    // Record user's vote
+    batch.set(userVoteRef, {
+      status,
+      votedAt: new Date(),
+      userId
+    });
+  }
+  
+  await batch.commit();
+}
+
+export async function getUserVote(eventId: string, userId: string = 'default-user'): Promise<VoteStatus | null> {
+  const userVoteRef = doc(db, "events", eventId, "userVotes", userId);
+  const userVoteSnap = await getDoc(userVoteRef);
+  
+  if (userVoteSnap.exists()) {
+    return userVoteSnap.data()?.status || null;
+  }
+  return null;
 }
 
 export function listenVoteCounts(
@@ -119,6 +174,18 @@ export function listenVoteCounts(
     });
     callback(totals);
   });
+}
+
+export async function getVoteCounts(eventId: string): Promise<VoteShard> {
+  const snapshot = await getDocs(collection(db, "events", eventId, "voteShards"));
+  const totals = { going: 0, maybe: 0, not: 0 };
+  snapshot.forEach(doc => {
+    const v = doc.data() as VoteShard;
+    totals.going += v.going || 0;
+    totals.maybe += v.maybe || 0;
+    totals.not += v.not || 0;
+  });
+  return totals;
 }
 
 // --- REAL-TIME EVENT LISTENER ---
