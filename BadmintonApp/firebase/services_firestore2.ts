@@ -66,7 +66,9 @@ export async function getUserGroups(userId: string): Promise<GroupDoc[]> {
 }
 
 function incrementOrPushToArray(groupId: string) {
-  return groupId; // You'll likely want arrayUnion, but Firestore Web SDK doesn't currently support it directly in batch. Write separately if needed.
+  // This is a placeholder. In a real implementation, you'd use arrayUnion
+  // For now, we'll handle group membership separately if needed
+  return groupId;
 }
 
 // --- EVENTS ---

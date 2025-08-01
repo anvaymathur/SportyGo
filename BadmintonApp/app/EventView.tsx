@@ -20,12 +20,32 @@ export default function EventView() {
 
   const [voteCounts, setVoteCounts] = useState({ going: 0, maybe: 0, not: 0 });
   const [userVote, setUserVote] = useState<null | VoteStatus>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     if (!eventId) return;
-    getEvent(eventId).then(data => {
-      setEventData(data);
-    });
+    
+    const fetchEventData = async () => {
+      try {
+        setIsLoading(true);
+        const data = await getEvent(eventId);
+        if (data) {
+          setEventData(data);
+        } else {
+          // Handle case where event doesn't exist
+          Alert.alert('Error', 'Event not found');
+          router.back();
+        }
+      } catch (error) {
+        console.error('Error fetching event:', error);
+        Alert.alert('Error', 'Failed to load event');
+        router.back();
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchEventData();
   }, [eventId]);
 
   // Listen to vote counts
@@ -102,6 +122,12 @@ export default function EventView() {
       Alert.alert('Voting Closed', 'Voting has closed for this event.');
       return;
     }
+    
+    if (!eventId) {
+      Alert.alert('Error', 'Event ID is missing.');
+      return;
+    }
+    
     try {
       await castVote(eventId, vote, userId);
       setUserVote(vote);
@@ -110,8 +136,9 @@ export default function EventView() {
         Animated.timing(scaleAnim, { toValue: 1.2, duration: 150, useNativeDriver: true }),
         Animated.timing(scaleAnim, { toValue: 1, duration: 150, useNativeDriver: true })
       ]).start();
-    } catch (e) {
-      Alert.alert('Error', 'Failed to cast vote.');
+    } catch (error) {
+      console.error('Error casting vote:', error);
+      Alert.alert('Error', 'Failed to cast vote. Please try again.');
     }
   };
 
@@ -134,6 +161,21 @@ export default function EventView() {
   const { width } = Dimensions.get('window');
   const isSmallScreen = width < 375;
 
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Text style={styles.backButtonText}>← Back</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Loading event...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
@@ -142,12 +184,9 @@ export default function EventView() {
         </TouchableOpacity>
       </View>
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        {/* Event Header */}
+                {/* Event Header */}
         <View style={styles.eventHeader}>
-
-        <Text style={styles.eventTitle}>{eventData?.Title}</Text>
-        
-        <View style={styles.eventDetails}>
+          <Text style={styles.eventTitle}>{eventData?.Title || 'Event'}</Text>
           <View style={styles.eventDetail}>
             <Text style={styles.eventDetailIcon}>📅</Text>
             <View style={styles.eventDetailContent}>
@@ -203,7 +242,6 @@ export default function EventView() {
             </View>
           </View>
         </View>
-      </View>
 
       {/* Voting Section */}
       <View style={styles.card}>
@@ -595,6 +633,17 @@ const styles = StyleSheet.create({
   },
   summaryText: {
     fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  loadingText: {
+    fontSize: 16,
     color: '#666',
     textAlign: 'center',
   },

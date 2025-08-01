@@ -2,25 +2,51 @@ import { View, Text, TouchableOpacity, ScrollView, StyleSheet, SafeAreaView, Dim
 import { useState, useEffect } from 'react';
 import { router } from 'expo-router';
 import { listenGroupEvents, getVoteCounts, getUserVote } from '../firebase/services_firestore2';
-import { EventDoc } from '../firebase/types_index';
+import { EventDoc, VoteStatus } from '../firebase/types_index';
 
 const GROUP_ID = 'QMwpMlPfs1sxTs1zD0aQ'; // Replace with actual group ID
 
 export default function EventsList() {
-  const [events, setEvents] = useState<any[]>([]); // Use any[] for Firestore events
+  const [events, setEvents] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'voting-open' | 'voting-closed' | 'my-events'>('all');
-
-  // For now, using a default user ID. In a real app, this would come from authentication
+  const [mappedEvents, setMappedEvents] = useState<any[]>([]);
+  
   const userId = 'default-user';
+
+  // Helper functions
+  const parseFirestoreDate = (date: any) => {
+    if (date instanceof Date) return date;
+    return new Date(date.seconds ? date.seconds * 1000 : date);
+  };
+
+  const formatDate = (date: any) => parseFirestoreDate(date).toDateString();
+  const formatTime = (date: any) => parseFirestoreDate(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const formatLocation = (location: any) => {
+    if (typeof location === 'string') return location;
+    if (location?._lat && location?._long) return `${location._lat.toFixed(6)}, ${location._long.toFixed(6)}`;
+    return 'Location not specified';
+  };
+
+  const mapEventToUI = (event: any, voteCounts: any, userVote: any) => ({
+    id: event.id || event.docId || event._id,
+    title: event.Title,
+    date: formatDate(event.EventDate),
+    time: formatTime(event.EventDate),
+    location: formatLocation(event.Location),
+    group: event.GroupID || 'Unknown Group',
+    description: event.Title,
+    attendeeCount: voteCounts.going + voteCounts.maybe + voteCounts.not,
+    votingCutoff: formatDate(event.CutoffDate),
+    isVotingOpen: new Date() < parseFirestoreDate(event.CutoffDate),
+    userVote,
+    eventDate: parseFirestoreDate(event.EventDate),
+  });
 
   useEffect(() => {
     const unsubscribe = listenGroupEvents(GROUP_ID, setEvents);
     return () => unsubscribe();
   }, []);
-
-      // Map Firestore events to UI event shape with real vote counts and user votes
-  const [mappedEvents, setMappedEvents] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchEventsWithVoteCounts = async () => {
@@ -40,7 +66,7 @@ export default function EventsList() {
                         (event.Location && typeof event.Location === 'object' && event.Location._lat && event.Location._long) 
                           ? `${event.Location._lat.toFixed(6)}, ${event.Location._long.toFixed(6)}` 
                           : 'Location not specified',
-              group: event.GroupID,
+              group: event.GroupID || 'Unknown Group',
               description: event.Title,
               attendeeCount: totalAttendees,
               votingCutoff: event.CutoffDate instanceof Date ? event.CutoffDate.toDateString() : new Date(event.CutoffDate.seconds ? event.CutoffDate.seconds * 1000 : event.CutoffDate).toDateString(),
@@ -59,7 +85,7 @@ export default function EventsList() {
                         (event.Location && typeof event.Location === 'object' && event.Location._lat && event.Location._long) 
                           ? `${event.Location._lat.toFixed(6)}, ${event.Location._long.toFixed(6)}` 
                           : 'Location not specified',
-              group: event.GroupID,
+              group: event.GroupID || 'Unknown Group',
               description: event.Title,
               attendeeCount: 0, // Fallback if vote counts fail
               votingCutoff: event.CutoffDate instanceof Date ? event.CutoffDate.toDateString() : new Date(event.CutoffDate.seconds ? event.CutoffDate.seconds * 1000 : event.CutoffDate).toDateString(),
@@ -91,7 +117,7 @@ export default function EventsList() {
 
   const filteredEvents = mappedEvents.filter((event: any) => {
     const matchesSearch = event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         event.group.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         (event.group && event.group.toLowerCase().includes(searchQuery.toLowerCase())) ||
                          (typeof event.location === 'string' && event.location.toLowerCase().includes(searchQuery.toLowerCase()));
     
     const matchesFilter = selectedFilter === 'all' ||
