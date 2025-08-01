@@ -9,8 +9,12 @@ export default function LoginScreen() {
 
   useEffect(() => {
     if (!isLoading && user) {
-      console.log("user:", user);
-      router.replace('/userSetup/setupProfile');
+      
+      if (user["https://badmintonapp.com/is_signup"]){
+        router.replace('/userSetup/setupProfile');
+      } else { 
+        router.replace('/EventsList')
+      }
     }
   }, [user, isLoading]);
   

@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useLocalSearchParams, router } from 'expo-router';
 import { castVote, listenVoteCounts, getEvent } from '../firebase/services_firestore2';
 import { VoteDoc, VoteStatus } from '../firebase/types_index';
+import React from 'react';
 
 export default function EventView() {
   const params = useLocalSearchParams();

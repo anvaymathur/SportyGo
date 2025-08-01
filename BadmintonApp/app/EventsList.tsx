@@ -2,6 +2,8 @@ import { View, Text, TouchableOpacity, ScrollView, StyleSheet, SafeAreaView, Dim
 import { useState, useEffect } from 'react';
 import { router } from 'expo-router';
 import { listenGroupEvents } from '../firebase/services_firestore2';
+import React from 'react';
+import Auth0, { useAuth0 } from 'react-native-auth0';
 
 type Event = {
   id: number;
@@ -22,6 +24,17 @@ export default function EventsList() {
   const [events, setEvents] = useState<any[]>([]); // Use any[] for Firestore events
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'voting-open' | 'voting-closed'>('all');
+  
+  const {clearSession} = useAuth0()
+
+  const onLogout = async () => {
+    try {
+      await clearSession();
+      router.replace('/userSetup/login' );
+    } catch (e) {
+      console.log('Logout error:', e);
+    }
+  };
 
   useEffect(() => {
     const unsubscribe = listenGroupEvents(GROUP_ID, setEvents);
@@ -85,7 +98,7 @@ export default function EventsList() {
     router.push({
       pathname: '/EventView',
       params: { eventId: event.id.toString() }
-    });
+    } as any);
   };
 
   return (
@@ -200,10 +213,17 @@ export default function EventsList() {
       {/* Floating Action Button */}
       <TouchableOpacity
         style={styles.fab}
-        onPress={() => router.push('/CreateGameSession')}
+        onPress={() => router.push('/CreateGameSession' as any) }
         activeOpacity={0.8}
       >
         <Text style={styles.fabText}>+</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.signOutTemp}
+        onPress={onLogout}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.fabText}>SO</Text>
       </TouchableOpacity>
     </SafeAreaView>
   );
@@ -414,6 +434,21 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 24,
     left: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#007bff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  signOutTemp: {
+    position: 'absolute',
+    bottom: 24,
+    left: 284,
     width: 56,
     height: 56,
     borderRadius: 28,

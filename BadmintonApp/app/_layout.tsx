@@ -13,9 +13,9 @@ export default function RootLayout() {
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(userSetup)" redirect={true} />
           <Stack.Screen name="index"/>
-          <Stack.Screen name="EventsList" options={{ title: "Events List"}} />
-          <Stack.Screen name="EventView" options={{ title: "Event Details" }} />
-          <Stack.Screen name="CreateGameSession" options={{ title: "Create Event" }} />
+          <Stack.Screen name="EventsList"/>
+          <Stack.Screen name="EventView"/>
+          <Stack.Screen name="CreateGameSession"/>
         </Stack>
       </TamaguiProvider>
     </Auth0Provider>

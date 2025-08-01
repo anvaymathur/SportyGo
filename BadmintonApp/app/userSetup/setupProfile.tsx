@@ -1,9 +1,12 @@
-import { View } from "react-native";
+import { View, Alert} from "react-native";
 import React, { useEffect, useState } from "react";
-import { Button, Input, YStack, XStack, Text, Avatar, H1, H2 } from 'tamagui'
+import { Button, Input, YStack, XStack, Text, Avatar, H1, H2 , AlertDialog} from 'tamagui'
 import { router } from "expo-router";
 import { useAuth0 } from "react-native-auth0";
 import { PhoneInput } from "../components/phoneInput";
+import { UserDoc } from '../../firebase/types_index';
+import { createUserProfile, getUserProfile, updateUserProfile } from '../../firebase/services_firestore2';
+
 
 export default function SetupProfile() {
     const {user} = useAuth0()
@@ -11,6 +14,7 @@ export default function SetupProfile() {
     const [email, setEmail] = useState('')
     const [phone, setPhone] = useState('')
     const [address, setAddress] = useState('')
+    const [showAlert, setShowAlert] = useState(false)
 
     useEffect(() => {
         if (user && user.email){
@@ -23,18 +27,32 @@ export default function SetupProfile() {
         if (user && user.phoneNumber){
             setPhone(user.phoneNumber)
         }
-        if (user && user.address){
-            setAddress(user.address)
-        }
+        // if (user && user.address){
+        //     setAddress(user.address)
+        // }
     }, [user]) 
 
-   function createProfile(): void{
-
-        if (name && email && phone.length == 10){
-            // router.replace('/tabs/profile')
-            console.log('Required Information is there')
-        } else{
-            console.log('Required information is not there')
+   const createProfile = async () => {
+        if (user && name && email && phone.length == 10 && user.sub){
+            
+            const userProfile = {
+                id: user.sub, 
+                Name: name,
+                Email: email,
+                Groups: [], 
+                Phone: phone,
+                Address: ''
+            }
+            console.log('user profile being created')
+            await createUserProfile(user.sub,userProfile)
+            console.log('user profile created')
+            router.replace('/EventsList' as any)
+        } else {
+            Alert.alert(
+                "Missing Information",
+                "Please fill all the required information.",
+                [{ text: "OK" }]
+              )
         }
    }
 
@@ -131,7 +149,7 @@ export default function SetupProfile() {
                         style={{ borderRadius: 8 }}
                     />
                     
-                    <Input
+                    {/* <Input
                         value={address}
                         onChangeText={setAddress}
                         placeholder="Address (optional)"
@@ -147,7 +165,7 @@ export default function SetupProfile() {
                         fontSize="$4"
                         p="$3"
                         style={{ borderRadius: 2 }}
-                    />
+                    /> */}
                 
                 </YStack>
                 {/* Create Profile Button */}
@@ -160,7 +178,6 @@ export default function SetupProfile() {
                 >
                     Create Profile
                 </Button>
-                
             </YStack>
         </View>
     )

@@ -7,12 +7,16 @@ import React from 'react';
 export default function Index() {
   const { user, isLoading } = useAuth0();
   const [initializing, setInitializing] = useState(true);
+  let isFirstLogin: boolean
 
   useEffect(() => {
+
     if (!isLoading && initializing) {
+      
       setInitializing(false);
+
       if (user) {
-        router.replace('/userSetup/setupProfile' ); 
+          router.replace('/EventsList' );  
       } else {
         router.replace('/userSetup/login');
       }

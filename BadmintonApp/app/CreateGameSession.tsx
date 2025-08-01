@@ -148,7 +148,7 @@ export default function CreateGameSession() {
   };
 
   const handleViewSessions = () => {
-    router.push('/EventsList');
+    router.push('/EventsList' as any);
   };
 
   return (

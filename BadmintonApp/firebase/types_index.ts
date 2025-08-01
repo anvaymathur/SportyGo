@@ -2,8 +2,10 @@
 export interface UserDoc {
   id: string; // Auth0 sub
   Name: string;
+  Email: string;
   Groups: string[]; // Array of group IDs
   Phone: string;
+  Address: string;
 }
 
 export interface GroupDoc {
