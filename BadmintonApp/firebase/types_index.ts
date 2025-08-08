@@ -74,6 +74,20 @@ export interface UpdateEventData {
   cutoff?: Date;
 }
 
+export interface newMatchHistory {
+  team1: [
+    player1Id: string,
+    player2Id: string,
+    score: number
+  ];
+  team2: [
+    player1Id: string,
+    player2Id: string,
+    score: number
+  ]
+  date: Date
+}
+
 export interface FirebaseError {
   code: string;
   message: string;

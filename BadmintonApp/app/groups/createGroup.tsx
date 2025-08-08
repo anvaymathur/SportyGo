@@ -5,8 +5,10 @@ import {
   YStack, XStack, 
   Text, Avatar, 
   H2, Select,
-  TextArea,Adapt, Sheet
+  TextArea, Sheet
 } from 'tamagui';
+import { Adapt } from '@tamagui/adapt'
+
 import { router } from "expo-router";
 import { useAuth0 } from "react-native-auth0";
 import { createGroup } from '../../firebase/services_firestore2';
