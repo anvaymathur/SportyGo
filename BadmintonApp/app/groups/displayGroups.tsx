@@ -28,15 +28,6 @@ export default function DisplayGroups() {
 
   const {user, clearSession} = useAuth0()
 
-  const onLogout = async () => {
-    try {
-      await clearSession();
-      router.replace('/userSetup/login' );
-    } catch (e) {
-      console.log('Logout error:', e);
-    }
-  };
-
 
   const toAddScore = async() => {
     router.push('/matchHistory/viewScore')
@@ -74,7 +65,7 @@ export default function DisplayGroups() {
           justify="space-between"
           verticalAlign="center"
         >
-          <H1 color="green" fontWeight="bold" mb={40}>
+          <H1 color="$color9" fontWeight="bold" mb={40}>
             My Groups
           </H1>
         </XStack>
@@ -118,11 +109,11 @@ export default function DisplayGroups() {
               filteredTeams.map((group) => (
                                   <Card
                     key={group.id}
-                    bg="$green2"
+                    bg="$color2"
                     borderRadius="$4"
                     p="$4"
                     borderWidth={1}
-                    borderColor="$green6"
+                    borderColor="$color6"
                     onPress={() => {
                       sharedState.groupPressedId = group.id;
                       router.push('/EventsList');
@@ -132,12 +123,12 @@ export default function DisplayGroups() {
                   <XStack verticalAlign="center" space="$3">
                     {/* Team Details */}
                     <YStack flex={1} space="$1">
-                      <H4 color="$green10" fontWeight="600">
+                      <H4 color="$color" fontWeight="600">
                         {group.Name || "Unnamed Group"}
                       </H4>
                       <XStack verticalAlign="center" space="$2">
                         <Ionicons name="people" size={16} color="gray" />
-                        <Text color="$green10" fontSize="$3">
+                        <Text color="$color10" fontSize="$3">
                           {(group.MemberIds?.length || 0)} members
                         </Text>
                       </XStack>
@@ -160,8 +151,8 @@ export default function DisplayGroups() {
           </YStack>
           {/* Create Team Button */}
         <Button
-          bg="$green10"
-          color="white"
+          bg="$color9"
+          color="$color1"
           borderWidth={0} 
           onPress={() => router.push('/groups/createGroup')}
           p='$2'
@@ -184,18 +175,18 @@ export default function DisplayGroups() {
           height={56
 
           }
-          bg="$green10"
+          bg="$color9"
           borderWidth={0}
-          onPress={toAddScore}
-          shadowColor="$green8"
+          onPress={() => router.push('/matchHistory/dashboard')}
+          shadowColor="$color8"
           shadowOffset={{ width: 0, height: 2 }}
           shadowOpacity={0.25}
           shadowRadius={3.84}
           elevation={5}
-          color='white'
+          color='$color1'
           
         >
-          SO
+          <Ionicons name="home" size={20} color="$white" />
         </Button>
       </YStack>
   );

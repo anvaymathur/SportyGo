@@ -88,7 +88,7 @@ export default function CreateGroup() {
       <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
         <YStack flex={1} p="$4" space="$6">
           {/* Header */}
-            <H2 color="$green10" fontWeight="bold" flex={1} style={{ textAlign: 'center' }}>
+            <H2 color="$color9" fontWeight="bold" flex={1} style={{ textAlign: 'center' }}>
               Group Details
             </H2>
 
@@ -98,16 +98,16 @@ export default function CreateGroup() {
               circular
               size="$16" 
               borderWidth={2} 
-              borderColor="$green10"
+              borderColor="$color9"
               borderStyle="dashed"
               background="transparent"
               mb="$2"
             >
               <Avatar.Fallback background="transparent">
-                <Text fontSize="$8" color="$green10">+</Text>
+                <Text fontSize="$8" color="$color9">+</Text>
               </Avatar.Fallback>
             </Avatar>
-            <Text color="$green10" fontSize="$3" style={{ textAlign: 'center' }}>
+            <Text color="$color10" fontSize="$3" style={{ textAlign: 'center' }}>
               Add Group Photo
             </Text>
           </YStack>
@@ -116,18 +116,18 @@ export default function CreateGroup() {
           <YStack space="$5" flex={1}>
             {/* Group Name */}
             <YStack space="$2">
-              <Text color="$green10" fontSize="$4" fontWeight="600">
+              <Text color="$color" fontSize="$4" fontWeight="600">
                 Group Name *
               </Text>
               <Input
                 value={groupName}
                 onChangeText={setGroupName}
                 placeholder="Enter group name"
-                borderColor="$green10"
+                borderColor="$color6"
                 borderWidth={1}
-                background="$green2"
-                color="$green10"
-                placeholderTextColor="$green10"
+                background="$color2"
+                color="$color"
+                placeholderTextColor="$color10"
                 fontSize="$4"
                 p="$3"
                 style={{ borderRadius: 8 }}
@@ -136,18 +136,18 @@ export default function CreateGroup() {
 
             {/* Description */}
             <YStack space="$2">
-              <Text color="$green10" fontSize="$4" fontWeight="600">
+              <Text color="$color" fontSize="$4" fontWeight="600">
                 Description
               </Text>
               <TextArea
                 value={description}
                 onChangeText={setDescription}
                 placeholder="What's this group about?"
-                borderColor="$green10"
+                borderColor="$color6"
                 borderWidth={1}
-                background="$green2"
-                color="$green10"
-                placeholderTextColor="$green10"
+                background="$color2"
+                color="$color"
+                placeholderTextColor="$color10"
                 fontSize="$4"
                 p="$3"
                 lineHeight={100}
@@ -155,7 +155,7 @@ export default function CreateGroup() {
                 style={{ borderRadius: 8 }}
               />
               <XStack style={{ justifyContent: 'flex-end' }}>
-                <Text color="$green10" fontSize="$2">
+                <Text color="$color10" fontSize="$2">
                   {description.length}/150
                 </Text>
               </XStack>
@@ -163,7 +163,7 @@ export default function CreateGroup() {
 
             {/* Group Skill Level */}
             <YStack space="$2" p="$1">
-              <Text color="$green10" fontSize="$4" fontWeight="600">
+              <Text color="$color" fontSize="$4" fontWeight="600">
                 Group Skill Level
               </Text>
               <Select
@@ -173,8 +173,8 @@ export default function CreateGroup() {
               >
                 <Select.Trigger
                   borderWidth={2}
-                  borderColor="$green10"
-                  backgroundColor="$green2"
+                  borderColor="$color6"
+                  backgroundColor="$color2"
                   p="$3"
                   borderRadius={8}
                 >
@@ -214,7 +214,7 @@ export default function CreateGroup() {
 
             {/* Privacy */}
             <YStack space="$2" p="$1">
-              <Text color="$green10" fontSize="$4" fontWeight="600">
+              <Text color="$color" fontSize="$4" fontWeight="600">
                 Privacy
               </Text>
               <Select
@@ -224,8 +224,8 @@ export default function CreateGroup() {
               >
                 <Select.Trigger
                   borderWidth={2}
-                  borderColor="$green10"
-                  backgroundColor="$green2"
+                  borderColor="$color6"
+                  backgroundColor="$color2"
                   p="$3"
                   borderRadius={8}
                 >
@@ -265,18 +265,18 @@ export default function CreateGroup() {
 
             {/* Home Court */}
             <YStack space="$2">
-              <Text color="$green10" fontSize="$4" fontWeight="600">
+              <Text color="$color" fontSize="$4" fontWeight="600">
                 Home Court
               </Text>
               <Input
                 value={homeCourt}
                 onChangeText={setHomeCourt}
                 placeholder="Enter court location"
-                borderColor="$green10"
+                borderColor="$color6"
                 borderWidth={1}
-                background="$green2"
-                color="$green10"
-                placeholderTextColor="$green10"
+                background="$color2"
+                color="$color"
+                placeholderTextColor="$color10"
                 fontSize="$4"
                 p="$3"
                 style={{ borderRadius: 8 }}
@@ -285,7 +285,7 @@ export default function CreateGroup() {
 
             {/* Meeting Schedule */}
             <YStack space="$2" p="$1">
-              <Text color="$green10" fontSize="$4" fontWeight="600">
+              <Text color="$color" fontSize="$4" fontWeight="600">
                 Meeting Schedule
               </Text>
               <Select
@@ -295,8 +295,8 @@ export default function CreateGroup() {
               >
                 <Select.Trigger
                   borderWidth={2}
-                  borderColor="$green10"
-                  backgroundColor="$green2"
+                  borderColor="$color6"
+                  backgroundColor="$color2"
                   p="$3"
                   borderRadius={8}
                 >
@@ -338,8 +338,8 @@ export default function CreateGroup() {
           {/* Create Group Button */}
           
           <Button
-          bg="$green10"
-          color="white"
+          bg="$color9"
+          color="$color1"
           onPress={handleCreateGroup}
           style={{ borderRadius: 8 }}
           >

@@ -158,9 +158,9 @@ export default function AddScore() {
       <ScrollView flex={1} p="$4" showsVerticalScrollIndicator={false}>
         <YStack pb="$8" space="$4">
           {/* Game Score Section */}
-          <Card padding="$4" backgroundColor="$background" borderWidth={1} borderColor="$green8">
+          <Card padding="$4" backgroundColor="$background" borderWidth={1} borderColor="$color6">
             <YStack space="$3">
-              <H5 color="$green10" ml="$11">Game Score</H5>
+              <H5 color="$color9" ml="$11">Game Score</H5>
               
               <XStack justify="space-between" verticalAlign="center" >
                 {/* Your Team Score */}
@@ -168,14 +168,14 @@ export default function AddScore() {
                   <XStack verticalAlign="center" space="$2">
                     <Circle
                       size="$4"
-                      bg="$green8"
+                      bg="$color9"
                       onPress={() => decrementScore("your")}
                     >
                       <Text>-</Text>
                     </Circle>
                     <Card
                       padding="$3"
-                      backgroundColor="$green6"
+                      backgroundColor="$color6"
                       borderRadius="$4"
                       minWidth={60}
                       alignItems="center"
@@ -183,7 +183,7 @@ export default function AddScore() {
                       {/* <H4 color="$green10">{yourScore}</H4> */}
                     <Input
                       p = "$2"
-                      bg="$green6"
+                      bg="$color6"
                       borderColor="transparent"
                       inputMode="numeric"
                       keyboardType="numeric"
@@ -199,7 +199,7 @@ export default function AddScore() {
                     ></Input>
                     </Card>
                   </XStack>
-                  <Text fontSize="$2" color="$green10" mt="$2">
+                  <Text fontSize="$2" color="$color" mt="$2">
                     Your Team
                   </Text>
                 </YStack>
@@ -208,13 +208,13 @@ export default function AddScore() {
                 <Card
                   margin="$3"
                   padding="$2"
-                  backgroundColor="$green6"
+                  backgroundColor="$color6"
                   borderRadius="$3"
                   minWidth={40}
                   height={40}
                   alignItems="center"
                 >
-                  <Text fontWeight="bold" color="$green10">VS</Text>
+                  <Text fontWeight="bold" color="$color">VS</Text>
                 </Card>
 
                 {/* Opponent Team Score */}
@@ -222,14 +222,14 @@ export default function AddScore() {
                   <XStack verticalAlign="center" space="$2">
                     <Card
                       padding="$3"
-                      backgroundColor="$green6"
+                      backgroundColor="$color6"
                       borderRadius="$4"
                       minWidth={60}
                       alignItems="center"
                     >
                      <Input
                       p = "$2"
-                      bg="$green6"
+                      bg="$color6"
                       borderColor="transparent"
                       inputMode="numeric"
                       keyboardType="numeric"
@@ -245,20 +245,20 @@ export default function AddScore() {
                     </Card>
                     <Circle
                       size="$4"
-                      bg="$green8"
+                      bg="$color9"
                       onPress={() => decrementScore("opponent")}
                     >
                       <Text>-</Text>
                     </Circle>
                   </XStack>
-                  <Text fontSize="$2" color="$green10" mt="$2">
+                  <Text fontSize="$2" color="$color" mt="$2">
                     Opponent Team
                   </Text>
                 </YStack>
               </XStack>
 
               <Button
-                bg="$green8"
+                bg="$color9"
                 onPress={resetGame}
                 mt="$2"
               >
@@ -270,7 +270,7 @@ export default function AddScore() {
           {/* Match Setup Section */}
           <Card padding="$4" backgroundColor="$background" borderWidth={1} borderColor="$borderColor">
             <YStack space="$3">
-              <H5 color="$green12">Match Setup</H5>
+              <H5 color="$color9">Match Setup</H5>
               
               {/* Match Type */}
               <YStack space="$2">
@@ -278,14 +278,14 @@ export default function AddScore() {
                 <XStack space="$2">
                   <Button
                     flex={1}
-                    bg={matchType === "singles" ? "$green8" : "white"}
+                    bg={matchType === "singles" ? "$color9" : "$color1"}
                     onPress={() => setMatchType("singles")}
                   >
                     Singles
                   </Button>
                   <Button
                     flex={1}
-                    bg={matchType === "doubles" ? "$green8" : "white"}
+                    bg={matchType === "doubles" ? "$color9" : "$color1"}
                     onPress={() => setMatchType("doubles")}
                   >
                     Doubles
@@ -297,7 +297,7 @@ export default function AddScore() {
               <YStack space="$2">
                 <Text fontSize="$3" fontWeight="500">Date</Text>
                 <Button
-                  bg="$green4"
+                  bg="$color4"
                   borderColor="$borderColor"
                   onPress={() => setShowDatePicker(true)}
                 >
@@ -314,7 +314,7 @@ export default function AddScore() {
 
                 <Text fontSize="$3" fontWeight="500">Time</Text>
                 <Button
-                  bg="$green4"
+                  bg="$color4"
                   borderColor="$borderColor"
                   onPress={() => setShowTimePicker(true)}
                 >
@@ -345,7 +345,7 @@ export default function AddScore() {
           {/* Select Players Section */}
           <Card padding="$4" backgroundColor="$background" borderWidth={1} borderColor="$borderColor">
             <YStack space="$3">
-              <H5 color="$green12">Select Players</H5>
+              <H5 color="$color9">Select Players</H5>
               
               {/* Your Team */}
               <YStack space="$2">
@@ -354,7 +354,7 @@ export default function AddScore() {
                   value={userName}
                 >
                   <Select.Trigger
-                    backgroundColor="$green4"
+                    backgroundColor="$color4"
                     borderColor="$borderColor"
                     width="100%"
                   >
@@ -368,7 +368,7 @@ export default function AddScore() {
                     onValueChange={setYourPlayer2}
                   >
                     <Select.Trigger
-                      backgroundColor="$green4"
+                      backgroundColor="$color4"
                       borderColor="$borderColor"
                       width="100%"
                     >
@@ -417,7 +417,7 @@ export default function AddScore() {
                   onValueChange={setOpponentPlayer1}
                 >
                   <Select.Trigger
-                    backgroundColor="$green4"
+                    backgroundColor="$color4"
                     borderColor="$borderColor"
                     width="100%"
                   >
@@ -461,7 +461,7 @@ export default function AddScore() {
                     onValueChange={setOpponentPlayer2}
                   >
                     <Select.Trigger
-                      backgroundColor="$green4"
+                      backgroundColor="$color4"
                       borderColor="$borderColor"
                       width="100%"
                     >
@@ -502,7 +502,7 @@ export default function AddScore() {
               </YStack>
 
               <Button
-                bg="$green8"
+                bg="$color9"
                 onPress={() => {
                   
                 }}
@@ -515,8 +515,7 @@ export default function AddScore() {
             </YStack>
           </Card>
           <Button
-              
-              bg="$green8"
+              bg="$color9"
               onPress={handleSaveMatch}
               mt="$1"
             >

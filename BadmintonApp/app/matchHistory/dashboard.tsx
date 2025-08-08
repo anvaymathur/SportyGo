@@ -1,13 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ScrollView, YStack, XStack, Text, Card, H3, Paragraph, Separator, Spinner } from "tamagui";
+import { ScrollView, YStack, XStack, Text, Card, H3, Paragraph, Separator, Spinner, Button } from "tamagui";
 import { useAuth0 } from "react-native-auth0";
 import { getUserMatchHistory, listenGroupEvents, getUserVote } from "../../firebase/services_firestore2";
 import { newMatchHistory, EventDoc } from "@/firebase/types_index";
 import { sharedState } from "../shared";
 import { router } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 
 export default function Dashboard() {
-  const { user } = useAuth0();
+  const { user, clearSession } = useAuth0();
   const userId = user?.sub ?? "";
   const userName = user?.name ?? "Player";
 
@@ -133,27 +134,39 @@ export default function Dashboard() {
     return `${dateObj.toDateString()} ${dateObj.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
   };
 
+  const onLogout = async () => {
+    try {
+      await clearSession();
+      router.replace('/userSetup/login' );
+    } catch (e) {
+      console.log('Logout error:', e);
+    }
+  };
+
   return (
-    <ScrollView flex={1} bg="$background" p="$4">
+    <ScrollView flex={1} p="$4" bg="$background">
       <YStack gap="$4">
         {/* Header: User Name */}
         <YStack p="$2">
-          <Text verticalAlign="middle" fontSize={24} fontWeight="800">{userName}</Text>
-          <Paragraph verticalAlign="middle" color="$color10" m="$1">Dashboard</Paragraph>
+            <XStack justify="space-between" verticalAlign="center">
+              <Text verticalAlign="middle" fontSize={24} fontWeight="800" color="$color">{userName}</Text>
+              <Button onPress={onLogout}><Ionicons name="log-out-outline" size={20} color="$color1" /></Button>
+            </XStack>
+            <Paragraph verticalAlign="middle" m="$1" color="$color10">Dashboard</Paragraph>
         </YStack>
 
         {/* Win Rate Card */}
-        <Card p="$4" bg="$color2" borderRadius="$4">
+        <Card p="$4" borderRadius="$4" bg="$color2">
           <YStack gap="$2">
-            <H3 verticalAlign="middle">Win Rate</H3>
+            <H3 verticalAlign="middle" color="$color9">Win Rate</H3>
             {isLoadingMatches ? (
               <XStack justify="flex-start" p="$2">
-                <Spinner size="small" />
-                <Text m="$2" verticalAlign="middle">Loading...</Text>
+                <Spinner size="small" color="$color9" />
+                <Text m="$2" verticalAlign="middle" color="$color10">Loading...</Text>
               </XStack>
             ) : (
               <XStack justify="space-between" p="$2">
-                <Text verticalAlign="middle" fontSize={40} fontWeight="900">{winRate}%</Text>
+                <Text verticalAlign="middle" fontSize={40} fontWeight="900" color="$color9">{winRate}%</Text>
                 <Paragraph verticalAlign="middle" color="$color10">based on {matchHistory.length} matches</Paragraph>
               </XStack>
             )}
@@ -161,25 +174,26 @@ export default function Dashboard() {
         </Card>
 
         {/* Latest 5 Matches Card */}
-        <Card p="$4" bg="$color2" borderRadius="$4" onPress={() => router.push('/matchHistory/viewScore')}>
+        <Card p="$4" borderRadius="$4" onPress={() => router.push('/matchHistory/viewScore')} bg="$color2">
           <YStack gap="$2">
-            <H3 verticalAlign="middle">Latest Matches</H3>
+            <H3 verticalAlign="middle" color="$color9">Latest Matches</H3>
             <Separator />
             {isLoadingMatches && (
               <XStack justify="flex-start" p="$2">
-                <Spinner size="small" />
-                <Text m="$2" verticalAlign="middle">Loading...</Text>
+                <Spinner size="small" color="$color9" />
+                <Text m="$2" verticalAlign="middle" color="$color10">Loading...</Text>
               </XStack>
             )}
             {!isLoadingMatches && latestFiveMatches.length === 0 && (
-              <Paragraph verticalAlign="middle" p="$2">No matches yet.</Paragraph>
+              <Paragraph verticalAlign="middle" p="$2" color="$color10">No matches yet.</Paragraph>
             )}
             {!isLoadingMatches && latestFiveMatches.map((m, idx) => {
               const row = formatMatchRow(m);
+              const resultColor = row.result === "W" ? "$success" : "$secondary";
               return (
                 <XStack key={idx} justify="space-between" p="$2">
-                  <Text verticalAlign="middle" fontWeight="700">{row.result}</Text>
-                  <Text verticalAlign="middle">{row.score}</Text>
+                  <Text verticalAlign="middle" fontWeight="700" color={resultColor as any}>{row.result}</Text>
+                  <Text verticalAlign="middle" color="$color">{row.score}</Text>
                   <Text verticalAlign="middle" color="$color10">{row.dateStr}</Text>
                 </XStack>
               );
@@ -188,25 +202,25 @@ export default function Dashboard() {
         </Card>
 
         {/* Upcoming Events (voted YES) */}
-        <Card p="$4" bg="$color2" borderRadius="$4" onPress={() => router.push('/groups/displayGroups')}>
+        <Card p="$4" borderRadius="$4" onPress={() => router.push('/groups/displayGroups')} bg="$color2">
           <YStack gap="$2">
-            <H3 verticalAlign="middle">Upcoming Events (Going)</H3>
+            <H3 verticalAlign="middle" color="$color9">Upcoming Events (Going)</H3>
             <Separator />
             {isLoadingEvents && (
               <XStack justify="flex-start" p="$2">
-                <Spinner size="small" />
-                <Text m="$2" verticalAlign="middle">Loading...</Text>
+                <Spinner size="small" color="$color9" />
+                <Text m="$2" verticalAlign="middle" color="$color10">Loading...</Text>
               </XStack>
             )}
             {!isLoadingEvents && myUpcomingEvents.length === 0 && (
-              <Paragraph verticalAlign="middle" p="$2">
+              <Paragraph verticalAlign="middle" p="$2" color="$color10">
                 {sharedState.groupPressedId ? "No upcoming events you marked as going." : "Select a group to see your upcoming events."}
               </Paragraph>
             )}
             {!isLoadingEvents && myUpcomingEvents.map((evt) => (
               <YStack key={evt.id} p="$2">
                 <XStack justify="space-between">
-                  <Text verticalAlign="middle" fontWeight="700">{evt.Title}</Text>
+                  <Text verticalAlign="middle" fontWeight="700" color="$color">{evt.Title}</Text>
                   <Text verticalAlign="middle" color="$color10">{formatEventDate(evt.EventDate)}</Text>
                 </XStack>
                 <Paragraph verticalAlign="middle" color="$color10">{evt.Location}</Paragraph>
