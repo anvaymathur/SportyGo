@@ -4,6 +4,7 @@ import { useAuth0 } from "react-native-auth0";
 import { getUserMatchHistory, listenGroupEvents, getUserVote } from "../../firebase/services_firestore2";
 import { newMatchHistory, EventDoc } from "@/firebase/types_index";
 import { sharedState } from "../shared";
+import { router } from "expo-router";
 
 export default function Dashboard() {
   const { user } = useAuth0();
@@ -160,7 +161,7 @@ export default function Dashboard() {
         </Card>
 
         {/* Latest 5 Matches Card */}
-        <Card p="$4" bg="$color2" borderRadius="$4">
+        <Card p="$4" bg="$color2" borderRadius="$4" onPress={() => router.push('/matchHistory/viewScore')}>
           <YStack gap="$2">
             <H3 verticalAlign="middle">Latest Matches</H3>
             <Separator />
@@ -187,7 +188,7 @@ export default function Dashboard() {
         </Card>
 
         {/* Upcoming Events (voted YES) */}
-        <Card p="$4" bg="$color2" borderRadius="$4">
+        <Card p="$4" bg="$color2" borderRadius="$4" onPress={() => router.push('/groups/displayGroups')}>
           <YStack gap="$2">
             <H3 verticalAlign="middle">Upcoming Events (Going)</H3>
             <Separator />
