@@ -1,6 +1,6 @@
 import { View, Alert} from "react-native";
 import React, { useEffect, useState } from "react";
-import { Button, Input, YStack, XStack, Text, Avatar, H1, H2 , AlertDialog} from 'tamagui'
+import { Button, Input, YStack, XStack, Text, Avatar, H2 } from 'tamagui'
 import { router } from "expo-router";
 import { useAuth0 } from "react-native-auth0";
 import { PhoneInput } from "../components/phoneInput";
@@ -14,7 +14,6 @@ export default function SetupProfile() {
     const [email, setEmail] = useState('')
     const [phone, setPhone] = useState('')
     const [address, setAddress] = useState('')
-    const [showAlert, setShowAlert] = useState(false)
 
     useEffect(() => {
         if (user && user.email){
@@ -43,10 +42,8 @@ export default function SetupProfile() {
                 Phone: phone,
                 Address: ''
             }
-            console.log('user profile being created')
             await createUserProfile(user.sub,userProfile)
-            console.log('user profile created')
-            router.replace('/EventsList' as any)
+            router.replace('/matchHistory/dashboard')
         } else {
             Alert.alert(
                 "Missing Information",

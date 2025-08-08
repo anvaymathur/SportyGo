@@ -1,16 +1,22 @@
+import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert, Animated, SafeAreaView, Dimensions } from 'react-native';
 import { useState, useEffect, useRef } from 'react';
 import { useLocalSearchParams, router } from 'expo-router';
 import { castVote, listenVoteCounts, getEvent, getUserVote } from '../firebase/services_firestore2';
 import { VoteDoc, VoteStatus } from '../firebase/types_index';
+import { useAuth0 } from 'react-native-auth0';
 
 export default function EventView() {
   const params = useLocalSearchParams();
   const eventId = params.eventId as string; // Use string for Firestore
+  const {user} = useAuth0()
+  let userId = 'default-user'
+
   
   // For now, using a default user ID. In a real app, this would come from authentication
-  const userId = 'default-user';
-  
+  if (user && user.sub){
+    userId = user.sub;
+  } 
   const [eventData, setEventData] = useState<any>(null);
   const [currentFilter, setCurrentFilter] = useState<'all' | 'going' | 'maybe' | 'not'>('all');
   const [isVotingOpen, setIsVotingOpen] = useState(true);

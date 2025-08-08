@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Button, TouchableOpacity, StyleSheet, Alert, Platform } from 'react-native';
+import { View, Text, TextInput, Button, TouchableOpacity, StyleSheet, Alert, Platform, ScrollView } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { router } from 'expo-router';
-import { createEvent, getGroups } from '../firebase/services_firestore2';
+import { createEvent, getGroups, getUserGroups } from '../firebase/services_firestore2';
 import { GroupDoc } from '../firebase/types_index';
+import { useAuth0 } from 'react-native-auth0';
 
 type FormErrors = {
   title?: string;
@@ -18,6 +19,13 @@ type FormErrors = {
 export default function CreateGameSession() {
   const today = new Date();
   const tomorrow = new Date(today);
+  const {user} = useAuth0()
+  let userId = 'default-user'
+
+  if (user && user.sub){
+    userId = user.sub
+  }
+
   tomorrow.setDate(tomorrow.getDate() + 1);
 
   // State for form fields
@@ -119,7 +127,7 @@ export default function CreateGameSession() {
         ),
         Location: location,
         CutoffDate: votingCutoff,
-        CreatorID: 'auth0sub', // Replace with actual user ID if available
+        CreatorID: userId, // Replace with actual user ID if available
       };
       await createEvent(event);
       setLoading(false);
@@ -167,6 +175,7 @@ export default function CreateGameSession() {
         <Text style={styles.subtitle}>Set up a new game session for your group</Text>
       </View>
       {!success ? (
+        <ScrollView>
         <View style={styles.form}>
           {/* Title */}
           <View style={styles.formGroup}>
@@ -276,6 +285,7 @@ export default function CreateGameSession() {
             </TouchableOpacity>
           </View>
         </View>
+        </ScrollView>
       ) : (
         <View style={styles.successMessage}>
           <Text style={styles.successIcon}>✓</Text>

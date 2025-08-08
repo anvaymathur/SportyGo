@@ -1,10 +1,13 @@
+import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, SafeAreaView, Dimensions, TextInput } from 'react-native';
 import { useState, useEffect } from 'react';
 import { router } from 'expo-router';
 import { listenGroupEvents, getVoteCounts, getUserVote } from '../firebase/services_firestore2';
 import { EventDoc, VoteStatus } from '../firebase/types_index';
+import { sharedState } from "./shared";
 
-const GROUP_ID = 'QMwpMlPfs1sxTs1zD0aQ'; // Replace with actual group ID
+
+const GROUP_ID = sharedState.groupPressedId; // Replace with actual group ID
 
 export default function EventsList() {
   const [events, setEvents] = useState<any[]>([]);
