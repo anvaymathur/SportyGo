@@ -11,16 +11,15 @@ export default function RootLayout() {
       domain="dev-6oulj204w6qwe4dk.us.auth0.com"
       clientId="CHYISQSTA3BStcmW4Yrz9ThiLV0PFUdv">
         <TamaguiProvider config={config}>
-          <PortalProvider>
             <Stack screenOptions={{ headerShown: false }}>
               <Stack.Screen name="(userSetup)" redirect={true} />
               <Stack.Screen name="(groups)" redirect={true}/>
+              <Stack.Screen name="(matchHistory)" redirect={true} />
               <Stack.Screen name="index"/>
               <Stack.Screen name="EventsList"/>
               <Stack.Screen name="EventView"/>
               <Stack.Screen name="CreateGameSession"/>
             </Stack>
-          </PortalProvider>
         </TamaguiProvider>
     </Auth0Provider>
   );

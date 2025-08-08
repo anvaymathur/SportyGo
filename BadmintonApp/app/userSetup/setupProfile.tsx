@@ -43,7 +43,7 @@ export default function SetupProfile() {
                 Address: ''
             }
             await createUserProfile(user.sub,userProfile)
-            router.replace('/groups/displayGroups')
+            router.replace('/matchHistory/dashboard')
         } else {
             Alert.alert(
                 "Missing Information",

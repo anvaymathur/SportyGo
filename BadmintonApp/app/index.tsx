@@ -16,7 +16,7 @@ export default function Index() {
       setInitializing(false);
 
       if (user) {
-        router.replace('/groups/displayGroups' as any );
+        router.replace('/matchHistory/dashboard');
       } else {
         router.replace('/userSetup/login');
       }

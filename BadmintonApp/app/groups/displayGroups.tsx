@@ -38,6 +38,10 @@ export default function DisplayGroups() {
   };
 
 
+  const toAddScore = async() => {
+    router.push('/matchHistory/viewScore')
+  }
+
   const loadGroups = async () => {
     if (user && user.sub) {
       try {
@@ -182,7 +186,7 @@ export default function DisplayGroups() {
           }
           bg="$green10"
           borderWidth={0}
-          onPress={onLogout}
+          onPress={toAddScore}
           shadowColor="$green8"
           shadowOffset={{ width: 0, height: 2 }}
           shadowOpacity={0.25}

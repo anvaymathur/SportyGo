@@ -4,7 +4,7 @@ import {
   increment, CollectionReference, QueryDocumentSnapshot, DocumentData, getDocs, query, where,
 } from "firebase/firestore";
 import { db } from "./index";
-import { UserDoc, GroupDoc, EventDoc, VoteShard, VoteStatus } from "./types_index";
+import { UserDoc, GroupDoc, EventDoc, VoteShard, VoteStatus, newMatchHistory } from "./types_index";
 
 const NUM_SHARDS = 10;
 
@@ -20,6 +20,48 @@ export async function getUserProfile(uid: string): Promise<UserDoc | undefined> 
 
 export async function updateUserProfile(uid: string, data: Partial<UserDoc>) {
   return updateDoc(doc(db, "users", uid), data);
+}
+
+export async function getAllUserProfiles(): Promise<UserDoc[]> {
+  const usersCol = collection(db, "users");
+  const snapshot = await getDocs(usersCol);
+  const users: UserDoc[] = [];
+  snapshot.forEach(doc => {
+    users.push({ id: doc.id, ...doc.data() } as UserDoc);
+  });
+  return users;
+}
+
+export async function getEventUserProfiles(eventId: string): Promise<UserDoc[]> {
+  // First get the event to find users who voted
+  const eventSnap = await getDoc(doc(db, "events", eventId));
+  if (!eventSnap.exists()) {
+    return [];
+  }
+
+  // Get all user votes for this event
+  const userVotesCol = collection(db, "events", eventId, "userVotes");
+  const userVotesSnapshot = await getDocs(userVotesCol);
+  
+  // Extract user IDs from votes where status is "going" (yes)
+  const userIds = new Set<string>();
+  userVotesSnapshot.forEach(doc => {
+    const voteData = doc.data();
+    if (voteData.userId && voteData.status === "going") {
+      userIds.add(voteData.userId);
+    }
+  });
+
+  // Get user profiles for all users who voted "going"
+  const users: UserDoc[] = [];
+  for (const userId of userIds) {
+    const userProfile = await getUserProfile(userId);
+    if (userProfile) {
+      users.push(userProfile);
+    }
+  }
+
+  return users;
 }
 
 // --- GROUPS ---
@@ -74,7 +116,15 @@ function incrementOrPushToArray(groupId: string) {
 export async function createEvent(event: EventDoc) {
   const eventRef = doc(collection(db, "events"));
   const batch = writeBatch(db);
-  batch.set(eventRef, event);
+  
+  // Create event document with the generated ID included
+  // Destructure to exclude the id field and then add the generated ID
+  const { id, ...eventWithoutId } = event;
+  const eventWithId = {
+    ...eventWithoutId,
+    id: eventRef.id
+  };
+  batch.set(eventRef, eventWithId);
 
   // Pre-seed vote shards
   for (let i = 0; i < NUM_SHARDS; i++) {
@@ -187,6 +237,7 @@ export async function getVoteCounts(eventId: string): Promise<VoteShard> {
   return totals;
 }
 
+
 // --- REAL-TIME EVENT LISTENER ---
 export function listenGroupEvents(groupId: string, callback: (events: EventDoc[]) => void) {
   const eventsCol = collection(db, "events");
@@ -209,3 +260,46 @@ export function listenGroupEvents(groupId: string, callback: (events: EventDoc[]
     callback(result);
   });
 }
+
+// --- MATCH HISTORY ---
+export async function createMatchHistory(matchData: newMatchHistory) {
+  const matchHistoryRef = doc(collection(db, "matchHistory"));
+  return setDoc(matchHistoryRef, matchData);
+}
+
+export async function getUserMatchHistory(userId: string): Promise<newMatchHistory[]> {
+  const matchHistoryCol = collection(db, "matchHistory");
+  const snapshot = await getDocs(matchHistoryCol);
+  const userMatches: newMatchHistory[] = [];
+  snapshot.forEach(doc => {
+    const matchData = doc.data() as newMatchHistory;
+    // Check if user participated in either team
+    const isInTeam1 = matchData.team1[0] === userId || matchData.team1[1] === userId;
+    const isInTeam2 = matchData.team2[0] === userId || matchData.team2[1] === userId;
+    if (isInTeam1 || isInTeam2) {
+      userMatches.push(matchData);
+    }
+  });
+  
+  // Sort by date (most recent first) with proper Firestore timestamp handling
+  return userMatches.sort((a, b) => {
+    let dateA: Date, dateB: Date;
+    
+    // Handle Firestore timestamps
+    if (a.date && typeof a.date === 'object' && 'toDate' in a.date) {
+      dateA = (a.date as any).toDate();
+    } else {
+      dateA = new Date(a.date);
+    }
+    
+    if (b.date && typeof b.date === 'object' && 'toDate' in b.date) {
+      dateB = (b.date as any).toDate();
+    } else {
+      dateB = new Date(b.date);
+    }
+    
+    return dateB.getTime() - dateA.getTime(); // Most recent first
+  });
+}
+
+
