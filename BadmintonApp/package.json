@@ -13,6 +13,7 @@
   "dependencies": {
     "@expo/vector-icons": "~14.0.4",
     "@gorhom/portal": "^1.0.14",
+    "@react-native-async-storage/async-storage": "^1.24.0",
     "@react-native-community/datetimepicker": "^8.4.2",
     "@react-native-picker/picker": "^2.11.1",
     "@react-navigation/bottom-tabs": "^7.2.0",

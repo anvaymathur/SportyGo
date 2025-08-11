@@ -1,15 +1,19 @@
-import { View, Alert} from "react-native";
-import React, { useEffect, useState } from "react";
-import { Button, Input, YStack, XStack, Text, Avatar, H2 } from 'tamagui'
+import { Alert} from "react-native";
+import React, { useContext, useEffect, useState } from "react";
+import { Button, Input, YStack, XStack, Text, Avatar, H2, View } from 'tamagui'
 import { router } from "expo-router";
 import { useAuth0 } from "react-native-auth0";
 import { PhoneInput } from "../components/phoneInput";
 import { UserDoc } from '../../firebase/types_index';
 import { createUserProfile, getUserProfile, updateUserProfile } from '../../firebase/services_firestore2';
+import { UserContext } from "../components/userContext";
+
 
 
 export default function SetupProfile() {
     const {user} = useAuth0()
+    const {globalUser, saveUser } = useContext(UserContext);
+
     const [name, setName] = useState('')
     const [email, setEmail] = useState('')
     const [phone, setPhone] = useState('')
@@ -17,8 +21,8 @@ export default function SetupProfile() {
 
     useEffect(() => {
         if (user && user.email){
-                setEmail(user.email)
-            }
+            setEmail(user.email)
+        }
         if (user && user.name && user.name !== user.email) {
             setName(user.name)
         }
@@ -43,6 +47,7 @@ export default function SetupProfile() {
                 Address: ''
             }
             await createUserProfile(user.sub,userProfile)
+            await saveUser({name: name, email: email})
             router.replace('/matchHistory/dashboard')
         } else {
             Alert.alert(
@@ -54,32 +59,32 @@ export default function SetupProfile() {
    }
 
     return (
-        <View style={{ flex: 1, backgroundColor: 'white' }}>
+        <View flex={1} bg="$background">
             <YStack flex={1} p="$4" space="$6" style={{ justifyContent: 'center', alignItems: 'center' }}>
                 {/* Title */}
                 {/* <Text 
                     fontSize="$9" 
                     fontWeight="bold" 
-                    color="$green10"
+                    color="$color9"
                     mb="$4"
                     style={{ textTransform: 'uppercase' }}
                 >
                     Create Profile
                 </Text> */}
-                <H2 color="$green10" fontWeight="bold"> Create Profile</H2>
+                <H2 color="$color9" fontWeight="bold"> Create Profile</H2>
 
                 {/* Profile Icon */}
                 <Avatar 
                     circular
                     size="$12" 
                     borderWidth={2} 
-                    borderColor="$green10"
-                    backgroundColor="$green2"
+                    borderColor="$color9"
+                    backgroundColor="$color2"
                     mb="$6"
                 >
                     <Avatar.Image src={require('../../assets/images/defaultUserProfileImage.png')} />
-                    <Avatar.Fallback backgroundColor="$green2">
-                        <Text fontSize="$8" color="$green10">👤</Text>
+                    <Avatar.Fallback backgroundColor="$color2">
+                        <Text fontSize="$8" color="$color9">👤</Text>
                     </Avatar.Fallback>
                 </Avatar>
 
@@ -89,15 +94,15 @@ export default function SetupProfile() {
                         value={name}
                         onChangeText={setName}
                         placeholder="Name"
-                        borderColor="$green10"
+                        borderColor="$color6"
                         borderWidth={1}
                         focusStyle={{
                             borderWidth: 2,
-                            borderColor: '$green10'
+                            borderColor: '$color6'
                         }}
-                        background="$green1"
-                        placeholderTextColor="$green10"
-                        color="$green10"
+                        background="$color2"
+                        placeholderTextColor="$color10"
+                        color="$color"
                         fontSize="$4"
                         p="$3"
                         style={{ borderRadius: 8 }}
@@ -107,15 +112,15 @@ export default function SetupProfile() {
                         value={email}
                         onChangeText={setEmail}
                         placeholder="Email"
-                        borderColor="$green10"
+                        borderColor="$color6"
                         borderWidth={1}
                         focusStyle={{
                             borderWidth: 2,
-                            borderColor: '$green10'
+                            borderColor: '$color6'
                         }}
-                        background="$green1"
-                        placeholderTextColor="$green10"
-                        color="$green10"
+                        background="$color2"
+                        placeholderTextColor="$color10"
+                        color="$color"
                         fontSize="$4"
                         p="$3"
                         style={{ borderRadius: 8 }}
@@ -132,15 +137,15 @@ export default function SetupProfile() {
                             setPhone(onlyDigits)
                         }}
                         placeholder="Phone"
-                        borderColor="$green10"
+                        borderColor="$color6"
                         borderWidth={1}
                         focusStyle={{
                             borderWidth: 2,
-                            borderColor: '$green10'
+                            borderColor: '$color6'
                         }}
-                        background="$green1"
-                        placeholderTextColor="$green10"
-                        color="$green10"
+                        background="$color2"
+                        placeholderTextColor="$color10"
+                        color="$color"
                         fontSize="$4"
                         p="$3"
                         style={{ borderRadius: 8 }}
@@ -150,15 +155,15 @@ export default function SetupProfile() {
                         value={address}
                         onChangeText={setAddress}
                         placeholder="Address (optional)"
-                        borderColor="$green10"
+                        borderColor="$color6"
                         borderWidth={1}
                         focusStyle={{
                             borderWidth: 2,
-                            borderColor: '$green10'
+                            borderColor: '$color6'
                         }}
-                        background="$green1"
-                        placeholderTextColor="$green10"
-                        color="$green10"
+                        background="$color2"
+                        placeholderTextColor="$color10"
+                        color="$color"
                         fontSize="$4"
                         p="$3"
                         style={{ borderRadius: 2 }}
@@ -169,8 +174,8 @@ export default function SetupProfile() {
                 <Button
                     fontSize="$7"  
                     width="95%"
-                    bg="$green10"
-                    color="white"  
+                    bg="$color9"
+                    color="$color1"  
                     onPress={createProfile}
                 >
                     Create Profile

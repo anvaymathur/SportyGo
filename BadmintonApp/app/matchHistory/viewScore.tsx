@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import {
   ScrollView,
   View,
@@ -20,20 +20,29 @@ import { useRouter } from "expo-router";
 import { useAuth0 } from "react-native-auth0";
 import { getUserProfile, getUserMatchHistory } from '../../firebase/services_firestore2';
 import { newMatchHistory } from "@/firebase/types_index";
+import { UserContext } from "../components/userContext";
+
+// Light status colors for win/tie/lose
+const STATUS_COLORS = {
+  winBg: '#D1FAE5',   // light green
+  tieBg: '#FEF9C3',   // light yellow
+  loseBg: '#FEE2E2',  // light red
+} as const;
 
 // Mock data structure for match history
 
 export default function ViewScore() {
   const router = useRouter();
   const { user } = useAuth0();
+  const {globalUser} = useContext(UserContext)
   const [matchHistory, setMatchHistory] = useState<newMatchHistory[]>([]);
   const [loading, setLoading] = useState(true);
 
   let userName: string = ""
   let userID: string = ""
 
-  if (user && user.name && user.sub){
-    userName = user.name
+  if (globalUser && user && globalUser.name && user.sub){
+    userName = globalUser.name
     userID = user.sub
   }
 
@@ -67,10 +76,6 @@ export default function ViewScore() {
   }, []);
 
   const getCurrentUserTeam = (match: newMatchHistory) => {
-    // For demo purposes, assume the current user is "John Doe"
-    if (user && user.name){
-      const currentUser = user.name;
-    }
     
     if (match.team1[0] === userID || match.team1[1] === userID) {
       return "team1";
@@ -95,14 +100,14 @@ export default function ViewScore() {
   const getCardBackgroundColor = (match: newMatchHistory) => {
     const userTeam = getCurrentUserTeam(match);
     const winningTeam = getTeamResult(match);
-    if (!userTeam) return "$green9";
+    if (!userTeam) return STATUS_COLORS.winBg;
     
     if (userTeam === winningTeam) {
-      return "$green9"; // Light green for wins
+      return STATUS_COLORS.winBg;
     } else if (winningTeam === "tie") {
-      return "$yellow8"; // Light yellow for ties
+      return STATUS_COLORS.tieBg;
     } else {
-      return "$red9"; // Light red for losses
+      return STATUS_COLORS.loseBg;
     }
   };
 
@@ -161,24 +166,24 @@ export default function ViewScore() {
 
     if (loading) {
         return (
-        <YStack flex={1} bg="$green2" justify="center" verticalAlign="center" space="$4">
-            <Spinner size="large" color="$green10" />
+        <YStack flex={1} bg="$background" justify="center" verticalAlign="center" space="$4">
+            <Spinner size="large" color="$color9" />
             <Text color="gray">Loading match history...</Text>
       </YStack>
     );
   }
 
   return (
-    <View flex={1} bg="$green2">
+    <View flex={1} bg="$background">
       {/* Header */}
       <XStack
         pr="$4"
         pl="$4"
         pt="$3"
         pb="$3"
-        bg="$green8"
+        bg="$color2"
         borderBottomWidth={1}
-        borderBottomColor="$red2"
+        borderBottomColor="$borderColor"
         verticalAlign="center"
       >
         <Button
@@ -202,15 +207,16 @@ export default function ViewScore() {
           {(() => {
             if (matchHistory.length === 0) {
               return (
-                <Card padding="$6" backgroundColor="$green4" borderWidth={1} borderColor="$borderColor">
+                <Card padding="$6" backgroundColor="$color2" borderWidth={1} borderColor="$borderColor">
                   <YStack space="$3" verticalAlign="center">
                     <Ionicons name="trophy-outline" size={48} color="#666" />
-                    <H5 color="$green2">No matches yet</H5>
-                    <Paragraph color="$green2" style={{textAlign: "center"}}>
+                    <H5 color="$color">No matches yet</H5>
+                    <Paragraph color="$color10" style={{textAlign: "center"}}>
                       Start playing matches to see your history here
                     </Paragraph>
                     <Button
-                      bg="$green8"
+                      bg="$color9"
+                      color="$color1"
                       onPress={() => router.push('/matchHistory/addScore')}
                       mt="$2"
                     >
@@ -239,7 +245,7 @@ export default function ViewScore() {
                       {/* Header with date and tournament */}
                       <XStack justify="space-between" verticalAlign="center">
                         <YStack>
-                          <Text fontSize="$2" color="$green2">
+                          <Text fontSize="$2" color="$color">
                             {formatDate(match.date)}
                           </Text>
                           {/* {match.tournament && (
@@ -264,15 +270,15 @@ export default function ViewScore() {
                         {/* Team 1 */}
                         <XStack justify="space-between" verticalAlign="center">
                           <YStack flex={1}>
-                            <Text fontSize="$3" fontWeight="600" color="$green2">
+                            <Text fontSize="$3" fontWeight="600" color="$color">
                               {getPlayerDisplay(match.team1[0], match.team1[1])}
                             </Text>
-                            <Text fontSize="$2" color="$green2">
+                            <Text fontSize="$2" color="$color10">
                               Team 1
                             </Text>
                           </YStack>
                           <XStack space="$2" verticalAlign="center">
-                            <Text fontSize="$6" fontWeight="bold" color="$green2">
+                            <Text fontSize="$6" fontWeight="bold" color="$color">
                               {match.team1[2]}
                             </Text>
                             {winningTeam === "team1" && (
@@ -285,12 +291,12 @@ export default function ViewScore() {
                         <XStack justify="center" verticalAlign="center">
                           <Card
                             padding="$2"
-                            bg="$green8"
+                            bg="$color9"
                             borderRadius="$2"
                             minWidth={40}
                             alignItems="center"
                           >
-                            <Text fontWeight="bold" color="$green2" fontSize="$2">
+                            <Text fontWeight="bold" color="$color1" fontSize="$2">
                               VS
                             </Text>
                           </Card>
@@ -299,15 +305,15 @@ export default function ViewScore() {
                         {/* Team 2 */}
                         <XStack justify="space-between" verticalAlign="center">
                           <YStack flex={1}>
-                            <Text fontSize="$3" fontWeight="600" color="$green2">
+                            <Text fontSize="$3" fontWeight="600" color="$color">
                               {getPlayerDisplay(match.team2[0], match.team2[1])}
                             </Text>
-                            <Text fontSize="$2" color="$green2">
+                            <Text fontSize="$2" color="$color10">
                               Team 2
                             </Text>
                           </YStack>
                           <XStack space="$2" verticalAlign="center">
-                            <Text fontSize="$6" fontWeight="bold" color="$green2">
+                            <Text fontSize="$6" fontWeight="bold" color="$color">
                               {match.team2[2]}
                             </Text>
                             {winningTeam === "team2" && (
@@ -321,14 +327,14 @@ export default function ViewScore() {
                       {userTeam && (
                         <Card
                           padding="$2"
-                          backgroundColor={isUserWinner ? "$green8" : isTie ? "$yellow7" : "$red8"}
+                          backgroundColor={isUserWinner ? STATUS_COLORS.winBg : isTie ? STATUS_COLORS.tieBg : STATUS_COLORS.loseBg}
                           borderRadius="$2"
                           alignItems="center"
                         >
                           <Text
                             fontSize="$2"
                             fontWeight="600"
-                            color={isUserWinner ? "$green12" : isTie ? "$yellow12" : "$red12"}
+                            color="$color"
                           >
                             {isUserWinner ? "🏆 You Won!" : isTie ? "🤝 It's a Tie!" : "😔 You Lost"}
                           </Text>
