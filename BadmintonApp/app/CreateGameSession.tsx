@@ -19,12 +19,8 @@ type FormErrors = {
 export default function CreateGameSession() {
   const today = new Date();
   const tomorrow = new Date(today);
-  const {user} = useAuth0()
-  let userId = 'default-user'
-
-  if (user && user.sub){
-    userId = user.sub
-  }
+  const { user } = useAuth0();
+  const userId = user?.sub || 'default-user';
 
   tomorrow.setDate(tomorrow.getDate() + 1);
 
@@ -54,8 +50,14 @@ export default function CreateGameSession() {
     const fetchGroups = async () => {
       try {
         setLoadingGroups(true);
-        const fetchedGroups = await getGroups();
-        setGroups(fetchedGroups);
+        if (user && user.sub) {
+          const fetchedGroups = await getUserGroups(user.sub);
+          setGroups(fetchedGroups);
+        } else {
+          // Fallback to all groups if user is not authenticated
+          const fetchedGroups = await getGroups();
+          setGroups(fetchedGroups);
+        }
       } catch (error) {
         Alert.alert('Error', 'Failed to load groups.');
       } finally {
@@ -64,7 +66,7 @@ export default function CreateGameSession() {
     };
 
     fetchGroups();
-  }, []);
+  }, [user]);
 
   // Validation helpers
   const validate = () => {

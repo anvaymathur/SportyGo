@@ -2,20 +2,22 @@ import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, SafeAreaView, Dimensions, TextInput } from 'react-native';
 import { useState, useEffect } from 'react';
 import { router } from 'expo-router';
-import { listenGroupEvents, getVoteCounts, getUserVote } from '../firebase/services_firestore2';
+import { listenGroupEvents, listenUserGroupEvents, getVoteCounts, getUserVote, getUserGroups } from '../firebase/services_firestore2';
 import { EventDoc, VoteStatus } from '../firebase/types_index';
 import { sharedState } from "./shared";
-
-
-const GROUP_ID = sharedState.groupPressedId; // Replace with actual group ID
+import { useAuth0 } from 'react-native-auth0';
 
 export default function EventsList() {
   const [events, setEvents] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'voting-open' | 'voting-closed' | 'my-events'>('all');
   const [mappedEvents, setMappedEvents] = useState<any[]>([]);
+  const [userGroups, setUserGroups] = useState<string[]>([]);
+  const [loadingGroups, setLoadingGroups] = useState(true);
   
-  const userId = 'default-user';
+  const { user } = useAuth0();
+  const userId = user?.sub || 'default-user';
+  const GROUP_ID = sharedState.groupPressedId;
 
   // Helper functions
   const parseFirestoreDate = (date: any) => {
@@ -46,10 +48,41 @@ export default function EventsList() {
     eventDate: parseFirestoreDate(event.EventDate),
   });
 
+  // Fetch user's groups
   useEffect(() => {
-    const unsubscribe = listenGroupEvents(GROUP_ID, setEvents);
-    return () => unsubscribe();
-  }, []);
+    const fetchUserGroups = async () => {
+      if (user && user.sub) {
+        try {
+          setLoadingGroups(true);
+          const groups = await getUserGroups(user.sub);
+          const groupIds = groups.map(group => group.id);
+          setUserGroups(groupIds);
+        } catch (error) {
+          console.error('Error fetching user groups:', error);
+          setUserGroups([]);
+        } finally {
+          setLoadingGroups(false);
+        }
+      } else {
+        setUserGroups([]);
+        setLoadingGroups(false);
+      }
+    };
+
+    fetchUserGroups();
+  }, [user]);
+
+  // Listen to events from user's groups
+  useEffect(() => {
+    if (userGroups.length > 0) {
+      const unsubscribe = listenUserGroupEvents(userGroups, setEvents);
+      return () => unsubscribe();
+    } else if (GROUP_ID) {
+      // Fallback to single group if no user groups found
+      const unsubscribe = listenGroupEvents(GROUP_ID, setEvents);
+      return () => unsubscribe();
+    }
+  }, [userGroups, GROUP_ID]);
 
   useEffect(() => {
     const fetchEventsWithVoteCounts = async () => {
@@ -172,7 +205,9 @@ export default function EventsList() {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Upcoming Events</Text>
-        <Text style={styles.headerSubtitle}>{filteredEvents.length} events found</Text>
+        <Text style={styles.headerSubtitle}>
+          {loadingGroups ? 'Loading your groups...' : `${filteredEvents.length} events found`}
+        </Text>
       </View>
 
       {/* Search and Filter */}
@@ -230,9 +265,11 @@ export default function EventsList() {
         {filteredEvents.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyStateIcon}>📅</Text>
-            <Text style={styles.emptyStateTitle}>No events found</Text>
+            <Text style={styles.emptyStateTitle}>
+              {loadingGroups ? 'Loading events...' : 'No events found'}
+            </Text>
             <Text style={styles.emptyStateSubtitle}>
-              Try adjusting your search or filters
+              {loadingGroups ? 'Please wait while we load your events' : 'Try adjusting your search or filters'}
             </Text>
           </View>
         ) : (
@@ -255,6 +292,9 @@ export default function EventsList() {
                       <Text style={styles.goingBadgeText}>Going</Text>
                     </View>
                   )}
+                </View>
+                <View style={styles.groupBadge}>
+                  <Text style={styles.groupBadgeText}>{event.group}</Text>
                 </View>
               </View>
 
