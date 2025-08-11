@@ -1,15 +1,19 @@
 import { Alert} from "react-native";
-import React, { useEffect, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import { Button, Input, YStack, XStack, Text, Avatar, H2, View } from 'tamagui'
 import { router } from "expo-router";
 import { useAuth0 } from "react-native-auth0";
 import { PhoneInput } from "../components/phoneInput";
 import { UserDoc } from '../../firebase/types_index';
 import { createUserProfile, getUserProfile, updateUserProfile } from '../../firebase/services_firestore2';
+import { UserContext } from "../components/userContext";
+
 
 
 export default function SetupProfile() {
     const {user} = useAuth0()
+    const {globalUser, saveUser } = useContext(UserContext);
+
     const [name, setName] = useState('')
     const [email, setEmail] = useState('')
     const [phone, setPhone] = useState('')
@@ -17,8 +21,8 @@ export default function SetupProfile() {
 
     useEffect(() => {
         if (user && user.email){
-                setEmail(user.email)
-            }
+            setEmail(user.email)
+        }
         if (user && user.name && user.name !== user.email) {
             setName(user.name)
         }
@@ -43,6 +47,7 @@ export default function SetupProfile() {
                 Address: ''
             }
             await createUserProfile(user.sub,userProfile)
+            await saveUser({name: name, email: email})
             router.replace('/matchHistory/dashboard')
         } else {
             Alert.alert(

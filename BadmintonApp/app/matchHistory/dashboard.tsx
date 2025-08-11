@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useContext, useEffect, useMemo, useState } from "react";
 import { ScrollView, YStack, XStack, Text, Card, H3, Paragraph, Separator, Spinner, Button } from "tamagui";
 import { useAuth0 } from "react-native-auth0";
 import { getUserMatchHistory, listenGroupEvents, getUserVote } from "../../firebase/services_firestore2";
@@ -6,11 +6,14 @@ import { newMatchHistory, EventDoc } from "@/firebase/types_index";
 import { sharedState } from "../shared";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { UserContext } from "../components/userContext";
+import { useFocusEffect } from "@react-navigation/native";
 
 export default function Dashboard() {
   const { user, clearSession } = useAuth0();
+  const { globalUser, clearUser } = useContext(UserContext);
   const userId = user?.sub ?? "";
-  const userName = user?.name ?? "Player";
+  const userName = globalUser?.name ?? "Player";
 
   const [matchHistory, setMatchHistory] = useState<newMatchHistory[]>([]);
   const [isLoadingMatches, setIsLoadingMatches] = useState<boolean>(true);
@@ -40,6 +43,31 @@ export default function Dashboard() {
       isActive = false;
     };
   }, [userId]);
+
+  // Refetch match history when screen gains focus
+  useFocusEffect(
+    React.useCallback(() => {
+      let isActive = true;
+      const fetchMatches = async () => {
+        if (!userId) {
+          setMatchHistory([]);
+          setIsLoadingMatches(false);
+          return;
+        }
+        setIsLoadingMatches(true);
+        try {
+          const data = await getUserMatchHistory(userId);
+          if (isActive) setMatchHistory(data);
+        } finally {
+          if (isActive) setIsLoadingMatches(false);
+        }
+      };
+      fetchMatches();
+      return () => {
+        isActive = false;
+      };
+    }, [userId])
+  );
 
   // Listen to group events and compute events the user voted "going"
   useEffect(() => {
@@ -136,6 +164,7 @@ export default function Dashboard() {
 
   const onLogout = async () => {
     try {
+      await clearUser()
       await clearSession();
       router.replace('/userSetup/login' );
     } catch (e) {

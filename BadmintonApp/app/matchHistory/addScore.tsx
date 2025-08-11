@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import {
   ScrollView,
   View,
@@ -24,6 +24,7 @@ import { getAllUserProfiles, createMatchHistory} from '../../firebase/services_f
 import { newMatchHistory } from "@/firebase/types_index";
 import { Alert } from "react-native";
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { UserContext } from "../components/userContext";
 
 
 export default function AddScore() {
@@ -42,11 +43,12 @@ export default function AddScore() {
 
 
   const {user} = useAuth0()
+  const {globalUser} = useContext(UserContext)
 
   let userName: string = ""
   let userID: string = ""
-  if (user && user.name && user.sub){
-    userName = user.name
+  if (globalUser && user && globalUser.name && user.sub){
+    userName = globalUser.name
     userID = user.sub
   }
   const [players, setPlayers] = useState<string[]>([]);
@@ -113,7 +115,7 @@ export default function AddScore() {
     if (opponentPlayer1 != "" && date != null && yourScore != 0 && opponentScore != 0 &&  ((matchType == 'doubles' && opponentPlayer2 != '' && yourPlayer2 != '') || matchType == 'singles')){
       
         // Get player IDs, fallback to names if ID not found
-        const team1Player1Id = playerNameToId[userName] || userName;
+        const team1Player1Id = playerNameToId[userName] || userID;
         const team1Player2Id = matchType === 'doubles' ? (playerNameToId[yourPlayer2]) : '';
         const team2Player1Id = playerNameToId[opponentPlayer1];
         const team2Player2Id = matchType === 'doubles' ? (playerNameToId[opponentPlayer2]) : '';
@@ -170,8 +172,9 @@ export default function AddScore() {
                       size="$4"
                       bg="$color9"
                       onPress={() => decrementScore("your")}
+                      
                     >
-                      <Text>-</Text>
+                      <Text color="$color1">-</Text>
                     </Circle>
                     <Card
                       padding="$3"
@@ -247,8 +250,9 @@ export default function AddScore() {
                       size="$4"
                       bg="$color9"
                       onPress={() => decrementScore("opponent")}
+                     
                     >
-                      <Text>-</Text>
+                      <Text color="$color1">-</Text>
                     </Circle>
                   </XStack>
                   <Text fontSize="$2" color="$color" mt="$2">
@@ -261,6 +265,7 @@ export default function AddScore() {
                 bg="$color9"
                 onPress={resetGame}
                 mt="$2"
+                color="$color1"
               >
                 Reset Game
               </Button>
@@ -278,15 +283,17 @@ export default function AddScore() {
                 <XStack space="$2">
                   <Button
                     flex={1}
-                    bg={matchType === "singles" ? "$color9" : "$color1"}
+                    bg={matchType === "singles" ? "$color9" : "$color3"}
                     onPress={() => setMatchType("singles")}
+                    color={matchType === "singles" ? "$color1" : "$color9"}
                   >
                     Singles
                   </Button>
                   <Button
                     flex={1}
-                    bg={matchType === "doubles" ? "$color9" : "$color1"}
+                    bg={matchType === "doubles" ? "$color9" : "$color3"}
                     onPress={() => setMatchType("doubles")}
+                    color={matchType === "doubles" ? "$color1" : "$color9"}
                   >
                     Doubles
                   </Button>
@@ -526,5 +533,6 @@ export default function AddScore() {
     </View>
   );
 }
+
 
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import {
   ScrollView,
   View,
@@ -20,6 +20,7 @@ import { useRouter } from "expo-router";
 import { useAuth0 } from "react-native-auth0";
 import { getUserProfile, getUserMatchHistory } from '../../firebase/services_firestore2';
 import { newMatchHistory } from "@/firebase/types_index";
+import { UserContext } from "../components/userContext";
 
 // Light status colors for win/tie/lose
 const STATUS_COLORS = {
@@ -33,14 +34,15 @@ const STATUS_COLORS = {
 export default function ViewScore() {
   const router = useRouter();
   const { user } = useAuth0();
+  const {globalUser} = useContext(UserContext)
   const [matchHistory, setMatchHistory] = useState<newMatchHistory[]>([]);
   const [loading, setLoading] = useState(true);
 
   let userName: string = ""
   let userID: string = ""
 
-  if (user && user.name && user.sub){
-    userName = user.name
+  if (globalUser && user && globalUser.name && user.sub){
+    userName = globalUser.name
     userID = user.sub
   }
 
@@ -74,10 +76,6 @@ export default function ViewScore() {
   }, []);
 
   const getCurrentUserTeam = (match: newMatchHistory) => {
-    // For demo purposes, assume the current user is "John Doe"
-    if (user && user.name){
-      const currentUser = user.name;
-    }
     
     if (match.team1[0] === userID || match.team1[1] === userID) {
       return "team1";
