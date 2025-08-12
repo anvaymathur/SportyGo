@@ -67,15 +67,13 @@ export async function getEventUserProfiles(eventId: string): Promise<UserDoc[]> 
 // --- GROUPS ---
 import { v4 as uuidv4 } from 'uuid';
 
-export async function createGroup(userId: string, group: Omit<GroupDoc, "ownerId" | "memberIds" | "createdAt">) {
+export async function createGroup(userId: string, group: Omit<GroupDoc, "createdAt">) {
   const groupRef = doc(collection(db, "groups"));
   const groupId = groupRef.id
   const now = new Date();
   const batch = writeBatch(db);
   batch.set(groupRef, {
     ...group,
-    ownerId: userId,
-    memberIds: [userId],
     createdAt: now
   });
   batch.update(doc(db, "users", userId), {

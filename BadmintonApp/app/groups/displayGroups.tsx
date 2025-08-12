@@ -112,7 +112,7 @@ export default function DisplayGroups() {
                     bg="$color2"
                     borderRadius="$4"
                     p="$4"
-                    borderWidth={1}
+                    borderWidth="$1"
                     borderColor="$color6"
                     onPress={() => {
                       sharedState.groupPressedId = group.id;
@@ -153,7 +153,7 @@ export default function DisplayGroups() {
         <Button
           bg="$color9"
           color="$color1"
-          borderWidth={0} 
+          borderWidth="$0" 
           onPress={() => router.push('/groups/createGroup')}
           p='$2'
           flexDirection="row"
@@ -176,7 +176,7 @@ export default function DisplayGroups() {
 
           }
           bg="$color9"
-          borderWidth={0}
+          borderWidth="$0"
           onPress={() => router.push('/matchHistory/dashboard')}
           shadowColor="$color8"
           shadowOffset={{ width: 0, height: 2 }}
@@ -186,7 +186,7 @@ export default function DisplayGroups() {
           color='$color1'
           
         >
-          <Ionicons name="home" size={20} color="$white" />
+          <Ionicons name="home" size={20}  />
         </Button>
       </YStack>
   );
