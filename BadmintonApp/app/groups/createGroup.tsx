@@ -12,6 +12,8 @@ import { Adapt } from '@tamagui/adapt'
 import { router } from "expo-router";
 import { useAuth0 } from "react-native-auth0";
 import { createGroup } from '../../firebase/services_firestore2';
+import { GroupDoc } from '../../firebase/types_index';
+
 
 export default function CreateGroup() {
   const [groupName, setGroupName] = useState('');
@@ -46,19 +48,10 @@ export default function CreateGroup() {
       Alert.alert("Missing Information", "Please enter a group name.");
       return;
     }
-    
-    // Here you would typically save the group data to your backend
-    console.log('Creating Group:', {
-      groupName,
-      description,
-      skillLevel,
-      privacy,
-      homeCourt,
-      meetingSchedule
-    })
+        
     if (user && user.sub){
 
-      const groupInfo={
+      const groupInfo: GroupDoc={
         id: '',
         Name: groupName,
         OwnerId: user.sub,
@@ -70,9 +63,7 @@ export default function CreateGroup() {
         MeetingSchedule: meetingSchedule
       }
       try {
-        console.log('Creating group with data:', groupInfo);
-        const groupId = await createGroup(user.sub, groupInfo);
-        console.log('Group created successfully with ID:', groupId);
+        await createGroup(user.sub, groupInfo);
         router.push('/groups/displayGroups');
       } catch (error) {
         console.error('Error creating group:', error);
