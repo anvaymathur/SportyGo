@@ -259,6 +259,28 @@ export function listenGroupEvents(groupId: string, callback: (events: EventDoc[]
   });
 }
 
+export function listenUserGroupEvents(userGroupIds: string[], callback: (events: EventDoc[]) => void) {
+  const eventsCol = collection(db, "events");
+  return onSnapshot(eventsCol, snap => {
+    const result: EventDoc[] = [];
+    snap.forEach(doc => {
+      const evt = doc.data();
+      if (userGroupIds.includes(evt.GroupID)) {
+        result.push({ 
+          id: doc.id, 
+          GroupID: evt.GroupID,
+          Title: evt.Title,
+          EventDate: evt.EventDate,
+          Location: evt.Location,
+          CutoffDate: evt.CutoffDate,
+          CreatorID: evt.CreatorID
+        } as EventDoc);
+      }
+    });
+    callback(result);
+  });
+}
+
 // --- MATCH HISTORY ---
 export async function createMatchHistory(matchData: newMatchHistory) {
   const matchHistoryRef = doc(collection(db, "matchHistory"));

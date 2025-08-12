@@ -9,14 +9,8 @@ import { useAuth0 } from 'react-native-auth0';
 export default function EventView() {
   const params = useLocalSearchParams();
   const eventId = params.eventId as string; // Use string for Firestore
-  const {user} = useAuth0()
-  let userId = 'default-user'
-
-  
-  // For now, using a default user ID. In a real app, this would come from authentication
-  if (user && user.sub){
-    userId = user.sub;
-  } 
+  const { user } = useAuth0();
+  const userId = user?.sub || 'default-user'; 
   const [eventData, setEventData] = useState<any>(null);
   const [currentFilter, setCurrentFilter] = useState<'all' | 'going' | 'maybe' | 'not'>('all');
   const [isVotingOpen, setIsVotingOpen] = useState(true);

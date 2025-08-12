@@ -1,20 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { SafeAreaView } from 'react-native';
 import { router } from 'expo-router';
-import { listenGroupEvents, getVoteCounts, getUserVote } from '../firebase/services_firestore2';
+import { listenGroupEvents, listenUserGroupEvents, getVoteCounts, getUserVote, getUserGroups } from '../firebase/services_firestore2';
 import { EventDoc, VoteStatus } from '../firebase/types_index';
 import { sharedState } from './shared';
 import { Theme, YStack, XStack, ScrollView, Button, Input, Paragraph, H2, Text, Card } from 'tamagui';
-
-const GROUP_ID = sharedState.groupPressedId;
+import { useAuth0 } from 'react-native-auth0';
 
 export default function EventsList() {
   const [events, setEvents] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'voting-open' | 'voting-closed' | 'my-events'>('all');
   const [mappedEvents, setMappedEvents] = useState<any[]>([]);
+  const [userGroups, setUserGroups] = useState<string[]>([]);
+  const [loadingGroups, setLoadingGroups] = useState(true);
 
-  const userId = 'default-user';
+  const { user } = useAuth0();
+  const userId = user?.sub || 'default-user';
+  const GROUP_ID = sharedState.groupPressedId;
 
   // Helper functions
   const parseFirestoreDate = (date: any) => {
@@ -45,10 +48,41 @@ export default function EventsList() {
     eventDate: parseFirestoreDate(event.EventDate),
   });
 
+  // Fetch user's groups
   useEffect(() => {
-    const unsubscribe = listenGroupEvents(GROUP_ID, setEvents);
-    return () => unsubscribe();
-  }, []);
+     const fetchUserGroups = async () => {
+      if (user && user.sub) {
+        try {
+          setLoadingGroups(true);
+          const groups = await getUserGroups(user.sub);
+          const groupIds = groups.map(group => group.id);
+          setUserGroups(groupIds);
+        } catch (error) {
+          console.error('Error fetching user groups:', error);
+          setUserGroups([]);
+        } finally {
+          setLoadingGroups(false);
+        }
+      } else {
+        setUserGroups([]);
+        setLoadingGroups(false);
+      }
+    };
+
+    fetchUserGroups();
+  }, [user]);
+  
+   // Listen to events from user's groups
+  useEffect(() => {
+    if (userGroups.length > 0) {
+      const unsubscribe = listenUserGroupEvents(userGroups, setEvents);
+      return () => unsubscribe();
+    } else if (GROUP_ID) {
+      // Fallback to single group if no user groups found
+      const unsubscribe = listenGroupEvents(GROUP_ID, setEvents);
+      return () => unsubscribe();
+    }
+  }, [userGroups, GROUP_ID]);
 
   useEffect(() => {
     const fetchEventsWithVoteCounts = async () => {
@@ -196,7 +230,7 @@ export default function EventsList() {
               Upcoming Events
             </H2>
             <Paragraph color="$color10" style={{ fontSize: 16 }}>
-              {filteredEvents.length} events found
+              {loadingGroups ? 'Loading your groups...' : `${filteredEvents.length} events found`}
             </Paragraph>
           </YStack>
 
@@ -235,7 +269,7 @@ export default function EventsList() {
                   No events found
                 </Text>
                 <Paragraph color="$color10" fontSize="$4" mb="$3" style={{ textAlign: 'center' }}>
-                  Try adjusting your search or filters
+                   {loadingGroups ? 'Please wait while we load your events' : 'Try adjusting your search or filters'}
                 </Paragraph>
               </YStack>
             ) : (
@@ -259,7 +293,7 @@ export default function EventsList() {
                         )}
                       </XStack>
                     </XStack>
-
+                    <Text style={{ fontSize: 10, fontWeight: 600 }} color="$color" mb={8>{event.group}</Text>
                     {/* Title */}
                     <Text style={{ fontSize: 18, fontWeight: 'bold' }} color="$color" mb={8}>
                       {event.title}
@@ -320,10 +354,10 @@ export default function EventsList() {
                     />
                   </YStack>
                 </Card>
+                
               ))
             )}
           </ScrollView>
-
           {/* Floating Action Button */}
           <Button
             position="absolute"
