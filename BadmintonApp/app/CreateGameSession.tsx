@@ -227,12 +227,13 @@ export default function CreateGameSession() {
                 borderWidth={1}
                 borderColor="$borderColor"
               >
-                <YStack>
-                  {/* Title */}
-                  <FormGroup>
+                                 <YStack>
+                   {/* Title */}
+                   <YStack mb={18}>
                     <Label htmlFor="title" style={{ fontSize: 16, fontWeight: '500' }} mb={6}>
                       Event Title
                     </Label>
+                   
                     <Input
                       id="title"
                       value={title}
@@ -241,12 +242,14 @@ export default function CreateGameSession() {
                       autoCapitalize="words"
                       borderColor={errors.title ? ('#EF4444' as any) : ('$borderColor' as any)}
                       bg="$color1"
-                    />
+                      keyboardType="default"
+                      focusStyle={{ borderColor: errors.title ? '#EF4444' : '$color9', borderWidth: 2 }}
+                      />
                     <FieldError message={errors.title} />
-                  </FormGroup>
+                  </YStack>
 
                   {/* Game Date */}
-                  <FormGroup>
+                  <YStack mb={18}>
                     <Label style={{ fontSize: 16, fontWeight: '500' }} mb={6}>
                       Game Date
                     </Label>
@@ -263,10 +266,10 @@ export default function CreateGameSession() {
                       />
                     )}
                     <FieldError message={errors.gameDate} />
-                  </FormGroup>
+                  </YStack>
 
                   {/* Game Time */}
-                  <FormGroup>
+                  <YStack mb={18}>
                     <Label style={{ fontSize: 16, fontWeight: '500' }} mb={6}>
                       Game Time
                     </Label>
@@ -284,26 +287,28 @@ export default function CreateGameSession() {
                       />
                     )}
                     <FieldError message={errors.gameTime} />
-                  </FormGroup>
+                  </YStack>
 
                   {/* Location */}
-                  <FormGroup>
+                  <YStack mb={18}>
                     <Label style={{ fontSize: 16, fontWeight: '500' }} mb={6}>
                       Location
                     </Label>
-                    <Input
-                      value={location}
-                      onChangeText={setLocation}
-                      placeholder="Enter game location"
-                      autoCapitalize="words"
-                      borderColor={errors.location ? ('#EF4444' as any) : ('$borderColor' as any)}
-                      bg="$color1"
-                    />
+                                         <Input
+                       value={location}
+                       onChangeText={setLocation}
+                       placeholder="Enter game location"
+                       autoCapitalize="words"
+                       borderColor={errors.location ? ('#EF4444' as any) : ('$borderColor' as any)}
+                       bg="$color1"
+                       keyboardType="default"
+                       focusStyle={{ borderColor: errors.location ? '#EF4444' : '$color9', borderWidth: 2 }}
+                     />
                     <FieldError message={errors.location} />
-                  </FormGroup>
+                  </YStack>
 
                   {/* Voting Cutoff */}
-                  <FormGroup>
+                  <YStack mb={18}>
                     <Label style={{ fontSize: 16, fontWeight: '500' }} mb={6}>
                       Voting closes on:
                     </Label>
@@ -320,10 +325,10 @@ export default function CreateGameSession() {
                       />
                     )}
                     <FieldError message={errors.votingCutoff} />
-                  </FormGroup>
+                  </YStack>
 
                   {/* Group */}
-                  <FormGroup>
+                  <YStack mb={18}>
                     <Label style={{ fontSize: 16, fontWeight: '500' }} mb={6}>
                       Group
                     </Label>
@@ -336,7 +341,7 @@ export default function CreateGameSession() {
                       </Picker>
                     </YStack>
                     <FieldError message={errors.group} />
-                  </FormGroup>
+                  </YStack>
 
                   {/* Actions */}
                   <XStack flexDirection="row" justify="space-between" mt={16}>

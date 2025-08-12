@@ -17,7 +17,7 @@ import {
   Separator
 } from "tamagui";
 import { Adapt } from '@tamagui/adapt'
-
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useAuth0 } from "react-native-auth0";
 import { getAllUserProfiles, createMatchHistory} from '../../firebase/services_firestore2';
@@ -153,7 +153,9 @@ export default function AddScore() {
           size="$3"
           onPress={() => router.back()}
           mr="$3"
-        />
+        >
+          <Ionicons name="arrow-back" size={24} color="$color1" />
+        </Button>
         <H4 flex={1} verticalAlign="center">Add Match Scores</H4>
       </XStack>
 
@@ -178,7 +180,7 @@ export default function AddScore() {
                     </Circle>
                     <Card
                       padding="$3"
-                      backgroundColor="$color6"
+                      backgroundColor="$color4"
                       borderRadius="$4"
                       minWidth={60}
                       alignItems="center"
@@ -186,7 +188,7 @@ export default function AddScore() {
                       {/* <H4 color="$green10">{yourScore}</H4> */}
                     <Input
                       p = "$2"
-                      bg="$color6"
+                      bg="$color4"
                       borderColor="transparent"
                       inputMode="numeric"
                       keyboardType="numeric"
@@ -211,7 +213,7 @@ export default function AddScore() {
                 <Card
                   margin="$3"
                   padding="$2"
-                  backgroundColor="$color6"
+                  backgroundColor="$color4"
                   borderRadius="$3"
                   minWidth={40}
                   height={40}
@@ -225,14 +227,14 @@ export default function AddScore() {
                   <XStack verticalAlign="center" space="$2">
                     <Card
                       padding="$3"
-                      backgroundColor="$color6"
+                      backgroundColor="$color4"
                       borderRadius="$4"
                       minWidth={60}
                       alignItems="center"
                     >
                      <Input
                       p = "$2"
-                      bg="$color6"
+                      bg="$color4"
                       borderColor="transparent"
                       inputMode="numeric"
                       keyboardType="numeric"
@@ -304,7 +306,7 @@ export default function AddScore() {
               <YStack space="$2">
                 <Text fontSize="$3" fontWeight="500">Date</Text>
                 <Button
-                  bg="$color4"
+                  bg="$color3"
                   borderColor="$borderColor"
                   onPress={() => setShowDatePicker(true)}
                 >
@@ -321,7 +323,7 @@ export default function AddScore() {
 
                 <Text fontSize="$3" fontWeight="500">Time</Text>
                 <Button
-                  bg="$color4"
+                  bg="$color3"
                   borderColor="$borderColor"
                   onPress={() => setShowTimePicker(true)}
                 >
@@ -514,6 +516,7 @@ export default function AddScore() {
                   
                 }}
                 mt="$2"
+                color="$color1"
               >
                 Quick Add Player
               </Button>
@@ -525,6 +528,7 @@ export default function AddScore() {
               bg="$color9"
               onPress={handleSaveMatch}
               mt="$1"
+              color="$color1"
             >
               Save match scores
             </Button>
