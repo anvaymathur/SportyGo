@@ -95,7 +95,7 @@ export async function getGroups(): Promise<GroupDoc[]> {
 
 export async function getUserGroups(userId: string): Promise<GroupDoc[]> {
   const groupsCol = collection(db, "groups");
-  const q = query(groupsCol, where("memberIds", "array-contains", userId));
+  const q = query(groupsCol, where("MemberIds", "array-contains", userId));
   const snapshot = await getDocs(q);
   const groups: GroupDoc[] = [];
   snapshot.forEach(doc => {

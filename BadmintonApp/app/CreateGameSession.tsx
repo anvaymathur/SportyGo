@@ -3,7 +3,7 @@ import { Alert, Platform } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { router } from 'expo-router';
-import { createEvent, getGroups } from '../firebase/services_firestore2';
+import { createEvent, getGroups, getUserGroups } from '../firebase/services_firestore2';
 import { GroupDoc } from '../firebase/types_index';
 import { useAuth0 } from 'react-native-auth0';
 import { Theme, YStack, XStack, ScrollView, Button, Input, Label, Paragraph, H2, Text, Card } from 'tamagui';

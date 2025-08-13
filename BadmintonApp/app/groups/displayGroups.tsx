@@ -38,6 +38,7 @@ export default function DisplayGroups() {
       try {
         setLoading(true);
         const groupsData = await getUserGroups(user.sub);
+        console.log("Groups Data:", groupsData);
         setGroups(groupsData);
       } catch (error) {
         console.error("Error loading groups:", error);
@@ -73,22 +74,20 @@ export default function DisplayGroups() {
         
 
         {/* Search Bar */}
-        {/* <YStack space="$4">
+        <YStack space="$4">
           <Input
             placeholder="Search teams..."
             value={searchQuery}
             onChangeText={setSearchQuery}
-            background="$gray2"
-            borderColor="$green6"
-            borderWidth={2}
-            
+            background="$color2"
+            borderColor="$color6"
             px="$4"
             py="$3"
-            color="white"
-            placeholderTextColor="$gray10"
+            color="$color"
+            placeholderTextColor="$color10"
             fontSize="$4"
           />
-        </YStack> */}
+        </YStack>
 
         {/* Groups List */}
         <ScrollView

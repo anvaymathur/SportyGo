@@ -293,7 +293,7 @@ export default function EventsList() {
                         )}
                       </XStack>
                     </XStack>
-                    <Text style={{ fontSize: 10, fontWeight: 600 }} color="$color" mb={8>{event.group}</Text>
+                    <Text style={{ fontSize: 10, fontWeight: 600 }} color="$color" mb={8}>{event.group}</Text>
                     {/* Title */}
                     <Text style={{ fontSize: 18, fontWeight: 'bold' }} color="$color" mb={8}>
                       {event.title}
