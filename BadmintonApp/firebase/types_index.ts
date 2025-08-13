@@ -86,6 +86,7 @@ export interface newMatchHistory {
     score: number
   ]
   date: Date
+  id: string
 }
 
 export interface FirebaseError {

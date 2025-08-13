@@ -2,6 +2,7 @@
 import {
   getFirestore, collection, doc, setDoc, getDoc, updateDoc, writeBatch, onSnapshot,
   increment, CollectionReference, QueryDocumentSnapshot, DocumentData, getDocs, query, where,
+  deleteDoc,
 } from "firebase/firestore";
 import { db } from "./index";
 import { UserDoc, GroupDoc, EventDoc, VoteShard, VoteStatus, newMatchHistory } from "./types_index";
@@ -284,7 +285,12 @@ export function listenUserGroupEvents(userGroupIds: string[], callback: (events:
 // --- MATCH HISTORY ---
 export async function createMatchHistory(matchData: newMatchHistory) {
   const matchHistoryRef = doc(collection(db, "matchHistory"));
-  return setDoc(matchHistoryRef, matchData);
+  const { id, ...matchDataWithoutId } = matchData;
+  const matchDataWithId = {
+    ...matchDataWithoutId,
+    id: matchHistoryRef.id
+  };
+  return setDoc(matchHistoryRef, matchDataWithId);
 }
 
 export async function getUserMatchHistory(userId: string): Promise<newMatchHistory[]> {
@@ -320,6 +326,16 @@ export async function getUserMatchHistory(userId: string): Promise<newMatchHisto
     
     return dateB.getTime() - dateA.getTime(); // Most recent first
   });
+}
+
+// Add: fetch a single match by ID
+export async function getMatchHistoryById(matchId: string): Promise<newMatchHistory | undefined> {
+  const snap = await getDoc(doc(db, "matchHistory", matchId));
+  return snap.exists() ? (snap.data() as newMatchHistory) : undefined;
+}
+
+export async function deleteMatchHistory(matchId: string) {
+  return deleteDoc(doc(db, "matchHistory", matchId));
 }
 
 
