@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, SafeAreaView, Alert } from 'react-native';
-import { useLocalSearchParams, router } from 'expo-router';
+import { router } from 'expo-router';
 import { getEvent, getVoteCounts, getUserVote, getAllUserProfiles, updateAttendance } from '../firebase/services_firestore2';
 import { useAuth0 } from 'react-native-auth0';
 import { UserDoc } from '../firebase/types_index';
+import { sharedState } from './shared';
 
 interface AttendanceRecord {
   userId: string;
@@ -15,8 +16,7 @@ interface AttendanceRecord {
 }
 
 export default function EventAttendance() {
-  const params = useLocalSearchParams();
-  const eventId = params.eventId as string;
+  const eventId = sharedState.currentEventId;
   const { user } = useAuth0();
   const userId = user?.sub || 'default-user';
 

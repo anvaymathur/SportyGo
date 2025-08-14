@@ -5,6 +5,7 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { castVote, listenVoteCounts, getEvent, getUserVote, hasEventStarted } from '../firebase/services_firestore2';
 import { VoteDoc, VoteStatus } from '../firebase/types_index';
 import { useAuth0 } from 'react-native-auth0';
+import { sharedState } from './shared';
 
 export default function EventView() {
   const params = useLocalSearchParams();
@@ -339,13 +340,13 @@ export default function EventView() {
        {isAdmin && eventStarted && (
          <View style={styles.card}>
            <Text style={styles.sectionTitle}>Event Management</Text>
-           <TouchableOpacity
-             style={styles.attendanceButton}
-             onPress={() => router.push({
-               pathname: '/EventAttendance',
-               params: { eventId: eventId }
-             })}
-           >
+                       <TouchableOpacity
+              style={styles.attendanceButton}
+              onPress={() => {
+                sharedState.currentEventId = eventId;
+                router.push('/EventAttendance' as any);
+              }}
+            >
              <Text style={styles.attendanceButtonText}>📋 Manage Attendance</Text>
              <Text style={styles.attendanceButtonSubtext}>Mark who has arrived at the event</Text>
            </TouchableOpacity>
