@@ -2,9 +2,10 @@
 import {
   getFirestore, collection, doc, setDoc, getDoc, updateDoc, writeBatch, onSnapshot,
   increment, CollectionReference, QueryDocumentSnapshot, DocumentData, getDocs, query, where,
+  Timestamp,
 } from "firebase/firestore";
 import { db } from "./index";
-import { UserDoc, GroupDoc, EventDoc, VoteShard, VoteStatus, newMatchHistory } from "./types_index";
+import { UserDoc, GroupDoc, EventDoc, VoteShard, VoteStatus, newMatchHistory, AttendanceRecord } from "./types_index";
 
 const NUM_SHARDS = 10;
 
@@ -151,6 +152,68 @@ export async function getEvent(eventId: string) {
   return snap.exists() ? snap.data() : undefined;
 }
 
+// --- HELPER FUNCTIONS ---
+
+// Check if two events overlap in time
+function eventsOverlap(event1: any, event2: any): boolean {
+  const start1 = new Date(event1.EventDate);
+  const start2 = new Date(event2.EventDate);
+  
+  // Assume events last 2 hours by default (can be made configurable)
+  const duration = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
+  const end1 = new Date(start1.getTime() + duration);
+  const end2 = new Date(start2.getTime() + duration);
+  
+  // Check if events overlap
+  return start1 < end2 && start2 < end1;
+}
+
+// Get all events where user has voted 'going'
+async function getUserGoingEvents(userId: string): Promise<any[]> {
+  const eventsCol = collection(db, "events");
+  const snapshot = await getDocs(eventsCol);
+  const userEvents: any[] = [];
+  
+  for (const eventDoc of snapshot.docs) {
+    const eventData = eventDoc.data();
+    const userVote = await getUserVote(eventDoc.id, userId);
+    
+    if (userVote === 'going') {
+      userEvents.push({
+        id: eventDoc.id,
+        ...eventData
+      });
+    }
+  }
+  
+  return userEvents;
+}
+
+// Check if voting for this event would conflict with user's existing 'going' votes
+async function checkTimeConflict(eventId: string, userId: string): Promise<{ hasConflict: boolean; conflictingEvent?: any }> {
+  const currentEventRef = doc(db, "events", eventId);
+  const currentEventSnap = await getDoc(currentEventRef);
+  
+  if (!currentEventSnap.exists()) {
+    throw new Error('Event not found');
+  }
+  
+  const currentEvent = currentEventSnap.data();
+  const userGoingEvents = await getUserGoingEvents(userId);
+  
+  // Check for conflicts with existing 'going' votes
+  for (const userEvent of userGoingEvents) {
+    if (userEvent.id !== eventId && eventsOverlap(currentEvent, userEvent)) {
+      return {
+        hasConflict: true,
+        conflictingEvent: userEvent
+      };
+    }
+  }
+  
+  return { hasConflict: false };
+}
+
 // --- SHARDED VOTE SYSTEM ---
 export async function castVote(eventId: string, status: keyof VoteShard, userId: string = 'default-user') {
   // First check if voting is enabled for this event
@@ -164,6 +227,20 @@ export async function castVote(eventId: string, status: keyof VoteShard, userId:
   const eventData = eventSnap.data();
   if (eventData.VotingEnabled === false) {
     throw new Error('Voting is not enabled for this event');
+  }
+
+  // Check for time conflicts if user is voting 'going'
+  if (status === 'going') {
+    const conflictCheck = await checkTimeConflict(eventId, userId);
+    if (conflictCheck.hasConflict) {
+      const conflictingEvent = conflictCheck.conflictingEvent;
+      const conflictingDate = new Date(conflictingEvent.EventDate).toLocaleDateString();
+      const conflictingTime = new Date(conflictingEvent.EventDate).toLocaleTimeString([], { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      });
+      throw new Error(`You cannot attend this event because it conflicts with "${conflictingEvent.Title}" on ${conflictingDate} at ${conflictingTime}. You can only attend one event at a time.`);
+    }
   }
 
   // Check if user has already voted
@@ -356,6 +433,49 @@ export async function getUserMatchHistory(userId: string): Promise<newMatchHisto
     
     return dateB.getTime() - dateA.getTime(); // Most recent first
   });
+}
+
+// --- ATTENDANCE FUNCTIONS ---
+
+// Update attendance records for an event
+export async function updateAttendance(eventId: string, attendanceRecords: AttendanceRecord[]) {
+  const eventRef = doc(db, "events", eventId);
+  
+  // Convert dates to Firestore timestamps
+  const recordsWithTimestamps = attendanceRecords.map(record => ({
+    ...record,
+    arrivalTime: record.arrivalTime ? Timestamp.fromDate(record.arrivalTime) : undefined
+  }));
+
+  await updateDoc(eventRef, {
+    AttendanceRecords: recordsWithTimestamps
+  });
+}
+
+// Get attendance records for an event
+export async function getAttendanceRecords(eventId: string): Promise<AttendanceRecord[]> {
+  const eventRef = doc(db, "events", eventId);
+  const eventSnap = await getDoc(eventRef);
+  
+  if (!eventSnap.exists()) {
+    throw new Error('Event not found');
+  }
+  
+  const eventData = eventSnap.data();
+  const records = eventData.AttendanceRecords || [];
+  
+  // Convert Firestore timestamps back to Date objects
+  return records.map((record: any) => ({
+    ...record,
+    arrivalTime: record.arrivalTime ? record.arrivalTime.toDate() : undefined
+  }));
+}
+
+// Check if event has started (for showing attendance button)
+export function hasEventStarted(eventDate: Date): boolean {
+  const now = new Date();
+  const eventDateTime = new Date(eventDate);
+  return now >= eventDateTime;
 }
 
 

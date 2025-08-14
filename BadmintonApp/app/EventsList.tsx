@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, SafeAreaView, Dimensions, TextInput } from 'react-native';
 import { useState, useEffect } from 'react';
 import { router } from 'expo-router';
-import { listenGroupEvents, listenUserGroupEvents, getVoteCounts, getUserVote, getUserGroups } from '../firebase/services_firestore2';
+import { listenGroupEvents, listenUserGroupEvents, getVoteCounts, getUserVote, getUserGroups, hasEventStarted } from '../firebase/services_firestore2';
 import { EventDoc, VoteStatus } from '../firebase/types_index';
 import { sharedState } from "./shared";
 import { useAuth0 } from 'react-native-auth0';
@@ -31,6 +31,33 @@ export default function EventsList() {
     if (typeof location === 'string') return location;
     if (location?._lat && location?._long) return `${location._lat.toFixed(6)}, ${location._long.toFixed(6)}`;
     return 'Location not specified';
+  };
+
+  // Check if two events overlap in time
+  const eventsOverlap = (event1: any, event2: any) => {
+    const start1 = new Date(event1.EventDate);
+    const start2 = new Date(event2.EventDate);
+    
+    // Assume events last 2 hours by default
+    const duration = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
+    const end1 = new Date(start1.getTime() + duration);
+    const end2 = new Date(start2.getTime() + duration);
+    
+    // Check if events overlap
+    return start1 < end2 && start2 < end1;
+  };
+
+  // Check if an event conflicts with user's existing 'going' votes
+  const checkEventConflict = (event: any, userGoingEvents: any[]) => {
+    for (const userEvent of userGoingEvents) {
+      if (userEvent.id !== event.id && eventsOverlap(event, userEvent)) {
+        return {
+          hasConflict: true,
+          conflictingEvent: userEvent
+        };
+      }
+    }
+    return { hasConflict: false };
   };
 
   const mapEventToUI = (event: any, voteCounts: any, userVote: any) => ({
@@ -88,6 +115,17 @@ export default function EventsList() {
 
   useEffect(() => {
     const fetchEventsWithVoteCounts = async () => {
+      // First, get all events where user has voted 'going'
+      const userGoingEvents: any[] = [];
+      for (const event of events) {
+        if (event.VotingEnabled !== false) {
+          const userVote = await getUserVote(event.id, userId);
+          if (userVote === 'going') {
+            userGoingEvents.push(event);
+          }
+        }
+      }
+
       const eventsWithCounts = await Promise.all(
         events.map(async (event) => {
           try {
@@ -101,6 +139,9 @@ export default function EventsList() {
             }
             
             const totalAttendees = event.VotingEnabled !== false ? (voteCounts.going + voteCounts.maybe + voteCounts.not) : 0;
+            
+            // Check for time conflicts (only if user is not already going to this event)
+            const conflictCheck = userVote !== 'going' ? checkEventConflict(event, userGoingEvents) : { hasConflict: false };
             
             return {
               id: event.id || event.docId || event._id,
@@ -120,7 +161,11 @@ export default function EventsList() {
               userVote: event.VotingEnabled !== false ? userVote : null,
               eventDate: event.EventDate instanceof Date ? event.EventDate : new Date(event.EventDate.seconds ? event.EventDate.seconds * 1000 : event.EventDate),
               votingEnabled: event.VotingEnabled !== false,
-            };
+                             hasTimeConflict: conflictCheck.hasConflict,
+               conflictingEvent: conflictCheck.conflictingEvent,
+               eventStarted: hasEventStarted(event.EventDate),
+               isAdmin: event.CreatorID === userId,
+             };
           } catch (error) {
             console.error('Error fetching vote counts for event:', event.id, error);
             return {
@@ -140,8 +185,12 @@ export default function EventsList() {
               isVotingOpen: event.VotingEnabled !== false && event.CutoffDate ? new Date() < (event.CutoffDate instanceof Date ? event.CutoffDate : new Date(event.CutoffDate.seconds ? event.CutoffDate.seconds * 1000 : event.CutoffDate)) : false,
               userVote: null,
               eventDate: event.EventDate instanceof Date ? event.EventDate : new Date(event.EventDate.seconds ? event.EventDate.seconds * 1000 : event.EventDate),
-              votingEnabled: event.VotingEnabled !== false,
-            };
+                             votingEnabled: event.VotingEnabled !== false,
+               hasTimeConflict: false, // Fallback - assume no conflict
+               conflictingEvent: null,
+               eventStarted: hasEventStarted(event.EventDate),
+               isAdmin: event.CreatorID === userId,
+             };
           }
         })
       );
@@ -310,6 +359,16 @@ export default function EventsList() {
                       <Text style={styles.goingBadgeText}>Going</Text>
                     </View>
                   )}
+                                     {event.hasTimeConflict && event.votingEnabled && event.userVote !== 'going' && (
+                     <View style={styles.conflictBadge}>
+                       <Text style={styles.conflictBadgeText}>⚠️ Time Conflict</Text>
+                     </View>
+                   )}
+                   {event.isAdmin && event.eventStarted && (
+                     <View style={styles.adminBadge}>
+                       <Text style={styles.adminBadgeText}>📋 Manage</Text>
+                     </View>
+                   )}
                 </View>
                 <View style={styles.groupBadge}>
                   <Text style={styles.groupBadgeText}>{event.group}</Text>
@@ -350,6 +409,14 @@ export default function EventsList() {
                   </View>
                 </View>
               </View>
+
+              {event.hasTimeConflict && event.votingEnabled && event.userVote !== 'going' && (
+                <View style={styles.conflictInfo}>
+                  <Text style={styles.conflictInfoText}>
+                    ⚠️ This event conflicts with another event you're attending
+                  </Text>
+                </View>
+              )}
 
               <View style={styles.cardFooter}>
                 <View style={styles.attendeeInfo}>
@@ -478,6 +545,41 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 10,
     fontWeight: '600',
+  },
+  conflictBadge: {
+    backgroundColor: '#ffc107',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+     conflictBadgeText: {
+     color: '#000',
+     fontSize: 10,
+     fontWeight: '600',
+   },
+   adminBadge: {
+     backgroundColor: '#28a745',
+     paddingHorizontal: 6,
+     paddingVertical: 2,
+     borderRadius: 8,
+   },
+   adminBadgeText: {
+     color: '#fff',
+     fontSize: 10,
+     fontWeight: '600',
+   },
+   conflictInfo: {
+    backgroundColor: '#fff3cd',
+    borderWidth: 1,
+    borderColor: '#ffeaa7',
+    borderRadius: 6,
+    padding: 8,
+    marginBottom: 12,
+  },
+  conflictInfoText: {
+    fontSize: 12,
+    color: '#856404',
+    textAlign: 'center',
   },
   groupBadge: {
     backgroundColor: '#007bff',

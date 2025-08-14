@@ -20,6 +20,15 @@ export interface GroupDoc {
   MeetingSchedule: string;
 }
 
+export interface AttendanceRecord {
+  userId: string;
+  userName: string;
+  userEmail: string;
+  votedStatus: 'going' | 'maybe' | 'not' | null;
+  hasArrived: boolean;
+  arrivalTime?: Date;
+}
+
 export interface EventDoc {
   id: string;
   GroupIDs?: string[]; // Array of group IDs - now optional
@@ -27,9 +36,10 @@ export interface EventDoc {
   Title: string;
   EventDate: Date;
   Location: string;
-  CutoffDate?: Date; // Voting cutoff date - now optional
-  CreatorID: string; // Auth0 sub
-  VotingEnabled?: boolean; // New field to indicate if voting is enabled
+  CutoffDate?: Date; // Optional - only if voting is enabled
+  CreatorID: string;
+  VotingEnabled?: boolean; // Optional - defaults to true
+  AttendanceRecords?: AttendanceRecord[]; // New field for attendance tracking
 }
 
 export interface VoteDoc {

@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert, Animated, SafeAreaView, Dimensions } from 'react-native';
 import { useState, useEffect, useRef } from 'react';
 import { useLocalSearchParams, router } from 'expo-router';
-import { castVote, listenVoteCounts, getEvent, getUserVote } from '../firebase/services_firestore2';
+import { castVote, listenVoteCounts, getEvent, getUserVote, hasEventStarted } from '../firebase/services_firestore2';
 import { VoteDoc, VoteStatus } from '../firebase/types_index';
 import { useAuth0 } from 'react-native-auth0';
 
@@ -21,6 +21,8 @@ export default function EventView() {
   const [voteCounts, setVoteCounts] = useState({ going: 0, maybe: 0, not: 0 });
   const [userVote, setUserVote] = useState<null | VoteStatus>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [eventStarted, setEventStarted] = useState(false);
 
   useEffect(() => {
     if (!eventId) return;
@@ -31,6 +33,10 @@ export default function EventView() {
         const data = await getEvent(eventId);
         if (data) {
           setEventData(data);
+          // Check if current user is the event creator (admin)
+          setIsAdmin(data.CreatorID === userId);
+          // Check if event has started
+          setEventStarted(hasEventStarted(data.EventDate));
         } else {
           // Handle case where event doesn't exist
           Alert.alert('Error', 'Event not found');
@@ -145,9 +151,15 @@ export default function EventView() {
         Animated.timing(scaleAnim, { toValue: 1.2, duration: 150, useNativeDriver: true }),
         Animated.timing(scaleAnim, { toValue: 1, duration: 150, useNativeDriver: true })
       ]).start();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error casting vote:', error);
-      Alert.alert('Error', 'Failed to cast vote. Please try again.');
+      
+      // Check if it's a time conflict error
+      if (error.message && error.message.includes('conflicts with')) {
+        Alert.alert('Time Conflict', error.message);
+      } else {
+        Alert.alert('Error', 'Failed to cast vote. Please try again.');
+      }
     }
   };
 
@@ -323,13 +335,30 @@ export default function EventView() {
         )}
       </View>
 
-      {/* Vote Summary Section - Only show if voting is enabled */}
-      {eventData?.VotingEnabled !== false && (
-        <View style={styles.card}>
-          <View style={styles.attendeesHeader}>
-            <Text style={styles.sectionTitle}>Vote Summary</Text>
-            <Text style={styles.attendeeCount}>{getTotalResponses()} total responses</Text>
-          </View>
+             {/* Admin Attendance Section - Only show for admin when event has started */}
+       {isAdmin && eventStarted && (
+         <View style={styles.card}>
+           <Text style={styles.sectionTitle}>Event Management</Text>
+           <TouchableOpacity
+             style={styles.attendanceButton}
+             onPress={() => router.push({
+               pathname: '/EventAttendance',
+               params: { eventId: eventId }
+             })}
+           >
+             <Text style={styles.attendanceButtonText}>📋 Manage Attendance</Text>
+             <Text style={styles.attendanceButtonSubtext}>Mark who has arrived at the event</Text>
+           </TouchableOpacity>
+         </View>
+       )}
+
+       {/* Vote Summary Section - Only show if voting is enabled */}
+       {eventData?.VotingEnabled !== false && (
+         <View style={styles.card}>
+           <View style={styles.attendeesHeader}>
+             <Text style={styles.sectionTitle}>Vote Summary</Text>
+             <Text style={styles.attendeeCount}>{getTotalResponses()} total responses</Text>
+           </View>
           
           <View style={styles.attendeeFilters}>
             <TouchableOpacity 
@@ -672,9 +701,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 60,
   },
-  loadingText: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-  },
-}); 
+     loadingText: {
+     fontSize: 16,
+     color: '#666',
+     textAlign: 'center',
+   },
+   attendanceButton: {
+     backgroundColor: '#28a745',
+     borderRadius: 8,
+     padding: 16,
+     alignItems: 'center',
+     marginTop: 8,
+   },
+   attendanceButtonText: {
+     fontSize: 16,
+     fontWeight: 'bold',
+     color: '#fff',
+     marginBottom: 4,
+   },
+   attendanceButtonSubtext: {
+     fontSize: 14,
+     color: '#e8f5e8',
+   },
+ }); 

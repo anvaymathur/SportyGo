@@ -22,6 +22,7 @@ export default function RootLayout() {
                 <Stack.Screen name="EventsList"/>
                 <Stack.Screen name="EventView"/>
                 <Stack.Screen name="CreateGameSession"/>
+                <Stack.Screen name="EventAttendance"/>
               </Stack>
             </Theme>
           </TamaguiProvider>
