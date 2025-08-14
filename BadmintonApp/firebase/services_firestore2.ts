@@ -270,10 +270,12 @@ export function listenGroupEvents(groupId: string, callback: (events: EventDoc[]
     const result: EventDoc[] = [];
     snap.forEach(doc => {
       const evt = doc.data();
-      if (evt.GroupID === groupId) {
+      // Check if the event has the group in its GroupIDs array
+      if (evt.GroupIDs && evt.GroupIDs.includes(groupId)) {
         result.push({ 
           id: doc.id, 
-          GroupID: evt.GroupID,
+          GroupIDs: evt.GroupIDs,
+          IndividualParticipantIDs: evt.IndividualParticipantIDs,
           Title: evt.Title,
           EventDate: evt.EventDate,
           Location: evt.Location,
@@ -293,10 +295,15 @@ export function listenUserGroupEvents(userGroupIds: string[], callback: (events:
     const result: EventDoc[] = [];
     snap.forEach(doc => {
       const evt = doc.data();
-      if (userGroupIds.includes(evt.GroupID)) {
+      // Check if user is in any of the groups OR is an individual participant
+      const isInGroup = evt.GroupIDs && evt.GroupIDs.some((groupId: string) => userGroupIds.includes(groupId));
+      const isIndividualParticipant = evt.IndividualParticipantIDs && evt.IndividualParticipantIDs.some((userId: string) => userGroupIds.includes(userId));
+      
+      if (isInGroup || isIndividualParticipant) {
         result.push({ 
           id: doc.id, 
-          GroupID: evt.GroupID,
+          GroupIDs: evt.GroupIDs,
+          IndividualParticipantIDs: evt.IndividualParticipantIDs,
           Title: evt.Title,
           EventDate: evt.EventDate,
           Location: evt.Location,

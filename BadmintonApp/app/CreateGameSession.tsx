@@ -3,8 +3,8 @@ import { Alert, Platform } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { router } from 'expo-router';
-import { createEvent, getGroups } from '../firebase/services_firestore2';
-import { GroupDoc } from '../firebase/types_index';
+import { createEvent, getGroups, getAllUserProfiles } from '../firebase/services_firestore2';
+import { GroupDoc, UserDoc } from '../firebase/types_index';
 import { useAuth0 } from 'react-native-auth0';
 import { Theme, YStack, XStack, ScrollView, Button, Input, Label, Paragraph, H2, Text, Card } from 'tamagui';
 
@@ -14,7 +14,8 @@ import { Theme, YStack, XStack, ScrollView, Button, Input, Label, Paragraph, H2,
   gameTime?: string;
   location?: string;
   votingCutoff?: string;
-  group?: string;
+  groups?: string;
+  participants?: string;
 };
 
 export default function CreateGameSession() {
@@ -39,11 +40,15 @@ export default function CreateGameSession() {
   const [votingEnabled, setVotingEnabled] = useState(true);
   const [votingCutoff, setVotingCutoff] = useState(today);
   const [showVotingCutoff, setShowVotingCutoff] = useState(false);
-  const [group, setGroup] = useState('');
+  const [selectedGroup, setSelectedGroup] = useState('');
+  const [selectedParticipants, setSelectedParticipants] = useState<string[]>([]);
+  const [userSearchQuery, setUserSearchQuery] = useState('');
 
-  // State for groups
+  // State for groups and users
   const [groups, setGroups] = useState<GroupDoc[]>([]);
+  const [users, setUsers] = useState<UserDoc[]>([]);
   const [loadingGroups, setLoadingGroups] = useState(true);
+  const [loadingUsers, setLoadingUsers] = useState(true);
 
   // State for errors
   const [errors, setErrors] = useState<FormErrors>({});
@@ -51,21 +56,29 @@ export default function CreateGameSession() {
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Fetch groups on component mount
+  // Fetch groups and users on component mount
   useEffect(() => {
-    const fetchGroups = async () => {
+    const fetchData = async () => {
       try {
         setLoadingGroups(true);
-        const fetchedGroups = await getGroups();
+        setLoadingUsers(true);
+        
+        const [fetchedGroups, fetchedUsers] = await Promise.all([
+          getGroups(),
+          getAllUserProfiles()
+        ]);
+        
         setGroups(fetchedGroups);
+        setUsers(fetchedUsers);
       } catch (error) {
-        Alert.alert('Error', 'Failed to load groups.');
+        Alert.alert('Error', 'Failed to load groups and users.');
       } finally {
         setLoadingGroups(false);
+        setLoadingUsers(false);
       }
     };
 
-    fetchGroups();
+    fetchData();
   }, []);
 
   // Validation helpers
@@ -91,9 +104,13 @@ export default function CreateGameSession() {
         newErrors.votingCutoff = 'Voting cutoff must be before or on the game date';
       }
     }
-    if (!group) {
-      newErrors.group = 'Group is required';
+    
+    // Check minimum participants requirement
+    const totalParticipants = (selectedGroup ? 1 : 0) + selectedParticipants.length;
+    if (totalParticipants < 2) {
+      newErrors.participants = 'You need at least 2 participants total (group and/or individuals)';
     }
+    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -120,7 +137,8 @@ export default function CreateGameSession() {
       // Build EventDoc object
       const event = {
         id: '', // Firestore will generate the ID
-        GroupID: group,
+        GroupIDs: selectedGroup ? [selectedGroup] : undefined,
+        IndividualParticipantIDs: selectedParticipants.length > 0 ? selectedParticipants : undefined,
         Title: title.trim(),
         EventDate: new Date(
           gameDate.getFullYear(),
@@ -157,7 +175,9 @@ export default function CreateGameSession() {
     setLocation('');
     setVotingEnabled(true);
     setVotingCutoff(today);
-    setGroup('');
+    setSelectedGroup('');
+    setSelectedParticipants([]);
+    setUserSearchQuery('');
     setErrors({});
     setSuccess(false);
     setLoading(false);
@@ -169,6 +189,28 @@ export default function CreateGameSession() {
 
   const handleViewSessions = () => {
     router.push('/EventsList');
+  };
+
+  const toggleParticipant = (userId: string) => {
+    setSelectedParticipants(prev => 
+      prev.includes(userId) 
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    );
+  };
+
+  const getSelectedParticipantNames = () => {
+    return selectedParticipants.map(userId => 
+      users.find(u => u.id === userId)?.Name || 'Unknown User'
+    );
+  };
+
+  const getFilteredUsers = () => {
+    if (!userSearchQuery.trim()) return users;
+    return users.filter(user => 
+      user.Name.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+      user.Email.toLowerCase().includes(userSearchQuery.toLowerCase())
+    );
   };
 
   const FieldError = ({ message }: { message?: string }) =>
@@ -359,20 +401,91 @@ export default function CreateGameSession() {
                     </FormGroup>
                   )}
 
-                  {/* Group */}
+                  {/* Group Selection */}
                   <FormGroup>
                     <Label style={{ fontSize: 16, fontWeight: '500' }} mb={6}>
-                      Group
+                      Group (Optional)
                     </Label>
                     <YStack borderWidth={1} borderColor="$borderColor" overflow="hidden" bg="$color1">
-                      <Picker selectedValue={group} onValueChange={setGroup} enabled={!loadingGroups}>
-                        <Picker.Item label={loadingGroups ? 'Loading groups...' : 'Select a group'} value="" />
+                      <Picker selectedValue={selectedGroup} onValueChange={setSelectedGroup} enabled={!loadingGroups}>
+                        <Picker.Item label={loadingGroups ? 'Loading groups...' : 'Select a group (optional)'} value="" />
                         {groups.map((g) => (
                           <Picker.Item key={g.id} label={g.Name} value={g.id} />
                         ))}
                       </Picker>
                     </YStack>
-                    <FieldError message={errors.group} />
+                  </FormGroup>
+
+                  {/* Individual Participants Selection */}
+                  <FormGroup>
+                    <Label style={{ fontSize: 16, fontWeight: '500' }} mb={6}>
+                      Individual Participants (Optional)
+                    </Label>
+                    <Input
+                      placeholder="Search users..."
+                      value={userSearchQuery}
+                      onChangeText={setUserSearchQuery}
+                      mb={8}
+                      bg="$color1"
+                    />
+                    <YStack space={8} style={{ maxHeight: 200 }}>
+                      <ScrollView>
+                        {getFilteredUsers().map((user) => (
+                          <Button
+                            key={user.id}
+                            onPress={() => toggleParticipant(user.id)}
+                            bg={selectedParticipants.includes(user.id) ? '$color9' : '$color3'}
+                            color={selectedParticipants.includes(user.id) ? '$color1' : '$color'}
+                            disabled={loadingUsers}
+                          >
+                            {user.Name} ({user.Email})
+                          </Button>
+                        ))}
+                        {getFilteredUsers().length === 0 && !loadingUsers && (
+                          <Text color="$color10" style={{ fontSize: 14 }}>
+                            No users available
+                          </Text>
+                        )}
+                        {loadingUsers && (
+                          <Text color="$color10" style={{ fontSize: 14 }}>
+                            Loading users...
+                          </Text>
+                        )}
+                      </ScrollView>
+                    </YStack>
+                    {selectedParticipants.length > 0 && (
+                      <YStack mt={8}>
+                        <Text style={{ fontSize: 14, fontWeight: '500' }} mb={4}>
+                          Selected Participants:
+                        </Text>
+                        {getSelectedParticipantNames().map((name, index) => (
+                          <Text key={index} style={{ fontSize: 12, color: '$color9' }}>
+                            • {name}
+                          </Text>
+                        ))}
+                      </YStack>
+                    )}
+                    <FieldError message={errors.participants} />
+                  </FormGroup>
+
+                  {/* Participants Summary */}
+                  <FormGroup>
+                    <Label style={{ fontSize: 16, fontWeight: '500' }} mb={6}>
+                      Participants Summary
+                    </Label>
+                    <YStack p={12} bg="$color3" style={{ borderRadius: 8 }}>
+                      <Text style={{ fontSize: 14, fontWeight: '500' }} mb={4}>
+                        Total Participants: {(selectedGroup ? 1 : 0) + selectedParticipants.length}
+                      </Text>
+                      <Text style={{ fontSize: 12, color: '$color10' }}>
+                        Group: {selectedGroup ? 'Yes' : 'No'} | Individuals: {selectedParticipants.length}
+                      </Text>
+                      {(selectedGroup ? 1 : 0) + selectedParticipants.length < 2 && (
+                        <Text style={{ fontSize: 12, color: '#EF4444', marginTop: 4 }}>
+                          ⚠️ Minimum 2 participants required
+                        </Text>
+                      )}
+                    </YStack>
                   </FormGroup>
 
                   {/* Actions */}

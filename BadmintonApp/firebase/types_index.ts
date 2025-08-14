@@ -22,7 +22,8 @@ export interface GroupDoc {
 
 export interface EventDoc {
   id: string;
-  GroupID: string;
+  GroupIDs?: string[]; // Array of group IDs - now optional
+  IndividualParticipantIDs?: string[]; // Array of individual user IDs - new field
   Title: string;
   EventDate: Date;
   Location: string;

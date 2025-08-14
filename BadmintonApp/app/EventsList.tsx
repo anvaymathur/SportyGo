@@ -39,7 +39,8 @@ export default function EventsList() {
     date: formatDate(event.EventDate),
     time: formatTime(event.EventDate),
     location: formatLocation(event.Location),
-    group: event.GroupID || 'Unknown Group',
+    group: event.GroupIDs && event.GroupIDs.length > 0 ? 'Group selected' : 'No group',
+    individualParticipants: event.IndividualParticipantIDs ? event.IndividualParticipantIDs.length : 0,
     description: event.Title,
     attendeeCount: event.VotingEnabled !== false ? (voteCounts.going + voteCounts.maybe + voteCounts.not) : 0,
     votingCutoff: event.CutoffDate ? formatDate(event.CutoffDate) : 'No voting',
@@ -110,7 +111,8 @@ export default function EventsList() {
                         (event.Location && typeof event.Location === 'object' && event.Location._lat && event.Location._long) 
                           ? `${event.Location._lat.toFixed(6)}, ${event.Location._long.toFixed(6)}` 
                           : 'Location not specified',
-              group: event.GroupID || 'Unknown Group',
+              group: event.GroupIDs && event.GroupIDs.length > 0 ? 'Group selected' : 'No group',
+              individualParticipants: event.IndividualParticipantIDs ? event.IndividualParticipantIDs.length : 0,
               description: event.Title,
               attendeeCount: totalAttendees,
               votingCutoff: event.CutoffDate ? (event.CutoffDate instanceof Date ? event.CutoffDate.toDateString() : new Date(event.CutoffDate.seconds ? event.CutoffDate.seconds * 1000 : event.CutoffDate).toDateString()) : 'No voting',
@@ -130,7 +132,8 @@ export default function EventsList() {
                         (event.Location && typeof event.Location === 'object' && event.Location._lat && event.Location._long) 
                           ? `${event.Location._lat.toFixed(6)}, ${event.Location._long.toFixed(6)}` 
                           : 'Location not specified',
-              group: event.GroupID || 'Unknown Group',
+              group: event.GroupIDs && event.GroupIDs.length > 0 ? 'Group selected' : 'No group',
+              individualParticipants: event.IndividualParticipantIDs ? event.IndividualParticipantIDs.length : 0,
               description: event.Title,
               attendeeCount: 0, // Fallback if vote counts fail
               votingCutoff: event.CutoffDate ? (event.CutoffDate instanceof Date ? event.CutoffDate.toDateString() : new Date(event.CutoffDate.seconds ? event.CutoffDate.seconds * 1000 : event.CutoffDate).toDateString()) : 'No voting',
@@ -330,6 +333,20 @@ export default function EventsList() {
                   <View style={styles.detailContent}>
                     <Text style={styles.detailLabel}>Location</Text>
                     <Text style={styles.detailValue}>{event.location}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailIcon}>👥</Text>
+                  <View style={styles.detailContent}>
+                    <Text style={styles.detailLabel}>Participants</Text>
+                    <Text style={styles.detailValue}>
+                      {event.group !== 'No group' ? event.group : ''}
+                      {event.individualParticipants > 0 ? 
+                        `${event.group !== 'No group' ? ', ' : ''}${event.individualParticipants} individuals` : 
+                        event.group === 'No group' ? 'No participants' : ''
+                      }
+                    </Text>
                   </View>
                 </View>
               </View>
