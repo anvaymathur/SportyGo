@@ -80,7 +80,11 @@ export default function EventView() {
 
   // Countdown timer effect
   useEffect(() => {
-    if (!eventData?.CutoffDate) return;
+    if (!eventData?.CutoffDate || eventData?.VotingEnabled === false) {
+      setIsVotingOpen(false);
+      setCountdown('No voting');
+      return;
+    }
     
     const votingCutoff = new Date(eventData.CutoffDate.toDate ? eventData.CutoffDate.toDate() : eventData.CutoffDate);
     
@@ -118,6 +122,11 @@ export default function EventView() {
   }, [eventData]);
 
   const handleVote = async (vote: VoteStatus) => {
+    if (!eventData?.VotingEnabled) {
+      Alert.alert('Voting Disabled', 'Voting is not enabled for this event.');
+      return;
+    }
+    
     if (!isVotingOpen) {
       Alert.alert('Voting Closed', 'Voting has closed for this event.');
       return;
@@ -227,18 +236,23 @@ export default function EventView() {
           <View style={styles.eventDetail}>
             <Text style={styles.eventDetailIcon}>⏰</Text>
             <View style={styles.eventDetailContent}>
-              <Text style={styles.eventDetailLabel}>Voting Closes</Text>
+              <Text style={styles.eventDetailLabel}>
+                {eventData?.VotingEnabled === false ? 'Voting Status' : 'Voting Closes'}
+              </Text>
               <Text style={styles.eventDetailValue}>
-                {eventData?.CutoffDate ? 
-                  (eventData.CutoffDate instanceof Date ? 
-                    eventData.CutoffDate.toDateString() : 
-                    new Date(eventData.CutoffDate.seconds ? eventData.CutoffDate.seconds * 1000 : eventData.CutoffDate).toDateString()
-                  ) : 'Date not set'
+                {eventData?.VotingEnabled === false ? 'Voting Disabled' :
+                  eventData?.CutoffDate ? 
+                    (eventData.CutoffDate instanceof Date ? 
+                      eventData.CutoffDate.toDateString() : 
+                      new Date(eventData.CutoffDate.seconds ? eventData.CutoffDate.seconds * 1000 : eventData.CutoffDate).toDateString()
+                    ) : 'Date not set'
                 }
               </Text>
-              <Text style={[styles.eventDetailCountdown, !isVotingOpen && styles.countdownClosed]}>
-                {countdown}
-              </Text>
+              {eventData?.VotingEnabled !== false && (
+                <Text style={[styles.eventDetailCountdown, !isVotingOpen && styles.countdownClosed]}>
+                  {countdown}
+                </Text>
+              )}
             </View>
           </View>
         </View>
@@ -246,105 +260,121 @@ export default function EventView() {
       {/* Voting Section */}
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>Will you be attending?</Text>
-        <View style={styles.votingStatus}>
-          <Text style={[styles.status, isVotingOpen ? styles.statusSuccess : styles.statusError]}>
-            {isVotingOpen ? 'Voting Open' : 'Voting Closed'}
-          </Text>
-        </View>
         
-        <View style={styles.votingButtons}>
-          <TouchableOpacity 
-            style={[styles.voteBtn, styles.voteBtnGoing, userVote === 'going' && styles.voteBtnActive]}
-            onPress={() => handleVote('going')}
-            disabled={!isVotingOpen}
-          >
-            <Text style={styles.voteBtnIcon}>✓</Text>
-            <Text style={styles.voteBtnLabel}>Going</Text>
-            <Animated.Text style={[styles.voteBtnCount, { transform: [{ scale: scaleAnim }] }]}>
-              {voteCounts.going}
-            </Animated.Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.voteBtn, styles.voteBtnMaybe, userVote === 'maybe' && styles.voteBtnActive]}
-            onPress={() => handleVote('maybe')}
-            disabled={!isVotingOpen}
-          >
-            <Text style={styles.voteBtnIcon}>?</Text>
-            <Text style={styles.voteBtnLabel}>Maybe</Text>
-            <Animated.Text style={[styles.voteBtnCount, { transform: [{ scale: scaleAnim }] }]}>
-              {voteCounts.maybe}
-            </Animated.Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.voteBtn, styles.voteBtnNotGoing, userVote === 'not' && styles.voteBtnActive]}
-            onPress={() => handleVote('not')}
-            disabled={!isVotingOpen}
-          >
-            <Text style={styles.voteBtnIcon}>✗</Text>
-            <Text style={styles.voteBtnLabel}>Not Going</Text>
-            <Animated.Text style={[styles.voteBtnCount, { transform: [{ scale: scaleAnim }] }]}>
-              {voteCounts.not}
-            </Animated.Text>
-          </TouchableOpacity>
-        </View>
-        
-        <View style={styles.userVoteStatus}>
-          <Text style={styles.userVoteText}>{userVoteStatus}</Text>
-        </View>
+        {eventData?.VotingEnabled === false ? (
+          <View style={styles.votingStatus}>
+            <Text style={[styles.status, styles.statusError]}>
+              Voting Disabled
+            </Text>
+            <Text style={[styles.eventDetailSub, { marginTop: 8 }]}>
+              This event does not have voting enabled. Contact the event organizer for more information.
+            </Text>
+          </View>
+        ) : (
+          <>
+            <View style={styles.votingStatus}>
+              <Text style={[styles.status, isVotingOpen ? styles.statusSuccess : styles.statusError]}>
+                {isVotingOpen ? 'Voting Open' : 'Voting Closed'}
+              </Text>
+            </View>
+            
+            <View style={styles.votingButtons}>
+              <TouchableOpacity 
+                style={[styles.voteBtn, styles.voteBtnGoing, userVote === 'going' && styles.voteBtnActive]}
+                onPress={() => handleVote('going')}
+                disabled={!isVotingOpen}
+              >
+                <Text style={styles.voteBtnIcon}>✓</Text>
+                <Text style={styles.voteBtnLabel}>Going</Text>
+                <Animated.Text style={[styles.voteBtnCount, { transform: [{ scale: scaleAnim }] }]}>
+                  {voteCounts.going}
+                </Animated.Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.voteBtn, styles.voteBtnMaybe, userVote === 'maybe' && styles.voteBtnActive]}
+                onPress={() => handleVote('maybe')}
+                disabled={!isVotingOpen}
+              >
+                <Text style={styles.voteBtnIcon}>?</Text>
+                <Text style={styles.voteBtnLabel}>Maybe</Text>
+                <Animated.Text style={[styles.voteBtnCount, { transform: [{ scale: scaleAnim }] }]}>
+                  {voteCounts.maybe}
+                </Animated.Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.voteBtn, styles.voteBtnNotGoing, userVote === 'not' && styles.voteBtnActive]}
+                onPress={() => handleVote('not')}
+                disabled={!isVotingOpen}
+              >
+                <Text style={styles.voteBtnIcon}>✗</Text>
+                <Text style={styles.voteBtnLabel}>Not Going</Text>
+                <Animated.Text style={[styles.voteBtnCount, { transform: [{ scale: scaleAnim }] }]}>
+                  {voteCounts.not}
+                </Animated.Text>
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.userVoteStatus}>
+              <Text style={styles.userVoteText}>{userVoteStatus}</Text>
+            </View>
+          </>
+        )}
       </View>
 
-      {/* Vote Summary Section */}
-      <View style={styles.card}>
-        <View style={styles.attendeesHeader}>
-          <Text style={styles.sectionTitle}>Vote Summary</Text>
-          <Text style={styles.attendeeCount}>{getTotalResponses()} total responses</Text>
-        </View>
-        
-        <View style={styles.attendeeFilters}>
-          <TouchableOpacity 
-            style={[styles.filterBtn, currentFilter === 'all' && styles.filterBtnActive]}
-            onPress={() => setCurrentFilter('all')}
-          >
-            <Text style={styles.filterBtnText}>All</Text>
-            <Text style={styles.filterCount}>{getTotalResponses()}</Text>
-          </TouchableOpacity>
+      {/* Vote Summary Section - Only show if voting is enabled */}
+      {eventData?.VotingEnabled !== false && (
+        <View style={styles.card}>
+          <View style={styles.attendeesHeader}>
+            <Text style={styles.sectionTitle}>Vote Summary</Text>
+            <Text style={styles.attendeeCount}>{getTotalResponses()} total responses</Text>
+          </View>
           
-          <TouchableOpacity 
-            style={[styles.filterBtn, currentFilter === 'going' && styles.filterBtnActive]}
-            onPress={() => setCurrentFilter('going')}
-          >
-            <Text style={styles.filterBtnText}>Going</Text>
-            <Text style={styles.filterCount}>{voteCounts.going}</Text>
-          </TouchableOpacity>
+          <View style={styles.attendeeFilters}>
+            <TouchableOpacity 
+              style={[styles.filterBtn, currentFilter === 'all' && styles.filterBtnActive]}
+              onPress={() => setCurrentFilter('all')}
+            >
+              <Text style={styles.filterBtnText}>All</Text>
+              <Text style={styles.filterCount}>{getTotalResponses()}</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.filterBtn, currentFilter === 'going' && styles.filterBtnActive]}
+              onPress={() => setCurrentFilter('going')}
+            >
+              <Text style={styles.filterBtnText}>Going</Text>
+              <Text style={styles.filterCount}>{voteCounts.going}</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.filterBtn, currentFilter === 'maybe' && styles.filterBtnActive]}
+              onPress={() => setCurrentFilter('maybe')}
+            >
+              <Text style={styles.filterBtnText}>Maybe</Text>
+              <Text style={styles.filterCount}>{voteCounts.maybe}</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.filterBtn, currentFilter === 'not' && styles.filterBtnActive]}
+              onPress={() => setCurrentFilter('not')}
+            >
+              <Text style={styles.filterBtnText}>Not Going</Text>
+              <Text style={styles.filterCount}>{voteCounts.not}</Text>
+            </TouchableOpacity>
+          </View>
           
-          <TouchableOpacity 
-            style={[styles.filterBtn, currentFilter === 'maybe' && styles.filterBtnActive]}
-            onPress={() => setCurrentFilter('maybe')}
-          >
-            <Text style={styles.filterBtnText}>Maybe</Text>
-            <Text style={styles.filterCount}>{voteCounts.maybe}</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.filterBtn, currentFilter === 'not' && styles.filterBtnActive]}
-            onPress={() => setCurrentFilter('not')}
-          >
-            <Text style={styles.filterBtnText}>Not Going</Text>
-            <Text style={styles.filterCount}>{voteCounts.not}</Text>
-          </TouchableOpacity>
+          <View style={styles.voteSummary}>
+            <Text style={styles.summaryText}>
+              {currentFilter === 'all' 
+                ? `Total responses: ${getTotalResponses()}`
+                : `${currentFilter.charAt(0).toUpperCase() + currentFilter.slice(1)}: ${getFilteredCount()}`
+              }
+            </Text>
+          </View>
         </View>
-        
-        <View style={styles.voteSummary}>
-          <Text style={styles.summaryText}>
-            {currentFilter === 'all' 
-              ? `Total responses: ${getTotalResponses()}`
-              : `${currentFilter.charAt(0).toUpperCase() + currentFilter.slice(1)}: ${getFilteredCount()}`
-            }
-          </Text>
-        </View>
-      </View>
+      )}
       </ScrollView>
     </SafeAreaView>
   );

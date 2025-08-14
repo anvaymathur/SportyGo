@@ -126,11 +126,13 @@ export async function createEvent(event: EventDoc) {
   };
   batch.set(eventRef, eventWithId);
 
-  // Pre-seed vote shards
-  for (let i = 0; i < NUM_SHARDS; i++) {
-    batch.set(doc(collection(eventRef, "voteShards"), i.toString()), {
-      going: 0, maybe: 0, not: 0
-    });
+  // Pre-seed vote shards only if voting is enabled
+  if (event.VotingEnabled !== false) {
+    for (let i = 0; i < NUM_SHARDS; i++) {
+      batch.set(doc(collection(eventRef, "voteShards"), i.toString()), {
+        going: 0, maybe: 0, not: 0
+      });
+    }
   }
   await batch.commit();
   return eventRef.id;
@@ -151,6 +153,19 @@ export async function getEvent(eventId: string) {
 
 // --- SHARDED VOTE SYSTEM ---
 export async function castVote(eventId: string, status: keyof VoteShard, userId: string = 'default-user') {
+  // First check if voting is enabled for this event
+  const eventRef = doc(db, "events", eventId);
+  const eventSnap = await getDoc(eventRef);
+  
+  if (!eventSnap.exists()) {
+    throw new Error('Event not found');
+  }
+  
+  const eventData = eventSnap.data();
+  if (eventData.VotingEnabled === false) {
+    throw new Error('Voting is not enabled for this event');
+  }
+
   // Check if user has already voted
   const userVoteRef = doc(db, "events", eventId, "userVotes", userId);
   const userVoteSnap = await getDoc(userVoteRef);
@@ -222,19 +237,29 @@ export function listenVoteCounts(
       totals.not += v.not || 0;
     });
     callback(totals);
+  }, (error) => {
+    // If vote shards don't exist (e.g., voting disabled), return zeros
+    console.log('No vote shards found for event:', eventId);
+    callback({ going: 0, maybe: 0, not: 0 });
   });
 }
 
 export async function getVoteCounts(eventId: string): Promise<VoteShard> {
-  const snapshot = await getDocs(collection(db, "events", eventId, "voteShards"));
-  const totals = { going: 0, maybe: 0, not: 0 };
-  snapshot.forEach(doc => {
-    const v = doc.data() as VoteShard;
-    totals.going += v.going || 0;
-    totals.maybe += v.maybe || 0;
-    totals.not += v.not || 0;
-  });
-  return totals;
+  try {
+    const snapshot = await getDocs(collection(db, "events", eventId, "voteShards"));
+    const totals = { going: 0, maybe: 0, not: 0 };
+    snapshot.forEach(doc => {
+      const v = doc.data() as VoteShard;
+      totals.going += v.going || 0;
+      totals.maybe += v.maybe || 0;
+      totals.not += v.not || 0;
+    });
+    return totals;
+  } catch (error) {
+    // If vote shards don't exist (e.g., voting disabled), return zeros
+    console.log('No vote shards found for event:', eventId);
+    return { going: 0, maybe: 0, not: 0 };
+  }
 }
 
 
@@ -253,7 +278,8 @@ export function listenGroupEvents(groupId: string, callback: (events: EventDoc[]
           EventDate: evt.EventDate,
           Location: evt.Location,
           CutoffDate: evt.CutoffDate,
-          CreatorID: evt.CreatorID
+          CreatorID: evt.CreatorID,
+          VotingEnabled: evt.VotingEnabled
         } as EventDoc);
       }
     });
@@ -275,7 +301,8 @@ export function listenUserGroupEvents(userGroupIds: string[], callback: (events:
           EventDate: evt.EventDate,
           Location: evt.Location,
           CutoffDate: evt.CutoffDate,
-          CreatorID: evt.CreatorID
+          CreatorID: evt.CreatorID,
+          VotingEnabled: evt.VotingEnabled
         } as EventDoc);
       }
     });

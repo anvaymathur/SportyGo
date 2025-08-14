@@ -36,6 +36,7 @@ export default function CreateGameSession() {
   const [gameTime, setGameTime] = useState(new Date());
   const [showGameTime, setShowGameTime] = useState(false);
   const [location, setLocation] = useState('');
+  const [votingEnabled, setVotingEnabled] = useState(true);
   const [votingCutoff, setVotingCutoff] = useState(today);
   const [showVotingCutoff, setShowVotingCutoff] = useState(false);
   const [group, setGroup] = useState('');
@@ -82,11 +83,13 @@ export default function CreateGameSession() {
     if (!location || location.trim().length < 3) {
       newErrors.location = 'Location must be at least 3 characters';
     }
-    if (!votingCutoff || votingCutoff < new Date(today.setHours(0, 0, 0, 0))) {
-      newErrors.votingCutoff = 'Voting cutoff cannot be in the past';
-    }
-    if (votingCutoff > gameDate) {
-      newErrors.votingCutoff = 'Voting cutoff must be before or on the game date';
+    if (votingEnabled) {
+      if (!votingCutoff || votingCutoff < new Date(today.setHours(0, 0, 0, 0))) {
+        newErrors.votingCutoff = 'Voting cutoff cannot be in the past';
+      }
+      if (votingCutoff > gameDate) {
+        newErrors.votingCutoff = 'Voting cutoff must be before or on the game date';
+      }
     }
     if (!group) {
       newErrors.group = 'Group is required';
@@ -127,8 +130,9 @@ export default function CreateGameSession() {
           gameTime.getMinutes()
         ),
         Location: location,
-        CutoffDate: votingCutoff,
+        CutoffDate: votingEnabled ? votingCutoff : undefined,
         CreatorID: userId,
+        VotingEnabled: votingEnabled,
       };
       await createEvent(event);
       setLoading(false);
@@ -151,6 +155,7 @@ export default function CreateGameSession() {
     setGameDate(tomorrow);
     setGameTime(new Date());
     setLocation('');
+    setVotingEnabled(true);
     setVotingCutoff(today);
     setGroup('');
     setErrors({});
@@ -302,25 +307,57 @@ export default function CreateGameSession() {
                     <FieldError message={errors.location} />
                   </FormGroup>
 
-                  {/* Voting Cutoff */}
+                  {/* Voting Toggle */}
                   <FormGroup>
                     <Label style={{ fontSize: 16, fontWeight: '500' }} mb={6}>
-                      Voting closes on:
+                      Enable Voting
                     </Label>
-                    <InputLikeButton onPress={() => setShowVotingCutoff(true)}>
-                      {votingCutoff ? votingCutoff.toISOString().split('T')[0] : 'Select date'}
-                    </InputLikeButton>
-                    {showVotingCutoff && (
-                      <DateTimePicker
-                        value={votingCutoff}
-                        mode="date"
-                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                        minimumDate={today}
-                        onChange={onChangeVotingCutoff}
-                      />
-                    )}
-                    <FieldError message={errors.votingCutoff} />
+                    <XStack verticalAlign="center" space={12}>
+                      <Button
+                        size="$3"
+                        bg={votingEnabled ? '$color9' : '$color3'}
+                        color={votingEnabled ? '$color1' : '$color'}
+                        onPress={() => setVotingEnabled(true)}
+                        disabled={loading}
+                      >
+                        Yes
+                      </Button>
+                      <Button
+                        size="$3"
+                        bg={!votingEnabled ? '$color9' : '$color3'}
+                        color={!votingEnabled ? '$color1' : '$color'}
+                        onPress={() => setVotingEnabled(false)}
+                        disabled={loading}
+                      >
+                        No
+                      </Button>
+                    </XStack>
+                    <Paragraph style={{ fontSize: 14, color: '$color10', marginTop: 4 }}>
+                      Allow participants to vote on attendance
+                    </Paragraph>
                   </FormGroup>
+
+                  {/* Voting Cutoff - Only show if voting is enabled */}
+                  {votingEnabled && (
+                    <FormGroup>
+                      <Label style={{ fontSize: 16, fontWeight: '500' }} mb={6}>
+                        Voting closes on:
+                      </Label>
+                      <InputLikeButton onPress={() => setShowVotingCutoff(true)}>
+                        {votingCutoff ? votingCutoff.toISOString().split('T')[0] : 'Select date'}
+                      </InputLikeButton>
+                      {showVotingCutoff && (
+                        <DateTimePicker
+                          value={votingCutoff}
+                          mode="date"
+                          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                          minimumDate={today}
+                          onChange={onChangeVotingCutoff}
+                        />
+                      )}
+                      <FieldError message={errors.votingCutoff} />
+                    </FormGroup>
+                  )}
 
                   {/* Group */}
                   <FormGroup>

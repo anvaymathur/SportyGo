@@ -41,11 +41,12 @@ export default function EventsList() {
     location: formatLocation(event.Location),
     group: event.GroupID || 'Unknown Group',
     description: event.Title,
-    attendeeCount: voteCounts.going + voteCounts.maybe + voteCounts.not,
-    votingCutoff: formatDate(event.CutoffDate),
-    isVotingOpen: new Date() < parseFirestoreDate(event.CutoffDate),
-    userVote,
+    attendeeCount: event.VotingEnabled !== false ? (voteCounts.going + voteCounts.maybe + voteCounts.not) : 0,
+    votingCutoff: event.CutoffDate ? formatDate(event.CutoffDate) : 'No voting',
+    isVotingOpen: event.VotingEnabled !== false && event.CutoffDate ? new Date() < parseFirestoreDate(event.CutoffDate) : false,
+    userVote: event.VotingEnabled !== false ? userVote : null,
     eventDate: parseFirestoreDate(event.EventDate),
+    votingEnabled: event.VotingEnabled !== false,
   });
 
   // Fetch user's groups
@@ -89,9 +90,16 @@ export default function EventsList() {
       const eventsWithCounts = await Promise.all(
         events.map(async (event) => {
           try {
-            const voteCounts = await getVoteCounts(event.id);
-            const userVote = await getUserVote(event.id, userId);
-            const totalAttendees = voteCounts.going + voteCounts.maybe + voteCounts.not;
+            let voteCounts = { going: 0, maybe: 0, not: 0 };
+            let userVote = null;
+            
+            // Only fetch vote data if voting is enabled
+            if (event.VotingEnabled !== false) {
+              voteCounts = await getVoteCounts(event.id);
+              userVote = await getUserVote(event.id, userId);
+            }
+            
+            const totalAttendees = event.VotingEnabled !== false ? (voteCounts.going + voteCounts.maybe + voteCounts.not) : 0;
             
             return {
               id: event.id || event.docId || event._id,
@@ -105,10 +113,11 @@ export default function EventsList() {
               group: event.GroupID || 'Unknown Group',
               description: event.Title,
               attendeeCount: totalAttendees,
-              votingCutoff: event.CutoffDate instanceof Date ? event.CutoffDate.toDateString() : new Date(event.CutoffDate.seconds ? event.CutoffDate.seconds * 1000 : event.CutoffDate).toDateString(),
-              isVotingOpen: new Date() < (event.CutoffDate instanceof Date ? event.CutoffDate : new Date(event.CutoffDate.seconds ? event.CutoffDate.seconds * 1000 : event.CutoffDate)),
-              userVote: userVote,
+              votingCutoff: event.CutoffDate ? (event.CutoffDate instanceof Date ? event.CutoffDate.toDateString() : new Date(event.CutoffDate.seconds ? event.CutoffDate.seconds * 1000 : event.CutoffDate).toDateString()) : 'No voting',
+              isVotingOpen: event.VotingEnabled !== false && event.CutoffDate ? new Date() < (event.CutoffDate instanceof Date ? event.CutoffDate : new Date(event.CutoffDate.seconds ? event.CutoffDate.seconds * 1000 : event.CutoffDate)) : false,
+              userVote: event.VotingEnabled !== false ? userVote : null,
               eventDate: event.EventDate instanceof Date ? event.EventDate : new Date(event.EventDate.seconds ? event.EventDate.seconds * 1000 : event.EventDate),
+              votingEnabled: event.VotingEnabled !== false,
             };
           } catch (error) {
             console.error('Error fetching vote counts for event:', event.id, error);
@@ -124,10 +133,11 @@ export default function EventsList() {
               group: event.GroupID || 'Unknown Group',
               description: event.Title,
               attendeeCount: 0, // Fallback if vote counts fail
-              votingCutoff: event.CutoffDate instanceof Date ? event.CutoffDate.toDateString() : new Date(event.CutoffDate.seconds ? event.CutoffDate.seconds * 1000 : event.CutoffDate).toDateString(),
-              isVotingOpen: new Date() < (event.CutoffDate instanceof Date ? event.CutoffDate : new Date(event.CutoffDate.seconds ? event.CutoffDate.seconds * 1000 : event.CutoffDate)),
+              votingCutoff: event.CutoffDate ? (event.CutoffDate instanceof Date ? event.CutoffDate.toDateString() : new Date(event.CutoffDate.seconds ? event.CutoffDate.seconds * 1000 : event.CutoffDate).toDateString()) : 'No voting',
+              isVotingOpen: event.VotingEnabled !== false && event.CutoffDate ? new Date() < (event.CutoffDate instanceof Date ? event.CutoffDate : new Date(event.CutoffDate.seconds ? event.CutoffDate.seconds * 1000 : event.CutoffDate)) : false,
               userVote: null,
               eventDate: event.EventDate instanceof Date ? event.EventDate : new Date(event.EventDate.seconds ? event.EventDate.seconds * 1000 : event.EventDate),
+              votingEnabled: event.VotingEnabled !== false,
             };
           }
         })
@@ -282,12 +292,17 @@ export default function EventsList() {
             >
               <View style={styles.cardHeader}>
                 <View style={styles.headerLeft}>
-                  <View style={[styles.votingStatus, event.isVotingOpen ? styles.votingOpen : styles.votingClosed]}>
+                  <View style={[
+                    styles.votingStatus, 
+                    !event.votingEnabled ? styles.votingDisabled :
+                    event.isVotingOpen ? styles.votingOpen : styles.votingClosed
+                  ]}>
                     <Text style={styles.votingStatusText}>
-                      {event.isVotingOpen ? 'Voting Open' : 'Voting Closed'}
+                      {!event.votingEnabled ? 'No Voting' :
+                       event.isVotingOpen ? 'Voting Open' : 'Voting Closed'}
                     </Text>
                   </View>
-                  {event.userVote === 'going' && (
+                  {event.userVote === 'going' && event.votingEnabled && (
                     <View style={styles.goingBadge}>
                       <Text style={styles.goingBadgeText}>Going</Text>
                     </View>
@@ -322,7 +337,9 @@ export default function EventsList() {
               <View style={styles.cardFooter}>
                 <View style={styles.attendeeInfo}>
                   <Text style={styles.attendeeIcon}>👥</Text>
-                  <Text style={styles.attendeeCount}>{event.attendeeCount} attending</Text>
+                  <Text style={styles.attendeeCount}>
+                    {event.votingEnabled ? `${event.attendeeCount} attending` : 'No attendance tracking'}
+                  </Text>
                 </View>
                 <Text style={styles.timeUntilEvent}>{getTimeUntilEvent(event.date)}</Text>
               </View>
@@ -466,6 +483,9 @@ const styles = StyleSheet.create({
   },
   votingClosed: {
     backgroundColor: '#f8d7da',
+  },
+  votingDisabled: {
+    backgroundColor: '#e0e0e0',
   },
   votingStatusText: {
     fontSize: 10,

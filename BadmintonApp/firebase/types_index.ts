@@ -26,8 +26,9 @@ export interface EventDoc {
   Title: string;
   EventDate: Date;
   Location: string;
-  CutoffDate: Date; // Voting cutoff date
+  CutoffDate?: Date; // Voting cutoff date - now optional
   CreatorID: string; // Auth0 sub
+  VotingEnabled?: boolean; // New field to indicate if voting is enabled
 }
 
 export interface VoteDoc {
