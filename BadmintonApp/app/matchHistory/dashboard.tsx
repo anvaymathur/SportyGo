@@ -3,8 +3,8 @@ import { ScrollView, YStack, XStack, Text, Card, H3, Paragraph, Separator, Spinn
 import { useAuth0 } from "react-native-auth0";
 import { getUserMatchHistory, listenGroupEvents, getUserVote } from "../../firebase/services_firestore2";
 import { newMatchHistory, EventDoc } from "@/firebase/types_index";
-import { sharedState } from "../shared";
-import { router } from "expo-router";
+
+import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { UserContext } from "../components/userContext";
 import { useFocusEffect } from "@react-navigation/native";
@@ -14,6 +14,8 @@ export default function Dashboard() {
   const { globalUser, clearUser } = useContext(UserContext);
   const userId = user?.sub ?? "";
   const userName = globalUser?.name ?? "Player";
+  const params = useLocalSearchParams();
+  const groupId = params.groupId as string || '';
 
   const [matchHistory, setMatchHistory] = useState<newMatchHistory[]>([]);
   const [isLoadingMatches, setIsLoadingMatches] = useState<boolean>(true);
@@ -71,7 +73,6 @@ export default function Dashboard() {
 
   // Listen to group events and compute events the user voted "going"
   useEffect(() => {
-    const groupId = sharedState.groupPressedId;
     if (!groupId) {
       setMyUpcomingEvents([]);
       setIsLoadingEvents(false);
@@ -243,7 +244,7 @@ export default function Dashboard() {
             )}
             {!isLoadingEvents && myUpcomingEvents.length === 0 && (
               <Paragraph verticalAlign="middle" p="$2" color="$color10">
-                {sharedState.groupPressedId ? "No upcoming events you marked as going." : "Select a group to see your upcoming events."}
+                {groupId ? "No upcoming events you marked as going." : "Select a group to see your upcoming events."}
               </Paragraph>
             )}
             {!isLoadingEvents && myUpcomingEvents.map((evt) => (

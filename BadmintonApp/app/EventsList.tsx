@@ -1,10 +1,9 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, SafeAreaView, Dimensions, TextInput } from 'react-native';
 import { useState, useEffect } from 'react';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { listenGroupEvents, listenUserGroupEvents, getVoteCounts, getUserVote, getUserGroups, hasEventStarted } from '../firebase/services_firestore2';
 import { EventDoc, VoteStatus } from '../firebase/types_index';
-import { sharedState } from "./shared";
 import { useAuth0 } from 'react-native-auth0';
 
 export default function EventsList() {
@@ -17,7 +16,8 @@ export default function EventsList() {
   
   const { user } = useAuth0();
   const userId = user?.sub || 'default-user';
-  const GROUP_ID = sharedState.groupPressedId;
+  const params = useLocalSearchParams();
+  const GROUP_ID = params.groupId as string;
 
   // Helper functions
   const parseFirestoreDate = (date: any) => {
