@@ -29,8 +29,8 @@ import { UserContext } from "../components/userContext";
 
 export default function AddScore() {
   const router = useRouter();
-  const [yourScore, setYourScore] = useState(0);
-  const [opponentScore, setOpponentScore] = useState(0);
+  const [yourScore, setYourScore] = useState("0");
+  const [opponentScore, setOpponentScore] = useState("0");
   const [matchType, setMatchType] = useState("singles");
   const [date, setDate] = useState<Date>(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -54,6 +54,15 @@ export default function AddScore() {
   const [players, setPlayers] = useState<string[]>([]);
   const [playerNameToId, setPlayerNameToId] = useState<{ [name: string]: string }>({});
 
+  // Filter option lists so a chosen player cannot be selected again elsewhere
+  const availableYourPlayer2 = players.filter((name) => name !== userName && name !== opponentPlayer1 && name !== opponentPlayer2);
+  const availableOpponentPlayer1 = players.filter((name) => name !== userName && name !== yourPlayer2 && name !== opponentPlayer2);
+  const availableOpponentPlayer2 = players.filter((name) => name !== userName && name !== yourPlayer2 && name !== opponentPlayer1);
+
+  // Track focus to allow empty string while editing
+  const [isYourScoreFocused, setIsYourScoreFocused] = useState(false);
+  const [isOpponentScoreFocused, setIsOpponentScoreFocused] = useState(false);
+
   useEffect(() => {
     const fetchPlayers = async () => {
       const fetchedPlayers = await getAllUserProfiles();
@@ -74,23 +83,29 @@ export default function AddScore() {
   }, []);
 
   const resetGame = () => {
-    setYourScore(0);
-    setOpponentScore(0);
+    setYourScore("0");
+    setOpponentScore("0");
   };
 
   const incrementScore = (team: "your" | "opponent") => {
-    if (team === "your") {
-      setYourScore(prev => prev + 1);
-    } else {
-      setOpponentScore(prev => prev + 1);
-    }
+
+      if (team === "your") {
+        if (parseInt(yourScore) < 99) {
+          setYourScore(prev => ((isNaN(parseInt(prev)) ? 0 : parseInt(prev)) + 1).toString());
+        }
+      } else {
+        if (parseInt(opponentScore) < 99) {
+          setOpponentScore(prev => ((isNaN(parseInt(prev)) ? 0 : parseInt(prev)) + 1).toString());
+        }
+      }
+    
   };
 
   const decrementScore = (team: "your" | "opponent") => {
     if (team === "your") {
-      setYourScore(prev => Math.max(0, prev - 1));
+      setYourScore(prev => Math.max(0, (isNaN(parseInt(prev)) ? 0 : parseInt(prev)) - 1).toString());
     } else {
-      setOpponentScore(prev => Math.max(0, prev - 1));
+      setOpponentScore(prev => Math.max(0, (isNaN(parseInt(prev)) ? 0 : parseInt(prev)) - 1).toString());
     }
   };
 
@@ -112,7 +127,19 @@ export default function AddScore() {
 
   const handleSaveMatch = async () => {
 
-    if (opponentPlayer1 != "" && date != null && yourScore != 0 && opponentScore != 0 &&  ((matchType == 'doubles' && opponentPlayer2 != '' && yourPlayer2 != '') || matchType == 'singles')){
+    // Prevent saving with duplicate player selections
+    const selectedPlayers = [userName, yourPlayer2, opponentPlayer1, opponentPlayer2].filter((p) => p && p !== "");
+    const hasDuplicatePlayers = new Set(selectedPlayers).size !== selectedPlayers.length;
+    if (hasDuplicatePlayers) {
+      Alert.alert(
+        "Duplicate selection",
+        "A player cannot be selected more than once.",
+        [{ text: "OK" }]
+      );
+      return;
+    }
+
+    if (opponentPlayer1 !== "" && date !== null && yourScore !== "0"  && opponentScore !== "0" &&  ((matchType === 'doubles' && opponentPlayer2 !== '' && yourPlayer2 !== '') || matchType === 'singles')){
       
         // Get player IDs, fallback to names if ID not found
         const team1Player1Id = playerNameToId[userName] || userID;
@@ -121,9 +148,10 @@ export default function AddScore() {
         const team2Player2Id = matchType === 'doubles' ? (playerNameToId[opponentPlayer2]) : '';
         
         const matchData: newMatchHistory = {
-          team1: [team1Player1Id, team1Player2Id, yourScore],
-          team2: [team2Player1Id, team2Player2Id, opponentScore],
-          date: date
+          team1: [team1Player1Id, team1Player2Id, parseInt(yourScore)],
+          team2: [team2Player1Id, team2Player2Id, parseInt(opponentScore)],
+          date: date,
+          id: ""
         };
         await createMatchHistory(matchData);
         router.replace('/matchHistory/viewScore')
@@ -162,106 +190,151 @@ export default function AddScore() {
       <ScrollView flex={1} p="$4" showsVerticalScrollIndicator={false}>
         <YStack pb="$8" space="$4">
           {/* Game Score Section */}
-          <Card padding="$4" backgroundColor="$background" borderWidth={1} borderColor="$color6">
+          <Card padding="$4" backgroundColor="$background" borderWidth={1} borderColor="$borderColor">
             <YStack space="$3">
-              <H5 color="$color9" ml="$11">Game Score</H5>
+              <H5 color="$color9" ml="$11" >Game Score</H5>
               
-              <XStack justify="space-between" verticalAlign="center" >
-                {/* Your Team Score */}
-                <YStack verticalAlign="center" flex={1}>
-                  <XStack verticalAlign="center" space="$2">
-                    <Circle
-                      size="$4"
-                      bg="$color9"
-                      onPress={() => decrementScore("your")}
-                      
-                    >
-                      <Text color="$color1">-</Text>
-                    </Circle>
-                    <Card
-                      padding="$3"
-                      backgroundColor="$color4"
-                      borderRadius="$4"
-                      minWidth={60}
-                      alignItems="center"
-                    >
-                      {/* <H4 color="$green10">{yourScore}</H4> */}
+              <YStack space="$2">
+                {/* Your Team Row */}
+                <XStack verticalAlign="center" justify="center" space="$2">
+                  <Circle
+                    size="$3"
+                    bg="$color9"
+                    onPress={() => decrementScore("your")}
+                  >
+                    <Ionicons name="remove" size={16} color="white" />
+                  </Circle>
+                  <Card
+                    padding="$1"
+                    backgroundColor="$color4"
+                    borderRadius="$2"
+                    minWidth={48}
+                    alignItems="center"
+                  >
                     <Input
-                      p = "$2"
+                      p="$1"
                       bg="$color4"
                       borderColor="transparent"
                       inputMode="numeric"
                       keyboardType="numeric"
                       maxLength={2}
-                      fontSize='$7'
+                      fontSize='$5'
                       value={yourScore.toString()}
+                      onFocus={() => {
+                        setIsYourScoreFocused(true);
+                        if (yourScore === "0") setYourScore("");
+                      }}
+                      onBlur={() => {
+                        setIsYourScoreFocused(false);
+                        if (yourScore === "") setYourScore("0");
+                      }}
                       onChangeText={(text) => {
-                        const onlyDigits = text.replace(/[^0-9]/g, '')
+                        const onlyDigits = text.replace(/[^0-9]/g, '');
+                        if (onlyDigits === '') {
+                          if (isYourScoreFocused) {
+                            setYourScore('');
+                          } else {
+                            setYourScore('0');
+                          }
+                          return;
+                        }
                         const parsed = parseInt(onlyDigits, 10)
-                        setYourScore(isNaN(parsed) ? 0 : parsed)
-                    }}
-                      
-                    ></Input>
-                    </Card>
-                  </XStack>
-                  <Text fontSize="$2" color="$color" mt="$2">
+                        setYourScore(isNaN(parsed) ? "0" : parsed.toString())
+                      }}
+                    />
+                  </Card>
+                  <Circle
+                    size="$3"
+                    bg="$color9"
+                    onPress={() => incrementScore("your")}
+                  >
+                    <Ionicons name="add" size={16} color="white" />
+                  </Circle>
+                </XStack>
+                <XStack justify="center">
+                  <Text fontSize="$2" color="$color" mt="$1">
                     Your Team
                   </Text>
-                </YStack>
+                </XStack>
 
-                {/* VS */}
-                <Card
-                  margin="$3"
-                  padding="$2"
-                  backgroundColor="$color4"
-                  borderRadius="$3"
-                  minWidth={40}
-                  height={40}
-                  alignItems="center"
-                >
-                  <Text fontWeight="bold" color="$color">VS</Text>
-                </Card>
+                {/* VS Row */}
+                <XStack justify="center">
+                  <Card
+                
+                    padding="$1"
+                    backgroundColor="$color4"
+                    borderRadius="$2"
+                    minWidth={32}
+                    height={32}
+                    alignItems="center"
+                    justify="center"
+                  >
+                    <Text fontWeight="bold" color="$color">VS</Text>
+                  </Card>
+                </XStack>
 
-                {/* Opponent Team Score */}
-                <YStack verticalAlign="center" flex={1}>
-                  <XStack verticalAlign="center" space="$2">
-                    <Card
-                      padding="$3"
-                      backgroundColor="$color4"
-                      borderRadius="$4"
-                      minWidth={60}
-                      alignItems="center"
-                    >
-                     <Input
-                      p = "$2"
+                {/* Opponent Team Row */}
+                <XStack verticalAlign="center" justify="center" space="$2">
+                  <Circle
+                    size="$3"
+                    bg="$color9"
+                    onPress={() => decrementScore("opponent")}
+                  >
+                    <Ionicons name="remove" size={16} color="white" />
+                  </Circle>
+                  <Card
+                    padding="$1"
+                    backgroundColor="$color4"
+                    borderRadius="$2"
+                    minWidth={48}
+                    alignItems="center"
+                  >
+                    <Input
+                      p="$1"
                       bg="$color4"
                       borderColor="transparent"
                       inputMode="numeric"
                       keyboardType="numeric"
                       maxLength={2}
-                      fontSize='$7'
+                      fontSize='$5'
                       value={opponentScore.toString()}
+                      onFocus={() => {
+                        setIsOpponentScoreFocused(true);
+                        if (opponentScore === "0") setOpponentScore("");
+                      }}
+                      onBlur={() => {
+                        setIsOpponentScoreFocused(false);
+                        if (opponentScore === "") setOpponentScore("0");
+                      }}
                       onChangeText={(text) => {
-                        const onlyDigits = text.replace(/[^0-9]/g, '')
+                        const onlyDigits = text.replace(/[^0-9]/g, '');
+                        if (onlyDigits === '') {
+                          if (isOpponentScoreFocused) {
+                            setOpponentScore('');
+                          } else {
+                            setOpponentScore('0');
+                          }
+                          return;
+                        }
                         const parsed = parseInt(onlyDigits, 10)
-                        setOpponentScore(isNaN(parsed) ? 0 : parsed)
-                        }}
-                    ></Input>
-                    </Card>
-                    <Circle
-                      size="$4"
-                      bg="$color9"
-                      onPress={() => decrementScore("opponent")}
-                     
-                    >
-                      <Text color="$color1">-</Text>
-                    </Circle>
-                  </XStack>
-                  <Text fontSize="$2" color="$color" mt="$2">
+                        setOpponentScore(isNaN(parsed) ? "0" : parsed.toString())
+                      }}
+                    />
+                  </Card>
+                  <Circle
+                    size="$3"
+                    bg="$color9"
+                    onPress={() => incrementScore("opponent")}
+                  >
+                    <Ionicons name="add" size={16} color="white" />
+                  </Circle>
+                </XStack>
+                <XStack justify="center">
+                  <Text fontSize="$2" color="$color" mt="$1">
                     Opponent Team
                   </Text>
-                </YStack>
-              </XStack>
+                </XStack>
+              </YStack>
 
               <Button
                 bg="$color9"
@@ -374,7 +447,11 @@ export default function AddScore() {
                 {matchType === "doubles" && (
                   <Select
                     value={yourPlayer2}
-                    onValueChange={setYourPlayer2}
+                    onValueChange={(value) => {
+                      setYourPlayer2(value);
+                      if (value === opponentPlayer1) setOpponentPlayer1("");
+                      if (value === opponentPlayer2) setOpponentPlayer2("");
+                    }}
                   >
                     <Select.Trigger
                       backgroundColor="$color4"
@@ -404,7 +481,7 @@ export default function AddScore() {
                       <Select.Viewport minH={100} maxH={300}>
                         <Select.Group>
                           <Select.Label>Players</Select.Label>
-                          {players.map((playerName, index) => (
+                          {availableYourPlayer2.map((playerName, index) => (
                             <Select.Item key={playerName} value={playerName} index={index}>
                               <Select.ItemText>{playerName}</Select.ItemText>
                             </Select.Item>
@@ -423,7 +500,11 @@ export default function AddScore() {
                 <Text fontSize="$3" fontWeight="500">Opponent Team</Text>
                 <Select
                   value={opponentPlayer1}
-                  onValueChange={setOpponentPlayer1}
+                  onValueChange={(value) => {
+                    setOpponentPlayer1(value);
+                    if (value === yourPlayer2) setYourPlayer2("");
+                    if (value === opponentPlayer2) setOpponentPlayer2("");
+                  }}
                 >
                   <Select.Trigger
                     backgroundColor="$color4"
@@ -453,7 +534,7 @@ export default function AddScore() {
                     <Select.Viewport minH={100} maxH={300}>
                       <Select.Group>
                         <Select.Label>Players</Select.Label>
-                        {players.map((playerName, index) => (
+                        {availableOpponentPlayer1.map((playerName, index) => (
                           <Select.Item key={playerName} value={playerName} index={index}>
                             <Select.ItemText>{playerName}</Select.ItemText>
                           </Select.Item>
@@ -467,7 +548,11 @@ export default function AddScore() {
                 {matchType === "doubles" && (
                   <Select
                     value={opponentPlayer2}
-                    onValueChange={setOpponentPlayer2}
+                    onValueChange={(value) => {
+                      setOpponentPlayer2(value);
+                      if (value === yourPlayer2) setYourPlayer2("");
+                      if (value === opponentPlayer1) setOpponentPlayer1("");
+                    }}
                   >
                     <Select.Trigger
                       backgroundColor="$color4"
@@ -497,7 +582,7 @@ export default function AddScore() {
                       <Select.Viewport minH={100} maxH={300}>
                         <Select.Group>
                           <Select.Label>Players</Select.Label>
-                          {players.map((playerName, index) => (
+                          {availableOpponentPlayer2.map((playerName, index) => (
                             <Select.Item key={playerName} value={playerName} index={index}>
                               <Select.ItemText>{playerName}</Select.ItemText>
                             </Select.Item>
@@ -537,6 +622,7 @@ export default function AddScore() {
     </View>
   );
 }
+
 
 
 

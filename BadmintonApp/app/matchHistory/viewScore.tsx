@@ -189,7 +189,7 @@ export default function ViewScore() {
         <Button
           variant="outlined"
           size="$3"
-          onPress={() => router.back()}
+          onPress={() => router.replace('/matchHistory/dashboard')}
           mr="$3"
           icon={<Ionicons name="arrow-back" size={20} />}
         />
@@ -240,6 +240,7 @@ export default function ViewScore() {
                     borderWidth={1}
                     borderColor="$borderColor"
                     elevation={2}
+                    onPress={() => (router as any).push({ pathname: '/matchHistory/viewIndividualScore', params: { matchId: match.id } })}
                   >
                     <YStack space="$3">
                       {/* Header with date and tournament */}
