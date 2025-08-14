@@ -139,7 +139,7 @@ export default function AddScore() {
       return;
     }
 
-    if (opponentPlayer1 != "" && date != null && yourScore != "0"  && opponentScore != "0" &&  ((matchType == 'doubles' && opponentPlayer2 != '' && yourPlayer2 != '') || matchType == 'singles')){
+    if (opponentPlayer1 !== "" && date !== null && yourScore !== "0"  && opponentScore !== "0" &&  ((matchType === 'doubles' && opponentPlayer2 !== '' && yourPlayer2 !== '') || matchType === 'singles')){
       
         // Get player IDs, fallback to names if ID not found
         const team1Player1Id = playerNameToId[userName] || userID;
