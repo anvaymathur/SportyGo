@@ -5,7 +5,7 @@ import {
   deleteDoc,
 } from "firebase/firestore";
 import { db } from "./index";
-import { UserDoc, GroupDoc, EventDoc, VoteShard, VoteStatus, newMatchHistory } from "./types_index";
+import { UserDoc, GroupDoc, EventDoc, VoteShard, VoteStatus, newMatchHistory, GroupInviteDoc } from "./types_index";
 
 const NUM_SHARDS = 10;
 
@@ -75,6 +75,7 @@ export async function createGroup(userId: string, group: Omit<GroupDoc, "created
   const batch = writeBatch(db);
   batch.set(groupRef, {
     ...group,
+    id: groupId,
     createdAt: now
   });
   batch.update(doc(db, "users", userId), {
@@ -103,6 +104,20 @@ export async function getUserGroups(userId: string): Promise<GroupDoc[]> {
     groups.push({ id: doc.id, ...doc.data() } as GroupDoc);
   });
   return groups;
+}
+
+export async function getGroupById(groupId: string): Promise<GroupDoc | undefined> {
+  const snap = await getDoc(doc(db, "groups", groupId));
+  return snap.exists() ? ({ id: snap.id, ...snap.data() } as GroupDoc) : undefined;
+}
+
+export async function getUsersByIds(userIds: string[]): Promise<UserDoc[]> {
+  const users: UserDoc[] = [];
+  for (const uid of userIds) {
+    const profile = await getUserProfile(uid);
+    if (profile) users.push(profile);
+  }
+  return users;
 }
 
 function incrementOrPushToArray(groupId: string) {
@@ -338,4 +353,66 @@ export async function deleteMatchHistory(matchId: string) {
   return deleteDoc(doc(db, "matchHistory", matchId));
 }
 
+export async function createGroupInvite(groupInvite: GroupInviteDoc) {
+  const inviteRef = doc(collection(db, "groupInvites"));
+  return setDoc(inviteRef, groupInvite);
+}
 
+export async function getGroupInvite(inviteCode: string): Promise<GroupInviteDoc | undefined> {
+  const snap = await getDoc(doc(db, "groupInvites", inviteCode));
+  return snap.exists() ? (snap.data() as GroupInviteDoc) : undefined;
+}
+
+export async function getGroupInvites(groupId: string): Promise<GroupInviteDoc[]> {
+  const invitesCol = collection(db, "groupInvites");
+  const q = query(invitesCol, where("groupId", "==", groupId));
+  const snapshot = await getDocs(q);
+  const invites: GroupInviteDoc[] = [];
+  snapshot.forEach(doc => {
+    const data = doc.data();
+    invites.push({
+      ...data,
+      id: doc.id
+    } as GroupInviteDoc);
+  });
+  
+  // Sort by validUntil date (most recent first)
+  return invites.sort((a, b) => {
+    const dateA = new Date(a.validUntil);
+    const dateB = new Date(b.validUntil);
+    return dateB.getTime() - dateA.getTime();
+  });
+}
+
+export async function addGroupMember(userId: string, groupId: string){
+  const groupRef = doc(db, "groups", groupId);
+  const groupSnap = await getDoc(groupRef);
+  if (!groupSnap.exists()) {
+    return;
+  }
+  const groupData = groupSnap.data() as GroupDoc;
+  
+  // Check if user is already a member
+  if (groupData.MemberIds && groupData.MemberIds.includes(userId)) {
+    return false; // User is already a member
+  }
+  
+  const batch = writeBatch(db);
+  
+  // Add userId to group's MemberIds array
+  batch.update(groupRef, {
+    MemberIds: [...(groupData.MemberIds || []), userId]
+  });
+  
+  // Add groupId to user's Groups array
+  const userRef = doc(db, "users", userId);
+  const userSnap = await getDoc(userRef);
+  if (userSnap.exists()) {
+    const userData = userSnap.data() as UserDoc;
+    batch.update(userRef, {
+      Groups: [...(userData.Groups || []), groupId]
+    });
+  }
+  
+  await batch.commit();
+}

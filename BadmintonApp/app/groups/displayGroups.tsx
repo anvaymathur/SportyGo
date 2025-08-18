@@ -26,19 +26,15 @@ export default function DisplayGroups() {
   const [groups, setGroups] = useState<GroupDoc[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const {user, clearSession} = useAuth0()
+  const {user} = useAuth0()
 
-
-  const toAddScore = async() => {
-    router.push('/matchHistory/viewScore')
-  }
 
   const loadGroups = async () => {
     if (user && user.sub) {
       try {
         setLoading(true);
         const groupsData = await getUserGroups(user.sub);
-        console.log("Groups Data:", groupsData);
+        
         setGroups(groupsData);
       } catch (error) {
         console.error("Error loading groups:", error);
@@ -76,7 +72,7 @@ export default function DisplayGroups() {
         {/* Search Bar */}
         <YStack space="$4">
           <Input
-            placeholder="Search teams..."
+            placeholder="Search groups..."
             value={searchQuery}
             onChangeText={setSearchQuery}
             background="$color2"
@@ -115,7 +111,10 @@ export default function DisplayGroups() {
                     borderColor="$color6"
                     onPress={() => {
                       sharedState.groupPressedId = group.id;
-                      router.push('/EventsList');
+                      router.push({
+                         pathname: '/groups/viewMembers',
+                         params: { groupId: group.id }
+                      });
                     }}
                     mt={20}
                   >

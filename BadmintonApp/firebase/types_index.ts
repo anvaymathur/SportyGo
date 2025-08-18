@@ -89,6 +89,17 @@ export interface newMatchHistory {
   id: string
 }
 
+export interface GroupInviteDoc {
+  id?: string; // Optional since it's added by the function
+  groupId: string;
+  inviteCode: string;
+  inviteLink: string;
+  validUntil: Date;
+  maxUses: number;
+  expired: boolean;
+  used: number;
+}
+
 export interface FirebaseError {
   code: string;
   message: string;
