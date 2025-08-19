@@ -134,7 +134,7 @@ export default function AddMembers() {
     if (!group) {
         Alert.alert("Error", "Failed to load group information");
         return;
-    } else if (group.id === null) {
+    } else if (group.id === undefined) {
         Alert.alert("Error", "There was an error generating the invite link, please try again later");
         return;
     } else if (maxUses === 'undefined') {
