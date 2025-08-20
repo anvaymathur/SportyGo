@@ -1,15 +1,26 @@
-import React, { useEffect } from "react";
+import React, { useContext, useEffect } from "react";
 import { useAuth0 } from 'react-native-auth0';
 import { router } from 'expo-router';
 import { View, YStack, Card, Button, Text, Paragraph, H2, H3, Image, Spinner } from 'tamagui';
+import { UserContext } from "../components/userContext";
+import {getUserProfile} from "../../firebase/services_firestore2";
 
 
 export default function LoginScreen() {
   const { authorize, user, error, isLoading, clearSession } = useAuth0();
-
+  const {globalUser, saveUser} = useContext(UserContext);
   useEffect(() => {
     if (!isLoading && user) {
-      
+      const fetchUserProfile = async () => {
+        const userProfile = await getUserProfile(user.sub ?? "");
+        if (userProfile) {
+          saveUser({
+            name: userProfile.Name,
+            email: userProfile.Email,
+          });
+        }
+      }
+      fetchUserProfile();
       if (user["https://badmintonapp.com/is_signup"]){
         router.replace('/userSetup/setupProfile');
       } else { 
@@ -21,6 +32,7 @@ export default function LoginScreen() {
   const onLogin = async () => {
     try {
       await authorize();
+
     } catch (e) {
       console.error(e);
     }
