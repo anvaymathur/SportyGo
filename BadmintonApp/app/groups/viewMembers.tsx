@@ -5,6 +5,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { GroupDoc, UserDoc } from "../../firebase/types_index";
 import { getGroupById, getUsersByIds } from "../../firebase/services_firestore2";
 import { sharedState } from "../shared";
+import { SafeAreaWrapper } from "../components/SafeAreaWrapper";
 
 function getInitials(name: string) {
   if (!name) return "?";
@@ -52,124 +53,126 @@ export default function ViewMembers() {
   }, [members, query]);
 
   return (
-    <YStack flex={1} p="$4" bg="$background">
-      <YStack mb={20}>
-        <XStack justify="space-between" verticalAlign="center" mb={10}>
-          <Button
-            bg="$color2"
-            borderColor="$color6"
-            borderWidth="$1"
-            onPress={() => router.back()}
-            px="$3"
-            py="$2"
+    <SafeAreaWrapper>
+      <YStack flex={1} p="$4" bg="$background">
+        <YStack mb={20}>
+          <XStack justify="space-between" verticalAlign="center" mb={10}>
+            <Button
+              bg="$color2"
+              borderColor="$color6"
+              borderWidth="$1"
+              onPress={() => router.back()}
+              px="$3"
+              py="$2"
+            >
+              <XStack verticalAlign="center" space="$2">
+                <Ionicons name="arrow-back" size={18} color="#888" />
+                <Text color="$color">Back</Text>
+              </XStack>
+            </Button>
+            <Button
+              bg="$color2"
+              borderColor="$color6"
+              borderWidth="$1"
+              onPress={() => {
+                // TODO: Navigate to group settings
+                console.log("Settings pressed for group:", group?.id);
+              }}
+              px="$3"
+              py="$2"
+            >
+              <XStack verticalAlign="center" space="$2">
+                <Ionicons name="settings-outline" size={18} color="#888" />
+                <Text color="$color">Settings</Text>
+              </XStack>
+            </Button>
+          </XStack>
+          <Text 
+            color="$color9" 
+            fontWeight="bold" 
+            fontSize="$10"
+            numberOfLines={2}
+            ellipsizeMode="tail"
+            style={{ textAlign: 'center' }}
           >
-            <XStack verticalAlign="center" space="$2">
-              <Ionicons name="arrow-back" size={18} color="#888" />
-              <Text color="$color">Back</Text>
-            </XStack>
-          </Button>
-          <Button
-            bg="$color2"
-            borderColor="$color6"
-            borderWidth="$1"
-            onPress={() => {
-              // TODO: Navigate to group settings
-              console.log("Settings pressed for group:", group?.id);
-            }}
-            px="$3"
-            py="$2"
-          >
-            <XStack verticalAlign="center" space="$2">
-              <Ionicons name="settings-outline" size={18} color="#888" />
-              <Text color="$color">Settings</Text>
-            </XStack>
-          </Button>
-        </XStack>
-        <Text 
-          color="$color9" 
-          fontWeight="bold" 
-          fontSize="$10"
-          numberOfLines={2}
-          ellipsizeMode="tail"
-          style={{ textAlign: 'center' }}
-        >
-          {group?.Name || "Group Members"}
-        </Text>
-      </YStack>
-
-      <Input
-        placeholder="Search members..."
-        value={query}
-        onChangeText={setQuery}
-        background="$color2"
-        borderColor="$color6"
-        px="$4"
-        py="$3"
-        color="$color"
-        placeholderTextColor="$color10"
-        fontSize="$4"
-        mb={10}
-      />
-
-      <Text color="$color10" mb={10}>
-        {loading ? "Loading members..." : `${filtered.length} member${filtered.length === 1 ? "" : "s"}`}
-      </Text>
-
-      <ScrollView flex={1} showsVerticalScrollIndicator>
-        <YStack space="$3" pb="$4">
-          {!loading && filtered.length === 0 ? (
-            <Text color="$color10">No members found.</Text>
-          ) : (
-            filtered.map((u) => (
-              <Card
-                key={u.id}
-                bg="$color2"
-                borderRadius="$4"
-                p="$3"
-                borderWidth="$1"
-                borderColor="$color6"
-              >
-                <XStack verticalAlign="center" space="$3">
-                  <Avatar circular size="$6" borderWidth={1} borderColor="$color6" backgroundColor="$color2">
-                    <Avatar.Image src={require("../../assets/images/defaultUserProfileImage.png")} />
-                    <Avatar.Fallback backgroundColor="$color2">
-                      <Text color="$color9">{getInitials(u.Name)}</Text>
-                    </Avatar.Fallback>
-                  </Avatar>
-                  <YStack flex={1}>
-                    <H4 color="$color" fontWeight="600">{u.Name}</H4>
-                    <Text color="$color10" fontSize="$2">{u.Email}</Text>
-                    {!!u.Phone && (
-                      <Text color="$color10" fontSize="$2">{u.Phone}</Text>
-                    )}
-                  </YStack>
-                </XStack>
-              </Card>
-            ))
-          )}
+            {group?.Name || "Group Members"}
+          </Text>
         </YStack>
-      </ScrollView>
-      
-      {/* Add Members Button */}
-      <Button
-        bg="$color9"
-        color="$color1"
-        borderWidth="$0"
-        onPress={() => {
-          router.push({
-            pathname: '/groups/addMembers',
-            params: { groupId: group?.id }
-          });
-        }}
-        p="$3"
-        mt="$4"
-        style={{ borderRadius: 8 }}
-      >
-        <XStack verticalAlign="center" space="$2">
-          <Ionicons name="person-add-outline" size={20} color="white" />
-          <Text color="$color1" fontWeight="600">Add Members</Text>
-        </XStack>
-      </Button>
-    </YStack>
+
+        <Input
+          placeholder="Search members..."
+          value={query}
+          onChangeText={setQuery}
+          background="$color2"
+          borderColor="$color6"
+          px="$4"
+          py="$3"
+          color="$color"
+          placeholderTextColor="$color10"
+          fontSize="$4"
+          mb={10}
+        />
+
+        <Text color="$color10" mb={10}>
+          {loading ? "Loading members..." : `${filtered.length} member${filtered.length === 1 ? "" : "s"}`}
+        </Text>
+
+        <ScrollView flex={1} showsVerticalScrollIndicator>
+          <YStack space="$3" pb="$4">
+            {!loading && filtered.length === 0 ? (
+              <Text color="$color10">No members found.</Text>
+            ) : (
+              filtered.map((u) => (
+                <Card
+                  key={u.id}
+                  bg="$color2"
+                  borderRadius="$4"
+                  p="$3"
+                  borderWidth="$1"
+                  borderColor="$color6"
+                >
+                  <XStack verticalAlign="center" space="$3">
+                    <Avatar circular size="$6" borderWidth={1} borderColor="$color6" backgroundColor="$color2">
+                      <Avatar.Image src={require("../../assets/images/defaultUserProfileImage.png")} />
+                      <Avatar.Fallback backgroundColor="$color2">
+                        <Text color="$color9">{getInitials(u.Name)}</Text>
+                      </Avatar.Fallback>
+                    </Avatar>
+                    <YStack flex={1}>
+                      <H4 color="$color" fontWeight="600">{u.Name}</H4>
+                      <Text color="$color10" fontSize="$2">{u.Email}</Text>
+                      {!!u.Phone && (
+                        <Text color="$color10" fontSize="$2">{u.Phone}</Text>
+                      )}
+                    </YStack>
+                  </XStack>
+                </Card>
+              ))
+            )}
+          </YStack>
+        </ScrollView>
+        
+        {/* Add Members Button */}
+        <Button
+          bg="$color9"
+          color="$color1"
+          borderWidth="$0"
+          onPress={() => {
+            router.push({
+              pathname: '/groups/addMembers',
+              params: { groupId: group?.id }
+            });
+          }}
+          p="$3"
+          mt="$4"
+          style={{ borderRadius: 8 }}
+        >
+          <XStack verticalAlign="center" space="$2">
+            <Ionicons name="person-add-outline" size={20} color="white" />
+            <Text color="$color1" fontWeight="600">Add Members</Text>
+          </XStack>
+        </Button>
+      </YStack>
+    </SafeAreaWrapper>
   );
 }

@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { View, YStack, Card, Button, Text, Paragraph, H2, H3, Image, Spinner } from 'tamagui';
 import { UserContext } from "../components/userContext";
 import {getUserProfile} from "../../firebase/services_firestore2";
+import { SafeAreaWrapper } from "../components/SafeAreaWrapper";
 
 
 export default function LoginScreen() {
@@ -61,17 +62,17 @@ export default function LoginScreen() {
 
   if (isLoading) {
       return (
-        <View flex={1} bg="$background">
+        <SafeAreaWrapper backgroundColor="$background">
           <YStack flex={1} p="$4" space="$2" style={{ justifyContent: 'center', alignItems: 'center' }}>
             <Spinner color="$color9" />
             <Text color="$color10">Loading...</Text>
           </YStack>
-        </View>
+        </SafeAreaWrapper>
       )
   }
     
   return (
-    <View flex={1} bg="$background">
+    <SafeAreaWrapper backgroundColor="$background">
       <YStack flex={1} p="$4" style={{ justifyContent: 'center', alignItems: 'center' }}>
         <Card elevate bordered p="$5" borderWidth={1} borderColor="$borderColor" width="100%" style={{ maxWidth: 420, alignItems: 'center' }}>
           <YStack width="100%" space="$3" style={{ alignItems: 'center' }}>
@@ -98,7 +99,7 @@ export default function LoginScreen() {
           </YStack>
         </Card>
       </YStack>
-    </View>
+    </SafeAreaWrapper>
   );
 }
 

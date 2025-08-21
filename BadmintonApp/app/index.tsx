@@ -5,6 +5,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import React from 'react';
 import { UserContext } from './components/userContext';
 import { getUserProfile } from '../firebase/services_firestore2';
+import { SafeAreaWrapper } from './components/SafeAreaWrapper';
 
 export default function Index() {
   const { user, isLoading } = useAuth0();
@@ -33,9 +34,11 @@ export default function Index() {
     }
   }, [user, isLoading, initializing]);
   return (
-    <View style={styles.container}>
-      <Text style={styles.text}>Loading...</Text>
-    </View>
+    <SafeAreaWrapper backgroundColor="#F5FCFF">
+      <View style={styles.container}>
+        <Text style={styles.text}>Loading...</Text>
+      </View>
+    </SafeAreaWrapper>
   );
 }
 

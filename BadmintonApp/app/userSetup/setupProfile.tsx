@@ -1,12 +1,14 @@
 import { Alert} from "react-native";
 import React, { useContext, useEffect, useState } from "react";
-import { Button, Input, YStack, XStack, Text, Avatar, H2, View } from 'tamagui'
+import { Button, Input, YStack, XStack, Text, H2, View } from 'tamagui'
 import { router } from "expo-router";
 import { useAuth0 } from "react-native-auth0";
 import { PhoneInput } from "../components/phoneInput";
 import { UserDoc } from '../../firebase/types_index';
 import { createUserProfile, getUserProfile, updateUserProfile } from '../../firebase/services_firestore2';
 import { UserContext } from "../components/userContext";
+import { SafeAreaWrapper } from "../components/SafeAreaWrapper";
+import { PhotoAvatar } from "../components/PhotoAvatar";
 
 
 
@@ -18,6 +20,7 @@ export default function SetupProfile() {
     const [email, setEmail] = useState('')
     const [phone, setPhone] = useState('')
     const [address, setAddress] = useState('')
+    const [photoUrl, setPhotoUrl] = useState<string>('')
 
     useEffect(() => {
         if (user && user.email){
@@ -44,7 +47,8 @@ export default function SetupProfile() {
                 Email: email,
                 Groups: [], 
                 Phone: phone,
-                Address: ''
+                Address: '',
+                PhotoUrl: photoUrl || undefined
             }
             await createUserProfile(user.sub,userProfile)
             await saveUser({name: name, email: email})
@@ -59,7 +63,7 @@ export default function SetupProfile() {
    }
 
     return (
-        <View flex={1} bg="$background">
+        <SafeAreaWrapper backgroundColor="$background">
             <YStack flex={1} p="$4" space="$6" style={{ justifyContent: 'center', alignItems: 'center' }}>
                 {/* Title */}
                 {/* <Text 
@@ -73,20 +77,19 @@ export default function SetupProfile() {
                 </Text> */}
                 <H2 color="$color9" fontWeight="bold"> Create Profile</H2>
 
-                {/* Profile Icon */}
-                <Avatar 
-                    circular
-                    size="$12" 
-                    borderWidth={2} 
+                {/* Profile Photo */}
+                <PhotoAvatar
+                    size="$12"
+                    photoUrl={photoUrl}
+                    name={name}
+                    onPhotoChange={setPhotoUrl}
+                    editable={true}
                     borderColor="$color9"
-                    backgroundColor="$color2"
-                    mb="$6"
-                >
-                    <Avatar.Image src={require('../../assets/images/defaultUserProfileImage.png')} />
-                    <Avatar.Fallback backgroundColor="$color2">
-                        <Text fontSize="$8" color="$color9">👤</Text>
-                    </Avatar.Fallback>
-                </Avatar>
+                    borderWidth={2}
+                    backgroundColor="$color9"
+                    textColor="$color1"
+                    fontSize="$6"
+                />
 
                 {/* Input Fields */}
                 <YStack space="$4" width="100%" style={{ maxWidth: 300 }}>
@@ -181,6 +184,6 @@ export default function SetupProfile() {
                     Create Profile
                 </Button>
             </YStack>
-        </View>
+        </SafeAreaWrapper>
     )
 }

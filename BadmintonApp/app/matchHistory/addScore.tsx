@@ -25,6 +25,7 @@ import { newMatchHistory } from "@/firebase/types_index";
 import { Alert } from "react-native";
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { UserContext } from "../components/userContext";
+import { SafeAreaWrapper } from "../components/SafeAreaWrapper";
 
 
 export default function AddScore() {
@@ -165,291 +166,345 @@ export default function AddScore() {
   };
 
   return (
-    <View flex={1} bg="$background">
-      {/* Header */}
-      <XStack
-        pr="$4"
-        pl="$4"
-        pt="$3"
-        pb="$3"
-        bg="$background"
-        borderBottomWidth={1}
-        borderBottomColor="$borderColor"
-      >
-        <Button
-          variant="outlined"
-          size="$3"
-          onPress={() => router.back()}
-          mr="$3"
+    <SafeAreaWrapper>
+      <View flex={1} bg="$background">
+        {/* Header */}
+        <XStack
+          pr="$4"
+          pl="$4"
+          pt="$3"
+          pb="$3"
+          bg="$background"
+          borderBottomWidth={1}
+          borderBottomColor="$borderColor"
         >
-          <Ionicons name="arrow-back" size={24} color="$color1" />
-        </Button>
-        <H4 flex={1} verticalAlign="center">Add Match Scores</H4>
-      </XStack>
+          <Button
+            variant="outlined"
+            size="$3"
+            onPress={() => router.back()}
+            mr="$3"
+          >
+            <Ionicons name="arrow-back" size={24} color="$color1" />
+          </Button>
+          <H4 flex={1} verticalAlign="center">Add Match Scores</H4>
+        </XStack>
 
-      <ScrollView flex={1} p="$4" showsVerticalScrollIndicator={false}>
-        <YStack pb="$8" space="$4">
-          {/* Game Score Section */}
-          <Card padding="$4" backgroundColor="$background" borderWidth={1} borderColor="$borderColor">
-            <YStack space="$3">
-              <H5 color="$color9" ml="$11" >Game Score</H5>
-              
-              <YStack space="$2">
-                {/* Your Team Row */}
-                <XStack verticalAlign="center" justify="center" space="$2">
-                  <Circle
-                    size="$3"
-                    bg="$color9"
-                    onPress={() => decrementScore("your")}
-                  >
-                    <Ionicons name="remove" size={16} color="white" />
-                  </Circle>
-                  <Card
-                    padding="$1"
-                    backgroundColor="$color4"
-                    borderRadius="$2"
-                    minWidth={48}
-                    alignItems="center"
-                  >
-                    <Input
-                      p="$1"
-                      bg="$color4"
-                      borderColor="transparent"
-                      inputMode="numeric"
-                      keyboardType="numeric"
-                      maxLength={2}
-                      fontSize='$5'
-                      value={yourScore.toString()}
-                      onFocus={() => {
-                        setIsYourScoreFocused(true);
-                        if (yourScore === "0") setYourScore("");
-                      }}
-                      onBlur={() => {
-                        setIsYourScoreFocused(false);
-                        if (yourScore === "") setYourScore("0");
-                      }}
-                      onChangeText={(text) => {
-                        const onlyDigits = text.replace(/[^0-9]/g, '');
-                        if (onlyDigits === '') {
-                          if (isYourScoreFocused) {
-                            setYourScore('');
-                          } else {
-                            setYourScore('0');
-                          }
-                          return;
-                        }
-                        const parsed = parseInt(onlyDigits, 10)
-                        setYourScore(isNaN(parsed) ? "0" : parsed.toString())
-                      }}
-                    />
-                  </Card>
-                  <Circle
-                    size="$3"
-                    bg="$color9"
-                    onPress={() => incrementScore("your")}
-                  >
-                    <Ionicons name="add" size={16} color="white" />
-                  </Circle>
-                </XStack>
-                <XStack justify="center">
-                  <Text fontSize="$2" color="$color" mt="$1">
-                    Your Team
-                  </Text>
-                </XStack>
-
-                {/* VS Row */}
-                <XStack justify="center">
-                  <Card
+        <ScrollView flex={1} p="$4" showsVerticalScrollIndicator={false}>
+          <YStack pb="$8" space="$4">
+            {/* Game Score Section */}
+            <Card padding="$4" backgroundColor="$background" borderWidth={1} borderColor="$borderColor">
+              <YStack space="$3">
+                <H5 color="$color9" ml="$11" >Game Score</H5>
                 
-                    padding="$1"
-                    backgroundColor="$color4"
-                    borderRadius="$2"
-                    minWidth={32}
-                    height={32}
-                    alignItems="center"
-                    justify="center"
-                  >
-                    <Text fontWeight="bold" color="$color">VS</Text>
-                  </Card>
-                </XStack>
-
-                {/* Opponent Team Row */}
-                <XStack verticalAlign="center" justify="center" space="$2">
-                  <Circle
-                    size="$3"
-                    bg="$color9"
-                    onPress={() => decrementScore("opponent")}
-                  >
-                    <Ionicons name="remove" size={16} color="white" />
-                  </Circle>
-                  <Card
-                    padding="$1"
-                    backgroundColor="$color4"
-                    borderRadius="$2"
-                    minWidth={48}
-                    alignItems="center"
-                  >
-                    <Input
-                      p="$1"
-                      bg="$color4"
-                      borderColor="transparent"
-                      inputMode="numeric"
-                      keyboardType="numeric"
-                      maxLength={2}
-                      fontSize='$5'
-                      value={opponentScore.toString()}
-                      onFocus={() => {
-                        setIsOpponentScoreFocused(true);
-                        if (opponentScore === "0") setOpponentScore("");
-                      }}
-                      onBlur={() => {
-                        setIsOpponentScoreFocused(false);
-                        if (opponentScore === "") setOpponentScore("0");
-                      }}
-                      onChangeText={(text) => {
-                        const onlyDigits = text.replace(/[^0-9]/g, '');
-                        if (onlyDigits === '') {
-                          if (isOpponentScoreFocused) {
-                            setOpponentScore('');
-                          } else {
-                            setOpponentScore('0');
+                <YStack space="$2">
+                  {/* Your Team Row */}
+                  <XStack verticalAlign="center" justify="center" space="$2">
+                    <Circle
+                      size="$3"
+                      bg="$color9"
+                      onPress={() => decrementScore("your")}
+                    >
+                      <Ionicons name="remove" size={16} color="white" />
+                    </Circle>
+                    <Card
+                      padding="$1"
+                      backgroundColor="$color4"
+                      borderRadius="$2"
+                      minWidth={48}
+                      alignItems="center"
+                    >
+                      <Input
+                        p="$1"
+                        bg="$color4"
+                        borderColor="transparent"
+                        inputMode="numeric"
+                        keyboardType="numeric"
+                        maxLength={2}
+                        fontSize='$5'
+                        value={yourScore.toString()}
+                        onFocus={() => {
+                          setIsYourScoreFocused(true);
+                          if (yourScore === "0") setYourScore("");
+                        }}
+                        onBlur={() => {
+                          setIsYourScoreFocused(false);
+                          if (yourScore === "") setYourScore("0");
+                        }}
+                        onChangeText={(text) => {
+                          const onlyDigits = text.replace(/[^0-9]/g, '');
+                          if (onlyDigits === '') {
+                            if (isYourScoreFocused) {
+                              setYourScore('');
+                            } else {
+                              setYourScore('0');
+                            }
+                            return;
                           }
-                          return;
-                        }
-                        const parsed = parseInt(onlyDigits, 10)
-                        setOpponentScore(isNaN(parsed) ? "0" : parsed.toString())
-                      }}
-                    />
-                  </Card>
-                  <Circle
-                    size="$3"
-                    bg="$color9"
-                    onPress={() => incrementScore("opponent")}
-                  >
-                    <Ionicons name="add" size={16} color="white" />
-                  </Circle>
-                </XStack>
-                <XStack justify="center">
-                  <Text fontSize="$2" color="$color" mt="$1">
-                    Opponent Team
-                  </Text>
-                </XStack>
-              </YStack>
+                          const parsed = parseInt(onlyDigits, 10)
+                          setYourScore(isNaN(parsed) ? "0" : parsed.toString())
+                        }}
+                      />
+                    </Card>
+                    <Circle
+                      size="$3"
+                      bg="$color9"
+                      onPress={() => incrementScore("your")}
+                    >
+                      <Ionicons name="add" size={16} color="white" />
+                    </Circle>
+                  </XStack>
+                  <XStack justify="center">
+                    <Text fontSize="$2" color="$color" mt="$1">
+                      Your Team
+                    </Text>
+                  </XStack>
 
-              <Button
-                bg="$color9"
-                onPress={resetGame}
-                mt="$2"
-                color="$color1"
-              >
-                Reset Game
-              </Button>
-            </YStack>
-          </Card>
+                  {/* VS Row */}
+                  <XStack justify="center">
+                    <Card
+                  
+                      padding="$1"
+                      backgroundColor="$color4"
+                      borderRadius="$2"
+                      minWidth={32}
+                      height={32}
+                      alignItems="center"
+                      justify="center"
+                    >
+                      <Text fontWeight="bold" color="$color">VS</Text>
+                    </Card>
+                  </XStack>
 
-          {/* Match Setup Section */}
-          <Card padding="$4" backgroundColor="$background" borderWidth={1} borderColor="$borderColor">
-            <YStack space="$3">
-              <H5 color="$color9">Match Setup</H5>
-              
-              {/* Match Type */}
-              <YStack space="$2">
-                <Text fontSize="$3" fontWeight="500">Match Type</Text>
-                <XStack space="$2">
-                  <Button
-                    flex={1}
-                    bg={matchType === "singles" ? "$color9" : "$color3"}
-                    onPress={() => setMatchType("singles")}
-                    color={matchType === "singles" ? "$color1" : "$color9"}
-                  >
-                    Singles
-                  </Button>
-                  <Button
-                    flex={1}
-                    bg={matchType === "doubles" ? "$color9" : "$color3"}
-                    onPress={() => setMatchType("doubles")}
-                    color={matchType === "doubles" ? "$color1" : "$color9"}
-                  >
-                    Doubles
-                  </Button>
-                </XStack>
-              </YStack>
+                  {/* Opponent Team Row */}
+                  <XStack verticalAlign="center" justify="center" space="$2">
+                    <Circle
+                      size="$3"
+                      bg="$color9"
+                      onPress={() => decrementScore("opponent")}
+                    >
+                      <Ionicons name="remove" size={16} color="white" />
+                    </Circle>
+                    <Card
+                      padding="$1"
+                      backgroundColor="$color4"
+                      borderRadius="$2"
+                      minWidth={48}
+                      alignItems="center"
+                    >
+                      <Input
+                        p="$1"
+                        bg="$color4"
+                        borderColor="transparent"
+                        inputMode="numeric"
+                        keyboardType="numeric"
+                        maxLength={2}
+                        fontSize='$5'
+                        value={opponentScore.toString()}
+                        onFocus={() => {
+                          setIsOpponentScoreFocused(true);
+                          if (opponentScore === "0") setOpponentScore("");
+                        }}
+                        onBlur={() => {
+                          setIsOpponentScoreFocused(false);
+                          if (opponentScore === "") setOpponentScore("0");
+                        }}
+                        onChangeText={(text) => {
+                          const onlyDigits = text.replace(/[^0-9]/g, '');
+                          if (onlyDigits === '') {
+                            if (isOpponentScoreFocused) {
+                              setOpponentScore('');
+                            } else {
+                              setOpponentScore('0');
+                            }
+                            return;
+                          }
+                          const parsed = parseInt(onlyDigits, 10)
+                          setOpponentScore(isNaN(parsed) ? "0" : parsed.toString())
+                        }}
+                      />
+                    </Card>
+                    <Circle
+                      size="$3"
+                      bg="$color9"
+                      onPress={() => incrementScore("opponent")}
+                    >
+                      <Ionicons name="add" size={16} color="white" />
+                    </Circle>
+                  </XStack>
+                  <XStack justify="center">
+                    <Text fontSize="$2" color="$color" mt="$1">
+                      Opponent Team
+                    </Text>
+                  </XStack>
+                </YStack>
 
-              {/* Date */}
-              <YStack space="$2">
-                <Text fontSize="$3" fontWeight="500">Date</Text>
                 <Button
-                  bg="$color3"
-                  borderColor="$borderColor"
-                  onPress={() => setShowDatePicker(true)}
+                  bg="$color9"
+                  onPress={resetGame}
+                  mt="$2"
+                  color="$color1"
                 >
-                  <Text>{date.toDateString()}</Text>
+                  Reset Game
                 </Button>
-                {showDatePicker && (
-                  <DateTimePicker
-                    value={date}
-                    mode="date"
-                    display="default"
-                    onChange={onDateChange}
-                  />
-                )}
-
-                <Text fontSize="$3" fontWeight="500">Time</Text>
-                <Button
-                  bg="$color3"
-                  borderColor="$borderColor"
-                  onPress={() => setShowTimePicker(true)}
-                >
-                  <Text>{date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
-                </Button>
-                {showTimePicker && (
-                  <DateTimePicker
-                    value={date}
-                    mode="time"
-                    display="default"
-                    onChange={onTimeChange}
-                  />
-                )}
               </YStack>
+            </Card>
 
-              {/* Tournament/Event */}
-              <YStack space="$2">
-                <Text fontSize="$3" fontWeight="500">Tournament/Event (Optional)</Text>
-                <Input
-                  value={tournament}
-                  onChangeText={setTournament}
-                  placeholder="Enter tournament name"
-                />
-              </YStack>
-            </YStack>
-          </Card>
+            {/* Match Setup Section */}
+            <Card padding="$4" backgroundColor="$background" borderWidth={1} borderColor="$borderColor">
+              <YStack space="$3">
+                <H5 color="$color9">Match Setup</H5>
+                
+                {/* Match Type */}
+                <YStack space="$2">
+                  <Text fontSize="$3" fontWeight="500">Match Type</Text>
+                  <XStack space="$2">
+                    <Button
+                      flex={1}
+                      bg={matchType === "singles" ? "$color9" : "$color3"}
+                      onPress={() => setMatchType("singles")}
+                      color={matchType === "singles" ? "$color1" : "$color9"}
+                    >
+                      Singles
+                    </Button>
+                    <Button
+                      flex={1}
+                      bg={matchType === "doubles" ? "$color9" : "$color3"}
+                      onPress={() => setMatchType("doubles")}
+                      color={matchType === "doubles" ? "$color1" : "$color9"}
+                    >
+                      Doubles
+                    </Button>
+                  </XStack>
+                </YStack>
 
-          {/* Select Players Section */}
-          <Card padding="$4" backgroundColor="$background" borderWidth={1} borderColor="$borderColor">
-            <YStack space="$3">
-              <H5 color="$color9">Select Players</H5>
-              
-              {/* Your Team */}
-              <YStack space="$2">
-                <Text fontSize="$3" fontWeight="500">Your Team</Text>
-                <Select
-                  value={userName}
-                >
-                  <Select.Trigger
-                    backgroundColor="$color4"
+                {/* Date */}
+                <YStack space="$2">
+                  <Text fontSize="$3" fontWeight="500">Date</Text>
+                  <Button
+                    bg="$color3"
                     borderColor="$borderColor"
-                    width="100%"
+                    onPress={() => setShowDatePicker(true)}
                   >
-                    <Select.Value>{userName || "Select Player 1"}</Select.Value>
-                  </Select.Trigger>
-                </Select>
+                    <Text>{date.toDateString()}</Text>
+                  </Button>
+                  {showDatePicker && (
+                    <DateTimePicker
+                      value={date}
+                      mode="date"
+                      display="default"
+                      onChange={onDateChange}
+                    />
+                  )}
 
-                {matchType === "doubles" && (
+                  <Text fontSize="$3" fontWeight="500">Time</Text>
+                  <Button
+                    bg="$color3"
+                    borderColor="$borderColor"
+                    onPress={() => setShowTimePicker(true)}
+                  >
+                    <Text>{date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+                  </Button>
+                  {showTimePicker && (
+                    <DateTimePicker
+                      value={date}
+                      mode="time"
+                      display="default"
+                      onChange={onTimeChange}
+                    />
+                  )}
+                </YStack>
+
+                {/* Tournament/Event */}
+                <YStack space="$2">
+                  <Text fontSize="$3" fontWeight="500">Tournament/Event (Optional)</Text>
+                  <Input
+                    value={tournament}
+                    onChangeText={setTournament}
+                    placeholder="Enter tournament name"
+                  />
+                </YStack>
+              </YStack>
+            </Card>
+
+            {/* Select Players Section */}
+            <Card padding="$4" backgroundColor="$background" borderWidth={1} borderColor="$borderColor">
+              <YStack space="$3">
+                <H5 color="$color9">Select Players</H5>
+                
+                {/* Your Team */}
+                <YStack space="$2">
+                  <Text fontSize="$3" fontWeight="500">Your Team</Text>
                   <Select
-                    value={yourPlayer2}
+                    value={userName}
+                  >
+                    <Select.Trigger
+                      backgroundColor="$color4"
+                      borderColor="$borderColor"
+                      width="100%"
+                    >
+                      <Select.Value>{userName || "Select Player 1"}</Select.Value>
+                    </Select.Trigger>
+                  </Select>
+
+                  {matchType === "doubles" && (
+                    <Select
+                      value={yourPlayer2}
+                      onValueChange={(value) => {
+                        setYourPlayer2(value);
+                        if (value === opponentPlayer1) setOpponentPlayer1("");
+                        if (value === opponentPlayer2) setOpponentPlayer2("");
+                      }}
+                    >
+                      <Select.Trigger
+                        backgroundColor="$color4"
+                        borderColor="$borderColor"
+                        width="100%"
+                      >
+                        <Select.Value placeholder="Select Player 2" />
+                      </Select.Trigger>
+
+                      {/* Sheet for mobile */}
+                      <Adapt when={true} platform="touch">
+                        <Sheet
+                          modal
+                          dismissOnSnapToBottom
+                          position={0}
+                        >
+                          <Sheet.Frame height={400}>
+                            <Adapt.Contents />
+                          </Sheet.Frame>
+                          <Sheet.Overlay />
+                        </Sheet>
+                      </Adapt>
+
+                      {/* Scrollable Content */}
+                      <Select.Content zIndex={200000}>
+                        <Select.ScrollUpButton />
+                        <Select.Viewport minH={100} maxH={300}>
+                          <Select.Group>
+                            <Select.Label>Players</Select.Label>
+                            {availableYourPlayer2.map((playerName, index) => (
+                              <Select.Item key={playerName} value={playerName} index={index}>
+                                <Select.ItemText>{playerName}</Select.ItemText>
+                              </Select.Item>
+                            ))}
+                          </Select.Group>
+                        </Select.Viewport>
+                        <Select.ScrollDownButton />
+                      </Select.Content>
+                    </Select>
+                  )}
+
+                </YStack>
+
+                {/* Opponent Team */}
+                <YStack space="$2">
+                  <Text fontSize="$3" fontWeight="500">Opponent Team</Text>
+                  <Select
+                    value={opponentPlayer1}
                     onValueChange={(value) => {
-                      setYourPlayer2(value);
-                      if (value === opponentPlayer1) setOpponentPlayer1("");
+                      setOpponentPlayer1(value);
+                      if (value === yourPlayer2) setYourPlayer2("");
                       if (value === opponentPlayer2) setOpponentPlayer2("");
                     }}
                   >
@@ -458,7 +513,7 @@ export default function AddScore() {
                       borderColor="$borderColor"
                       width="100%"
                     >
-                      <Select.Value placeholder="Select Player 2" />
+                      <Select.Value placeholder="Select Player 1" />
                     </Select.Trigger>
 
                     {/* Sheet for mobile */}
@@ -481,7 +536,7 @@ export default function AddScore() {
                       <Select.Viewport minH={100} maxH={300}>
                         <Select.Group>
                           <Select.Label>Players</Select.Label>
-                          {availableYourPlayer2.map((playerName, index) => (
+                          {availableOpponentPlayer1.map((playerName, index) => (
                             <Select.Item key={playerName} value={playerName} index={index}>
                               <Select.ItemText>{playerName}</Select.ItemText>
                             </Select.Item>
@@ -491,135 +546,83 @@ export default function AddScore() {
                       <Select.ScrollDownButton />
                     </Select.Content>
                   </Select>
-                )}
 
-              </YStack>
+                  {matchType === "doubles" && (
+                    <Select
+                      value={opponentPlayer2}
+                      onValueChange={(value) => {
+                        setOpponentPlayer2(value);
+                        if (value === yourPlayer2) setYourPlayer2("");
+                        if (value === opponentPlayer1) setOpponentPlayer1("");
+                      }}
+                    >
+                      <Select.Trigger
+                        backgroundColor="$color4"
+                        borderColor="$borderColor"
+                        width="100%"
+                      >
+                        <Select.Value placeholder="Select Player 2" />
+                      </Select.Trigger>
 
-              {/* Opponent Team */}
-              <YStack space="$2">
-                <Text fontSize="$3" fontWeight="500">Opponent Team</Text>
-                <Select
-                  value={opponentPlayer1}
-                  onValueChange={(value) => {
-                    setOpponentPlayer1(value);
-                    if (value === yourPlayer2) setYourPlayer2("");
-                    if (value === opponentPlayer2) setOpponentPlayer2("");
+                      {/* Sheet for mobile */}
+                      <Adapt when={true} platform="touch">
+                        <Sheet
+                          modal
+                          dismissOnSnapToBottom
+                          position={0}
+                        >
+                          <Sheet.Frame height={400}>
+                            <Adapt.Contents />
+                          </Sheet.Frame>
+                          <Sheet.Overlay />
+                        </Sheet>
+                      </Adapt>
+
+                      {/* Scrollable Content */}
+                      <Select.Content zIndex={200000}>
+                        <Select.ScrollUpButton />
+                        <Select.Viewport minH={100} maxH={300}>
+                          <Select.Group>
+                            <Select.Label>Players</Select.Label>
+                            {availableOpponentPlayer2.map((playerName, index) => (
+                              <Select.Item key={playerName} value={playerName} index={index}>
+                                <Select.ItemText>{playerName}</Select.ItemText>
+                              </Select.Item>
+                            ))}
+                          </Select.Group>
+                        </Select.Viewport>
+                        <Select.ScrollDownButton />
+                      </Select.Content>
+                    </Select>
+                  )}
+                </YStack>
+
+                <Button
+                  bg="$color9"
+                  onPress={() => {
+                    
                   }}
+                  mt="$2"
+                  color="$color1"
                 >
-                  <Select.Trigger
-                    backgroundColor="$color4"
-                    borderColor="$borderColor"
-                    width="100%"
-                  >
-                    <Select.Value placeholder="Select Player 1" />
-                  </Select.Trigger>
+                  Quick Add Player
+                </Button>
 
-                  {/* Sheet for mobile */}
-                  <Adapt when={true} platform="touch">
-                    <Sheet
-                      modal
-                      dismissOnSnapToBottom
-                      position={0}
-                    >
-                      <Sheet.Frame height={400}>
-                        <Adapt.Contents />
-                      </Sheet.Frame>
-                      <Sheet.Overlay />
-                    </Sheet>
-                  </Adapt>
-
-                  {/* Scrollable Content */}
-                  <Select.Content zIndex={200000}>
-                    <Select.ScrollUpButton />
-                    <Select.Viewport minH={100} maxH={300}>
-                      <Select.Group>
-                        <Select.Label>Players</Select.Label>
-                        {availableOpponentPlayer1.map((playerName, index) => (
-                          <Select.Item key={playerName} value={playerName} index={index}>
-                            <Select.ItemText>{playerName}</Select.ItemText>
-                          </Select.Item>
-                        ))}
-                      </Select.Group>
-                    </Select.Viewport>
-                    <Select.ScrollDownButton />
-                  </Select.Content>
-                </Select>
-
-                {matchType === "doubles" && (
-                  <Select
-                    value={opponentPlayer2}
-                    onValueChange={(value) => {
-                      setOpponentPlayer2(value);
-                      if (value === yourPlayer2) setYourPlayer2("");
-                      if (value === opponentPlayer1) setOpponentPlayer1("");
-                    }}
-                  >
-                    <Select.Trigger
-                      backgroundColor="$color4"
-                      borderColor="$borderColor"
-                      width="100%"
-                    >
-                      <Select.Value placeholder="Select Player 2" />
-                    </Select.Trigger>
-
-                    {/* Sheet for mobile */}
-                    <Adapt when={true} platform="touch">
-                      <Sheet
-                        modal
-                        dismissOnSnapToBottom
-                        position={0}
-                      >
-                        <Sheet.Frame height={400}>
-                          <Adapt.Contents />
-                        </Sheet.Frame>
-                        <Sheet.Overlay />
-                      </Sheet>
-                    </Adapt>
-
-                    {/* Scrollable Content */}
-                    <Select.Content zIndex={200000}>
-                      <Select.ScrollUpButton />
-                      <Select.Viewport minH={100} maxH={300}>
-                        <Select.Group>
-                          <Select.Label>Players</Select.Label>
-                          {availableOpponentPlayer2.map((playerName, index) => (
-                            <Select.Item key={playerName} value={playerName} index={index}>
-                              <Select.ItemText>{playerName}</Select.ItemText>
-                            </Select.Item>
-                          ))}
-                        </Select.Group>
-                      </Select.Viewport>
-                      <Select.ScrollDownButton />
-                    </Select.Content>
-                  </Select>
-                )}
+                
               </YStack>
-
-              <Button
+            </Card>
+            <Button
                 bg="$color9"
-                onPress={() => {
-                  
-                }}
-                mt="$2"
+                onPress={handleSaveMatch}
+                mt="$1"
                 color="$color1"
               >
-                Quick Add Player
+                Save match scores
               </Button>
-
-              
-            </YStack>
-          </Card>
-          <Button
-              bg="$color9"
-              onPress={handleSaveMatch}
-              mt="$1"
-              color="$color1"
-            >
-              Save match scores
-            </Button>
-        </YStack>
-      </ScrollView>
-    </View>
+          </YStack>
+        </ScrollView>
+      </View>
+    </SafeAreaWrapper>
   );
 }
 

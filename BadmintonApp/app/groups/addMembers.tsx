@@ -25,6 +25,7 @@ import { Picker } from '@react-native-picker/picker';
 import { createGroupInvite } from "../../firebase/services_firestore2";
 import { GroupInviteDoc } from "../../firebase/types_index";
 import { nanoid } from "nanoid/non-secure";
+import { SafeAreaWrapper } from "../components/SafeAreaWrapper";
 
 export default function AddMembers() {
   const [inviteLink, setInviteLink] = useState('');
@@ -237,7 +238,7 @@ export default function AddMembers() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: 'white' }}>
+    <SafeAreaWrapper backgroundColor="white">
       <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
         <YStack flex={1} p="$4" space="$6">
           {/* Header */}
@@ -563,6 +564,6 @@ export default function AddMembers() {
           </YStack>
         </YStack>
       </ScrollView>
-    </View>
+    </SafeAreaWrapper>
   );
 }
