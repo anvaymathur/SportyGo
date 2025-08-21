@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Badminton App Invite</title>
+  <script>
+    window.onload = function() {
+      // Grab path after domain, e.g. /groups/ABC123
+      const path = window.location.pathname; 
+
+      // Convert it into your app scheme
+      const appUrl = "badmintonapp://" + path;
+
+      // Try to open your app
+      window.location.replace(appUrl);
+
+      // Fallback: if app isn’t installed, redirect to App Store / Play Store
+      setTimeout(() => {
+        window.location.href = "https://badmintonapp.com/download"; 
+        // later replace with actual App Store/Play Store URLs
+      }, 2000);
+    };
+  </script>
+</head>
+<body>
+  <p>Opening Badminton App...</p>
+</body>
+</html>
