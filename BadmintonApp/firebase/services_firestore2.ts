@@ -1,3 +1,10 @@
+/**
+ * @fileoverview Firebase Firestore Services
+ * 
+ * Service layer providing all database operations for the Badminton App including
+ * user management, group operations, event CRUD, voting system, and attendance tracking.
+ */
+
 // services/firestore.ts
 import {
   getFirestore, collection, doc, setDoc, getDoc, updateDoc, writeBatch, onSnapshot,
@@ -7,19 +14,34 @@ import {
 import { db } from "./index";
 import { UserDoc, GroupDoc, EventDoc, VoteShard, VoteStatus, newMatchHistory, AttendanceRecord } from "./types_index";
 
+/**
+ * Number of shards used for distributed vote counting to ensure scalability
+ */
 const NUM_SHARDS = 10;
 
 // --- USERS ---
-export async function createUserProfile(uid: string, userDoc: UserDoc) {
+
+/**
+ * Creates a new user profile in Firestore
+ * @param {string} uid - Unique user identifier (Auth0 sub)
+ * @param {UserDoc} userDoc - Complete user document data
+ * @returns {Promise<void>} Promise that resolves when user is created
+ */
+export async function createUserProfile(uid: string, userDoc: UserDoc): Promise<void> {
   return setDoc(doc(db, "users", uid), userDoc);
 }
 
+/**
+ * Retrieves a user profile from Firestore
+ * @param {string} uid - Unique user identifier (Auth0 sub)
+ * @returns {Promise<UserDoc | undefined>} User document or undefined if not found
+ */
 export async function getUserProfile(uid: string): Promise<UserDoc | undefined> {
   const snap = await getDoc(doc(db, "users", uid));
   return snap.exists() ? (snap.data() as UserDoc) : undefined;
 }
 
-export async function updateUserProfile(uid: string, data: Partial<UserDoc>) {
+export async function updateUserProfile(uid: string, data: Partial<UserDoc>): Promise<void> {
   return updateDoc(doc(db, "users", uid), data);
 }
 
@@ -68,7 +90,7 @@ export async function getEventUserProfiles(eventId: string): Promise<UserDoc[]> 
 // --- GROUPS ---
 import { v4 as uuidv4 } from 'uuid';
 
-export async function createGroup(userId: string, group: Omit<GroupDoc, "ownerId" | "memberIds" | "createdAt">) {
+export async function createGroup(userId: string, group: Omit<GroupDoc, "ownerId" | "memberIds" | "createdAt">): Promise<string> {
   const groupRef = doc(collection(db, "groups"));
   const groupId = groupRef.id
   const now = new Date();
@@ -353,7 +375,6 @@ export function listenVoteCounts(
     callback(totals);
   }, (error) => {
     // If vote shards don't exist (e.g., voting disabled), return zeros
-    console.log('No vote shards found for event:', eventId);
     callback({ going: 0, maybe: 0, not: 0 });
   });
 }
@@ -371,7 +392,6 @@ export async function getVoteCounts(eventId: string): Promise<VoteShard> {
     return totals;
   } catch (error) {
     // If vote shards don't exist (e.g., voting disabled), return zeros
-    console.log('No vote shards found for event:', eventId);
     return { going: 0, maybe: 0, not: 0 };
   }
 }

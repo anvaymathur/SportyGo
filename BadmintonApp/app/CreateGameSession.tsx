@@ -1,3 +1,10 @@
+/**
+ * @fileoverview CreateGameSession Component
+ * 
+ * Form component for creating new badminton events with group selection,
+ * participant management, voting configuration, and form validation.
+ */
+
 import React, { useState, useEffect } from 'react';
 import { Alert, Platform, TouchableOpacity } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
@@ -8,7 +15,10 @@ import { GroupDoc, UserDoc } from '../firebase/types_index';
 import { useAuth0 } from 'react-native-auth0';
 import { Theme, YStack, XStack, ScrollView, Button, Input, Label, Paragraph, H2, Text, Card } from 'tamagui';
 
- type FormErrors = {
+/**
+ * Interface for form validation errors
+ */
+type FormErrors = {
   title?: string;
   gameDate?: string;
   gameTime?: string;
@@ -19,7 +29,12 @@ import { Theme, YStack, XStack, ScrollView, Button, Input, Label, Paragraph, H2,
   participants?: string;
 };
 
+/**
+ * Main CreateGameSession component for creating new badminton events
+ * @returns {JSX.Element} The rendered create game session form
+ */
 export default function CreateGameSession() {
+  // Date setup for form defaults
   const today = new Date();
   const tomorrow = new Date(today);
   const { user } = useAuth0();
@@ -57,13 +72,15 @@ export default function CreateGameSession() {
   const [loadingGroups, setLoadingGroups] = useState(true);
   const [loadingUsers, setLoadingUsers] = useState(true);
 
-  // State for errors
+  // State for errors and success
   const [errors, setErrors] = useState<FormErrors>({});
-  // State for success
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Fetch groups and users on component mount
+  /**
+   * Fetches user groups and profiles on component mount
+   * Loads data needed for group and participant selection
+   */
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -89,33 +106,49 @@ export default function CreateGameSession() {
     fetchData();
   }, []);
 
-  // Validation helpers
-  const validate = () => {
+  /**
+   * Validates all form fields and sets error messages
+   * 
+   * @returns {boolean} True if validation passes, false otherwise
+   */
+  const validate = (): boolean => {
     const newErrors: FormErrors = {};
+    
+    // Title validation
     if (!title || title.trim().length < 3) {
       newErrors.title = 'Title must be at least 3 characters';
     }
+    
+    // Date validation
     if (!gameDate || gameDate < new Date(today.setHours(0, 0, 0, 0))) {
       newErrors.gameDate = 'Game date cannot be in the past';
     }
+    
+    // Time validation
     if (!gameTime) {
       newErrors.gameTime = 'Game time is required';
     }
+    
+    // Location validation
     if (!location || location.trim().length < 3) {
       newErrors.location = 'Location must be at least 3 characters';
     }
+    
+    // Cost validation
     if (totalCost && (isNaN(Number(totalCost)) || Number(totalCost) < 0)) {
       newErrors.totalCost = 'Total cost must be a valid positive number';
     }
+    
+    // Voting cutoff validation
     if (votingEnabled) {
       if (!votingCutoff) {
         newErrors.votingCutoff = 'Voting cutoff date is required';
-              } else {
-          const now = new Date();
-          now.setHours(0, 0, 0, 0); // Set to 12:00am
-          if (votingCutoff < now) {
-      newErrors.votingCutoff = 'Voting cutoff cannot be in the past';
-    }
+      } else {
+        const now = new Date();
+        now.setHours(0, 0, 0, 0); // Set to 12:00am
+        if (votingCutoff < now) {
+          newErrors.votingCutoff = 'Voting cutoff cannot be in the past';
+        }
         // Allow voting cutoff on the same date as the game
         // The voting will automatically close when the event starts
       }
@@ -135,16 +168,36 @@ export default function CreateGameSession() {
     return Object.keys(newErrors).length === 0;
   };
 
-  // Handlers for date/time pickers
-  const onChangeGameDate = (event: any, selectedDate?: Date) => {
+  /**
+   * Handles date picker changes for game date
+   * 
+   * @param {any} event - The picker event
+   * @param {Date | undefined} selectedDate - The selected date
+   */
+  const onChangeGameDate = (event: any, selectedDate?: Date): void => {
     setShowGameDate(false);
     if (selectedDate) setGameDate(selectedDate);
   };
-  const onChangeGameTime = (event: any, selectedTime?: Date) => {
+
+  /**
+   * Handles time picker changes for game time
+   * 
+   * @param {any} event - The picker event
+   * @param {Date | undefined} selectedTime - The selected time
+   */
+  const onChangeGameTime = (event: any, selectedTime?: Date): void => {
     setShowGameTime(false);
     if (selectedTime) setGameTime(selectedTime);
   };
-  const onChangeVotingCutoff = (event: any, selectedDate?: Date) => {
+
+  /**
+   * Handles date picker changes for voting cutoff
+   * Sets the cutoff to the end of the selected date (23:59:59)
+   * 
+   * @param {any} event - The picker event
+   * @param {Date | undefined} selectedDate - The selected date
+   */
+  const onChangeVotingCutoff = (event: any, selectedDate?: Date): void => {
     setShowVotingCutoff(false);
     if (selectedDate) {
       // Set the voting cutoff to the end of the selected date (23:59:59)
@@ -154,9 +207,13 @@ export default function CreateGameSession() {
     }
   };
 
-  // Submit handler
-  const handleSubmit = async () => {
+  /**
+   * Handles form submission and event creation
+   * Validates form data and creates the event in Firestore
+   */
+  const handleSubmit = async (): Promise<void> => {
     if (!validate()) return;
+    
     setLoading(true);
     try {
       // Ensure creator is always included as a participant
@@ -186,6 +243,7 @@ export default function CreateGameSession() {
         CreatorID: userId,
         VotingEnabled: votingEnabled,
       };
+      
       await createEvent(event);
       setLoading(false);
       setSuccess(true);
@@ -195,14 +253,21 @@ export default function CreateGameSession() {
     }
   };
 
-  const handleCancel = () => {
+  /**
+   * Handles form cancellation with confirmation dialog
+   */
+  const handleCancel = (): void => {
     Alert.alert('Cancel', 'Are you sure you want to cancel? All entered data will be lost.', [
       { text: 'No' },
       { text: 'Yes', onPress: () => router.back() },
     ]);
   };
 
-  const resetForm = () => {
+  /**
+   * Resets the form to initial state
+   * Clears all fields and resets to default values
+   */
+  const resetForm = (): void => {
     setTitle('');
     setGameDate(tomorrow);
     setGameTime(new Date());
@@ -220,15 +285,26 @@ export default function CreateGameSession() {
     setLoading(false);
   };
 
-  const handleCreateAnother = () => {
+  /**
+   * Handles "Create Another" action after successful event creation
+   */
+  const handleCreateAnother = (): void => {
     resetForm();
   };
 
-  const handleViewSessions = () => {
+  /**
+   * Navigates to the events list after successful event creation
+   */
+  const handleViewSessions = (): void => {
     router.push('/EventsList');
   };
 
-  const toggleParticipant = (userId: string) => {
+  /**
+   * Toggles a participant's selection status
+   * 
+   * @param {string} userId - The user ID to toggle
+   */
+  const toggleParticipant = (userId: string): void => {
     setSelectedParticipants(prev => 
       prev.includes(userId) 
         ? prev.filter(id => id !== userId)
@@ -236,13 +312,23 @@ export default function CreateGameSession() {
     );
   };
 
-  const getSelectedParticipantNames = () => {
+  /**
+   * Gets the names of selected participants
+   * 
+   * @returns {string[]} Array of participant names
+   */
+  const getSelectedParticipantNames = (): string[] => {
     return selectedParticipants.map(userId => 
       users.find(u => u.id === userId)?.Name || 'Unknown User'
     );
   };
 
-  const getFilteredUsers = () => {
+  /**
+   * Filters users based on search query
+   * 
+   * @returns {UserDoc[]} Filtered array of users
+   */
+  const getFilteredUsers = (): UserDoc[] => {
     if (!userSearchQuery.trim()) return users;
     return users.filter(user => 
       user.Name.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
@@ -250,13 +336,27 @@ export default function CreateGameSession() {
     );
   };
 
-
-
-  const FieldError = ({ message }: { message?: string }) =>
+  /**
+   * FieldError component for displaying validation errors
+   * 
+   * @param {Object} props - Component props
+   * @param {string | undefined} props.message - Error message to display
+   * @returns {JSX.Element | null} Error message component or null
+   */
+  const FieldError = ({ message }: { message?: string }): JSX.Element | null =>
     message ? (
       <Paragraph fontSize={13} mt={2} color="#EF4444">{message}</Paragraph>
     ) : null;
 
+  /**
+   * InputLikeButton component for date/time picker triggers
+   * 
+   * @param {Object} props - Component props
+   * @param {React.ReactNode} props.children - Button content
+   * @param {() => void} props.onPress - Press handler
+   * @param {boolean | undefined} props.disabled - Disabled state
+   * @returns {JSX.Element} Button component styled like an input
+   */
   const InputLikeButton = ({
     children,
     onPress,
@@ -265,7 +365,7 @@ export default function CreateGameSession() {
     children: React.ReactNode;
     onPress: () => void;
     disabled?: boolean;
-  }) => (
+  }): JSX.Element => (
     <Button
       onPress={onPress}
       disabled={disabled}
@@ -283,7 +383,14 @@ export default function CreateGameSession() {
     </Button>
   );
 
-  const FormGroup = ({ children }: { children: React.ReactNode }) => (
+  /**
+   * FormGroup component for consistent form layout
+   * 
+   * @param {Object} props - Component props
+   * @param {React.ReactNode} props.children - Form group content
+   * @returns {JSX.Element} Form group wrapper
+   */
+  const FormGroup = ({ children }: { children: React.ReactNode }): JSX.Element => (
     <YStack mb={12}>{children}</YStack>
   );
 

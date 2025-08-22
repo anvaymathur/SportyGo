@@ -1,27 +1,36 @@
+/**
+ * EventView Component - Event details and voting interface
+ */
+
 import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert, Animated, SafeAreaView, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert, Animated, SafeAreaView } from 'react-native';
 import { useState, useEffect, useRef } from 'react';
 import { useLocalSearchParams, router } from 'expo-router';
 import { castVote, listenVoteCounts, getEvent, getUserVote, hasEventStarted } from '../firebase/services_firestore2';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase/index';
-import { VoteDoc, VoteStatus } from '../firebase/types_index';
+import { VoteStatus } from '../firebase/types_index';
 import { useAuth0 } from 'react-native-auth0';
 import { Theme, YStack, XStack, Button, Text as TamaguiText, H3, Card } from 'tamagui';
 
+type VoteFilter = 'all' | 'going' | 'maybe' | 'not';
 
 export default function EventView() {
+  // Route parameters and authentication
   const params = useLocalSearchParams();
   const eventId = params.eventId as string; // Use string for Firestore
   const { user } = useAuth0();
   const userId = user?.sub || 'default-user'; 
+  
+  // Component state
   const [eventData, setEventData] = useState<any>(null);
-  const [currentFilter, setCurrentFilter] = useState<'all' | 'going' | 'maybe' | 'not'>('all');
+  const [currentFilter, setCurrentFilter] = useState<VoteFilter>('all');
   const [isVotingOpen, setIsVotingOpen] = useState(true);
   const [countdown, setCountdown] = useState('');
   const [userVoteStatus, setUserVoteStatus] = useState('Select your response above');
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
+  // Voting and UI state
   const [voteCounts, setVoteCounts] = useState({ going: 0, maybe: 0, not: 0 });
   const [userVote, setUserVote] = useState<null | VoteStatus>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -29,6 +38,10 @@ export default function EventView() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [eventStarted, setEventStarted] = useState(false);
 
+  /**
+   * Fetches event data and validates access
+   * Loads event information and checks user permissions
+   */
   useEffect(() => {
     if (!eventId) return;
     
@@ -59,7 +72,10 @@ export default function EventView() {
     fetchEventData();
   }, [eventId]);
 
-  // Listen to vote counts
+  /**
+   * Sets up real-time listener for vote count updates
+   * Provides live updates of voting statistics
+   */
   useEffect(() => {
     if (!eventId) return;
     const unsubscribe = listenVoteCounts(eventId, (counts) => {
@@ -68,7 +84,10 @@ export default function EventView() {
     return unsubscribe;
   }, [eventId]);
 
-  // Fetch user's previous vote
+  /**
+   * Fetches user's previous vote and updates UI
+   * Loads existing vote data for the current user
+   */
   useEffect(() => {
     if (!eventId || !userId) return;
     
@@ -89,7 +108,10 @@ export default function EventView() {
     fetchUserVote();
   }, [eventId, userId]);
 
-  // Countdown timer effect
+  /**
+   * Manages countdown timer and voting status
+   * Updates voting open/closed status based on cutoff time and event start
+   */
   useEffect(() => {
     if (!eventData?.CutoffDate || eventData?.VotingEnabled === false) {
       setIsVotingOpen(false);
@@ -99,27 +121,27 @@ export default function EventView() {
     
     const votingCutoff = new Date(eventData.CutoffDate.toDate ? eventData.CutoffDate.toDate() : eventData.CutoffDate);
     
-          const updateCountdown = () => {
-        const now = new Date();
-        const timeLeft = votingCutoff.getTime() - now.getTime();
-        const eventStarted = hasEventStarted(eventData.EventDate);
-        const startedEarly = eventData.StartedEarly === true;
-        
-        // Close voting if cutoff time has passed OR event has started OR started early
-        if (timeLeft <= 0 || eventStarted || startedEarly) {
-          setIsVotingOpen(false);
-          if (startedEarly) {
-            setCountdown('Event Started Early');
-          } else if (eventStarted) {
-            setCountdown('Event Started');
-          } else {
-            setCountdown('Voting Closed');
-          }
-          return;
-        }
-        
-        setIsVotingOpen(true);
+    const updateCountdown = () => {
+      const now = new Date();
+      const timeLeft = votingCutoff.getTime() - now.getTime();
+      const eventStarted = hasEventStarted(eventData.EventDate);
+      const startedEarly = eventData.StartedEarly === true;
       
+      // Close voting if cutoff time has passed OR event has started OR started early
+      if (timeLeft <= 0 || eventStarted || startedEarly) {
+        setIsVotingOpen(false);
+        if (startedEarly) {
+          setCountdown('Event Started Early');
+        } else if (eventStarted) {
+          setCountdown('Event Started');
+        } else {
+          setCountdown('Voting Closed');
+        }
+        return;
+      }
+      
+      setIsVotingOpen(true);
+    
       const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
       const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
       const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
@@ -143,7 +165,12 @@ export default function EventView() {
     return () => clearInterval(interval);
   }, [eventData]);
 
-  const handleVote = async (vote: VoteStatus) => {
+  /**
+   * Handles user voting with validation and error handling
+   * 
+   * @param {VoteStatus} vote - The vote to cast ('going', 'maybe', 'not')
+   */
+  const handleVote = async (vote: VoteStatus): Promise<void> => {
     if (!eventData?.VotingEnabled) {
       Alert.alert('Voting Disabled', 'Voting is not enabled for this event.');
       return;
@@ -186,7 +213,11 @@ export default function EventView() {
     }
   };
 
-  const handleStartEventEarly = async () => {
+  /**
+   * Handles early event start for admin users
+   * Closes voting and enables attendance tracking
+   */
+  const handleStartEventEarly = async (): Promise<void> => {
     if (!eventId) {
       Alert.alert('Error', 'Event ID is missing.');
       return;
@@ -238,25 +269,41 @@ export default function EventView() {
     );
   };
 
-  const getResponseIcon = (response: string) => {
+  /**
+   * Gets the appropriate icon for a vote response
+   * 
+   * @param {string} response - The vote response ('going', 'maybe', 'not')
+   * @returns {string} The icon character for the response
+   */
+  const getResponseIcon = (response: string): string => {
     const icons = { 'going': '✓', 'maybe': '?', 'not': '✗' };
     return icons[response as keyof typeof icons] || '';
   };
 
-  const getTotalResponses = () => {
+  /**
+   * Calculates the total number of responses
+   * 
+   * @returns {number} Total number of vote responses
+   */
+  const getTotalResponses = (): number => {
     return voteCounts.going + voteCounts.maybe + voteCounts.not;
   };
 
-  const getFilteredCount = () => {
+  /**
+   * Gets the count for the currently selected filter
+   * 
+   * @returns {number} Count for the current filter
+   */
+  const getFilteredCount = (): number => {
     if (currentFilter === 'all') {
       return getTotalResponses();
     }
     return voteCounts[currentFilter] || 0;
   };
 
-  const { width } = Dimensions.get('window');
-  const isSmallScreen = width < 375;
 
+
+  // Loading state
   if (isLoading) {
     return (
       <SafeAreaView style={styles.safeArea}>

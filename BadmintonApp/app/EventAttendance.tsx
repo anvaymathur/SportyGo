@@ -1,9 +1,13 @@
+/**
+ * EventAttendance Component - Attendance tracking for events
+ */
+
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, SafeAreaView, Alert } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { getEvent, getVoteCounts, getUserVote, getAllUserProfiles, updateAttendance, getAttendanceRecords } from '../firebase/services_firestore2';
 import { useAuth0 } from 'react-native-auth0';
-import { UserDoc } from '../firebase/types_index';
+
 
 interface AttendanceRecord {
   userId: string;
@@ -15,17 +19,23 @@ interface AttendanceRecord {
 }
 
 export default function EventAttendance() {
+  // Route parameters and authentication
   const params = useLocalSearchParams();
   const eventId = params.eventId as string;
   const { user } = useAuth0();
   const userId = user?.sub || 'default-user';
 
+  // Component state
   const [eventData, setEventData] = useState<any>(null);
   const [attendanceList, setAttendanceList] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
 
+  /**
+   * Fetches event data and validates admin access
+   * Loads event information and checks if current user is the event creator
+   */
   useEffect(() => {
     const fetchEventData = async () => {
       if (!eventId) return;
@@ -53,6 +63,10 @@ export default function EventAttendance() {
     fetchEventData();
   }, [eventId, userId]);
 
+  /**
+   * Fetches attendance data for all participants who voted 'going' or 'maybe'
+   * Loads existing attendance records and user profiles
+   */
   useEffect(() => {
     const fetchAttendanceData = async () => {
       if (!eventData || !isAdmin) return;
@@ -99,7 +113,13 @@ export default function EventAttendance() {
     fetchAttendanceData();
   }, [eventData, isAdmin, eventId]);
 
-  const toggleAttendance = (userId: string) => {
+  /**
+   * Toggles attendance status for a specific user
+   * Updates arrival time when marking as arrived
+   * 
+   * @param {string} userId - The user ID to toggle attendance for
+   */
+  const toggleAttendance = (userId: string): void => {
     setAttendanceList(prev => 
       prev.map(record => 
         record.userId === userId 
@@ -113,7 +133,11 @@ export default function EventAttendance() {
     );
   };
 
-  const saveAttendance = async () => {
+  /**
+   * Saves attendance data to Firestore
+   * Persists all attendance records for the event
+   */
+  const saveAttendance = async (): Promise<void> => {
     if (!eventId) return;
 
     try {
@@ -128,14 +152,25 @@ export default function EventAttendance() {
     }
   };
 
-  const getArrivedCount = () => {
+  /**
+   * Gets the count of participants who have arrived
+   * 
+   * @returns {number} Number of participants who have arrived
+   */
+  const getArrivedCount = (): number => {
     return attendanceList.filter(record => record.hasArrived).length;
   };
 
-  const getTotalExpected = () => {
+  /**
+   * Gets the total number of expected participants
+   * 
+   * @returns {number} Total number of expected participants
+   */
+  const getTotalExpected = (): number => {
     return attendanceList.length;
   };
 
+  // Loading state
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea}>
@@ -146,6 +181,7 @@ export default function EventAttendance() {
     );
   }
 
+  // Access denied state for non-admins
   if (!isAdmin) {
     return (
       <SafeAreaView style={styles.safeArea}>

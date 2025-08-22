@@ -48,7 +48,7 @@ export default function CreateGroup() {
     }
     
     // Here you would typically save the group data to your backend
-    console.log('Creating Group:', {
+
       groupName,
       description,
       skillLevel,
@@ -70,13 +70,13 @@ export default function CreateGroup() {
         MeetingSchedule: meetingSchedule
       }
       try {
-        console.log('Creating group with data:', groupInfo);
+    
         const groupId = await createGroup(user.sub, groupInfo);
-        console.log('Group created successfully with ID:', groupId);
+        
         router.push('/groups/displayGroups');
       } catch (error) {
         console.error('Error creating group:', error);
-        console.log(error)
+
         Alert.alert("Error", "Failed to create group. Please try again.");
       }
 

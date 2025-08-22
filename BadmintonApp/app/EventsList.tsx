@@ -1,68 +1,113 @@
+/**
+ * @fileoverview EventsList Component
+ * 
+ * Displays and manages badminton events with real-time voting functionality.
+ * Features search, filtering, and navigation to event details and creation.
+ */
+
 import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, SafeAreaView, Dimensions, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, SafeAreaView, TextInput } from 'react-native';
 import { useState, useEffect } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { listenGroupEvents, listenUserGroupEvents, listenAllEvents, getVoteCounts, getUserVote, getUserGroups, hasEventStarted } from '../firebase/services_firestore2';
-import { EventDoc, VoteStatus } from '../firebase/types_index';
+import { VoteStatus } from '../firebase/types_index';
 import { useAuth0 } from 'react-native-auth0';
 
+/**
+ * Interface for mapped event data used in the UI
+ */
+interface MappedEvent {
+  id: string;
+  title: string;
+  date: string;
+  time: string;
+  location: string;
+  totalCost?: number;
+  group: string;
+  individualParticipants: number;
+  description: string;
+  attendeeCount: number;
+  votingCutoff: string;
+  isVotingOpen: boolean;
+  userVote: VoteStatus | null;
+  eventDate: Date;
+  votingEnabled: boolean;
+  eventStarted: boolean;
+  isAdmin: boolean;
+}
+
+/**
+ * Filter options for the events list
+ */
+type FilterType = 'all' | 'voting-open' | 'voting-closed' | 'my-events';
+
+/**
+ * Main EventsList component that displays and manages badminton events
+ * 
+ * @returns {JSX.Element} The rendered events list component
+ */
 export default function EventsList() {
+  // State management for events and UI
   const [events, setEvents] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedFilter, setSelectedFilter] = useState<'all' | 'voting-open' | 'voting-closed' | 'my-events'>('all');
-  const [mappedEvents, setMappedEvents] = useState<any[]>([]);
+  const [selectedFilter, setSelectedFilter] = useState<FilterType>('all');
+  const [mappedEvents, setMappedEvents] = useState<MappedEvent[]>([]);
   const [userGroups, setUserGroups] = useState<string[]>([]);
   const [loadingGroups, setLoadingGroups] = useState(true);
   const [loadingEvents, setLoadingEvents] = useState(false);
   const [loadingVoteData, setLoadingVoteData] = useState(false);
   
+  // Auth and routing
   const { user } = useAuth0();
   const userId = user?.sub || 'default-user';
   const params = useLocalSearchParams();
   const GROUP_ID = params.groupId as string;
 
-  // Helper functions
-  const parseFirestoreDate = (date: any) => {
+  /**
+   * Parses Firestore date objects to JavaScript Date objects
+   * @param {any} date - The date to parse
+   * @returns {Date} The parsed JavaScript Date object
+   */
+  const parseFirestoreDate = (date: any): Date => {
     if (date instanceof Date) return date;
     return new Date(date.seconds ? date.seconds * 1000 : date);
   };
 
-  const formatDate = (date: any) => parseFirestoreDate(date).toDateString();
-  const formatTime = (date: any) => parseFirestoreDate(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  const formatLocation = (location: any) => {
+  /**
+   * Formats a date to a readable string format
+   * @param {any} date - The date to format
+   * @returns {string} Formatted date string
+   */
+  const formatDate = (date: any): string => parseFirestoreDate(date).toDateString();
+
+  /**
+   * Formats a date to a readable time format
+   * @param {any} date - The date to format
+   * @returns {string} Formatted time string (HH:MM)
+   */
+  const formatTime = (date: any): string => parseFirestoreDate(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  /**
+   * Formats location data to a readable string
+   * @param {any} location - The location data (string or coordinate object)
+   * @returns {string} Formatted location string
+   */
+  const formatLocation = (location: any): string => {
     if (typeof location === 'string') return location;
     if (location?._lat && location?._long) return `${location._lat.toFixed(6)}, ${location._long.toFixed(6)}`;
     return 'Location not specified';
   };
 
-  // Check if two events overlap in time
-  const eventsOverlap = (event1: any, event2: any) => {
-    const start1 = new Date(event1.EventDate);
-    const start2 = new Date(event2.EventDate);
-    
-    // Assume events last 2 hours by default
-    const duration = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
-    const end1 = new Date(start1.getTime() + duration);
-    const end2 = new Date(start2.getTime() + duration);
-    
-    // Check if events overlap
-    return start1 < end2 && start2 < end1;
-  };
 
-  // Check if an event conflicts with user's existing 'going' votes
-  const checkEventConflict = (event: any, userGoingEvents: any[]) => {
-    for (const userEvent of userGoingEvents) {
-      if (userEvent.id !== event.id && eventsOverlap(event, userEvent)) {
-        return {
-          hasConflict: true,
-          conflictingEvent: userEvent
-        };
-      }
-    }
-    return { hasConflict: false };
-  };
 
-  const mapEventToUI = (event: any, voteCounts: any, userVote: any) => ({
+  /**
+   * Maps raw event data to UI-friendly format with vote counts and user status
+   * @param {any} event - Raw event data from Firestore
+   * @param {any} voteCounts - Vote count data for the event
+   * @param {any} userVote - User's vote for this event
+   * @returns {MappedEvent} Formatted event data for UI display
+   */
+  const mapEventToUI = (event: any, voteCounts: any, userVote: any): MappedEvent => ({
     id: event.id || event.docId || event._id,
     title: event.Title,
     date: formatDate(event.EventDate),
@@ -79,9 +124,14 @@ export default function EventsList() {
     userVote: event.VotingEnabled !== false ? userVote : null,
     eventDate: parseFirestoreDate(event.EventDate),
     votingEnabled: event.VotingEnabled !== false,
+    eventStarted: hasEventStarted(event.EventDate),
+    isAdmin: event.CreatorID === userId,
   });
 
-  // Fetch user's groups
+  /**
+   * Fetches user's groups on component mount
+   * Sets up real-time listener for user's group events
+   */
   useEffect(() => {
     const fetchUserGroups = async () => {
       if (user && user.sub) {
@@ -105,7 +155,10 @@ export default function EventsList() {
     fetchUserGroups();
   }, [user]);
 
-  // Listen to events from user's groups
+  /**
+   * Sets up real-time listeners for events based on user's groups
+   * Falls back to single group or all events if no user groups found
+   */
   useEffect(() => {
     if (loadingGroups) return; // Wait for groups to load first
     
@@ -134,6 +187,10 @@ export default function EventsList() {
     }
   }, [userGroups, GROUP_ID, userId, loadingGroups]);
 
+  /**
+   * Fetches vote counts and user votes for all events
+   * Optimized with parallel API calls for better performance
+   */
   useEffect(() => {
     const fetchEventsWithVoteCounts = async () => {
       if (events.length === 0) {
@@ -144,19 +201,13 @@ export default function EventsList() {
       setLoadingVoteData(true);
       
       try {
-
-        
-        // OPTIMIZATION: Batch all vote-related API calls using Promise.all
-        // This makes all API calls in parallel instead of sequentially
         const eventsWithCounts = await Promise.all(
           events.map(async (event) => {
             try {
               let voteCounts = { going: 0, maybe: 0, not: 0 };
               let userVote = null;
               
-              // Only fetch vote data if voting is enabled
               if (event.VotingEnabled !== false) {
-                // Parallel fetch instead of sequential
                 const [voteCountsResult, userVoteResult] = await Promise.all([
                   getVoteCounts(event.id),
                   getUserVote(event.id, userId)
@@ -166,10 +217,6 @@ export default function EventsList() {
               }
               
               const totalAttendees = event.VotingEnabled !== false ? (voteCounts.going + voteCounts.maybe + voteCounts.not) : 0;
-              
-              // OPTIMIZATION: Disable expensive conflict checking for performance
-              // const conflictCheck = userVote !== 'going' ? checkEventConflict(event, userGoingEvents) : { hasConflict: false };
-              const conflictCheck = { hasConflict: false }; // Temporarily disabled for performance
             
             return {
               id: event.id || event.docId || event._id,
@@ -192,8 +239,6 @@ export default function EventsList() {
               userVote: event.VotingEnabled !== false ? userVote : null,
               eventDate: event.EventDate instanceof Date ? event.EventDate : new Date(event.EventDate.seconds ? event.EventDate.seconds * 1000 : event.EventDate),
               votingEnabled: event.VotingEnabled !== false,
-                             hasTimeConflict: false, // Temporarily disabled for performance
-               conflictingEvent: null, // Temporarily disabled for performance
                eventStarted: hasEventStarted(event.EventDate),
                isAdmin: event.CreatorID === userId,
              };
@@ -256,8 +301,6 @@ export default function EventsList() {
           userVote: null,
           eventDate: parseFirestoreDate(event.EventDate),
           votingEnabled: event.VotingEnabled !== false,
-          hasTimeConflict: false,
-          conflictingEvent: null,
           eventStarted: hasEventStarted(event.EventDate),
           isAdmin: event.CreatorID === userId,
         }));
@@ -270,10 +313,14 @@ export default function EventsList() {
     fetchEventsWithVoteCounts();
   }, [events, userId]);
 
-  const { width } = Dimensions.get('window');
-  const isSmallScreen = width < 375;
 
-  const filteredEvents = mappedEvents.filter((event: any) => {
+
+  /**
+   * Filters events based on search query and selected filter
+   * 
+   * @returns {MappedEvent[]} Filtered array of events
+   */
+  const filteredEvents = mappedEvents.filter((event: MappedEvent) => {
     const matchesSearch = event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          (event.group && event.group.toLowerCase().includes(searchQuery.toLowerCase())) ||
                          (typeof event.location === 'string' && event.location.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -286,7 +333,13 @@ export default function EventsList() {
     return matchesSearch && matchesFilter;
   });
 
-  const getTimeUntilEvent = (eventDate: string) => {
+  /**
+   * Calculates and formats the time until an event
+   * 
+   * @param {string} eventDate - The event date string
+   * @returns {string} Human-readable time until event (e.g., "Tomorrow", "In 3 days")
+   */
+  const getTimeUntilEvent = (eventDate: string): string => {
     const eventDateObj = new Date(eventDate);
     const now = new Date();
     const timeDiff = eventDateObj.getTime() - now.getTime();
@@ -311,7 +364,12 @@ export default function EventsList() {
     return `In ${weeks} week${weeks > 1 ? 's' : ''}`;
   };
 
-  const handleEventPress = (event: any) => {
+  /**
+   * Handles navigation to event details when an event card is pressed
+   * 
+   * @param {MappedEvent} event - The event to navigate to
+   */
+  const handleEventPress = (event: MappedEvent): void => {
     // Navigate to the EventView with the event data
     if (!event.id) {
       console.error('Event ID is missing:', event);
@@ -403,7 +461,7 @@ export default function EventsList() {
             </Text>
           </View>
         ) : (
-          filteredEvents.map((event: any) => (
+          filteredEvents.map((event: MappedEvent) => (
             <TouchableOpacity
               key={event.id}
               style={[
@@ -430,12 +488,6 @@ export default function EventsList() {
                       <Text style={styles.goingBadgeText}>Going</Text>
                     </View>
                   )}
-                                                       {/* COMMENTED OUT FOR PERFORMANCE - Re-enable if needed */}
-                  {/* {event.hasTimeConflict && event.votingEnabled && event.userVote !== 'going' && (
-                    <View style={styles.conflictBadge}>
-                      <Text style={styles.conflictBadgeText}>⚠️ Time Conflict</Text>
-                    </View>
-                  )} */}
                   {event.isAdmin && event.eventStarted && (
                     <View style={styles.adminBadge}>
                       <Text style={styles.adminBadgeText}>📋 Manage</Text>
@@ -479,14 +531,7 @@ export default function EventsList() {
 
               </View>
 
-              {/* COMMENTED OUT FOR PERFORMANCE - Re-enable if needed */}
-              {/* {event.hasTimeConflict && event.votingEnabled && event.userVote !== 'going' && (
-                <View style={styles.conflictInfo}>
-                  <Text style={styles.conflictInfoText}>
-                    ⚠️ This event conflicts with another event you're attending
-                  </Text>
-                </View>
-              )} */}
+
 
               <View style={styles.cardFooter}>
                 <View style={styles.attendeeInfo}>
@@ -616,17 +661,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600',
   },
-  conflictBadge: {
-    backgroundColor: '#ffc107',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
-  },
-     conflictBadgeText: {
-     color: '#000',
-     fontSize: 10,
-     fontWeight: '600',
-   },
+
    adminBadge: {
      backgroundColor: '#28a745',
      paddingHorizontal: 6,
@@ -638,19 +673,7 @@ const styles = StyleSheet.create({
      fontSize: 10,
      fontWeight: '600',
    },
-   conflictInfo: {
-    backgroundColor: '#fff3cd',
-    borderWidth: 1,
-    borderColor: '#ffeaa7',
-    borderRadius: 6,
-    padding: 8,
-    marginBottom: 12,
-  },
-  conflictInfoText: {
-    fontSize: 12,
-    color: '#856404',
-    textAlign: 'center',
-  },
+
   groupBadge: {
     backgroundColor: '#007bff',
     paddingHorizontal: 8,
