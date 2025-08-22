@@ -40,6 +40,9 @@ export interface EventDoc {
   CreatorID: string;
   VotingEnabled?: boolean; // Optional - defaults to true
   AttendanceRecords?: AttendanceRecord[]; // New field for attendance tracking
+  StartedEarly?: boolean; // New field - true if admin started event early
+  StartedEarlyAt?: Date; // New field - timestamp when event was started early
+  TotalCost?: number; // Optional - total cost for the event
 }
 
 export interface VoteDoc {

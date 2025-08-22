@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, SafeAreaView, Alert } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { getEvent, getVoteCounts, getUserVote, getAllUserProfiles, updateAttendance } from '../firebase/services_firestore2';
+import { getEvent, getVoteCounts, getUserVote, getAllUserProfiles, updateAttendance, getAttendanceRecords } from '../firebase/services_firestore2';
 import { useAuth0 } from 'react-native-auth0';
 import { UserDoc } from '../firebase/types_index';
 
@@ -59,9 +59,10 @@ export default function EventAttendance() {
 
       try {
         // Get all users who voted 'going' or 'maybe'
-        const [voteCounts, allUsers] = await Promise.all([
+        const [voteCounts, allUsers, existingAttendance] = await Promise.all([
           getVoteCounts(eventId),
-          getAllUserProfiles()
+          getAllUserProfiles(),
+          getAttendanceRecords(eventId).catch(() => []) // Load existing attendance records
         ]);
 
         const attendanceRecords: AttendanceRecord[] = [];
@@ -71,12 +72,16 @@ export default function EventAttendance() {
           try {
             const userVote = await getUserVote(eventId, user.id);
             if (userVote === 'going' || userVote === 'maybe') {
+              // Check if there's existing attendance data for this user
+              const existingRecord = existingAttendance.find((record: any) => record.userId === user.id);
+              
               attendanceRecords.push({
                 userId: user.id,
                 userName: user.Name,
                 userEmail: user.Email,
                 votedStatus: userVote,
-                hasArrived: false, // Will be loaded from attendance data
+                hasArrived: existingRecord ? existingRecord.hasArrived : false,
+                arrivalTime: existingRecord ? existingRecord.arrivalTime : undefined,
               });
             }
           } catch (error) {
@@ -172,7 +177,7 @@ export default function EventAttendance() {
           <Text style={styles.eventTitle}>{eventData?.Title}</Text>
           <Text style={styles.eventDate}>
             {eventData?.EventDate ? 
-              new Date(eventData.EventDate.seconds ? eventData.EventDate.seconds * 1000 : eventData.EventDate).toLocaleString() 
+              (eventData.EventDate.toDate ? eventData.EventDate.toDate().toLocaleString() : new Date(eventData.EventDate).toLocaleString())
               : 'Date not set'
             }
           </Text>

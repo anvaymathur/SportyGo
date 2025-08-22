@@ -3,8 +3,11 @@ import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert, Animated, 
 import { useState, useEffect, useRef } from 'react';
 import { useLocalSearchParams, router } from 'expo-router';
 import { castVote, listenVoteCounts, getEvent, getUserVote, hasEventStarted } from '../firebase/services_firestore2';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '../firebase/index';
 import { VoteDoc, VoteStatus } from '../firebase/types_index';
 import { useAuth0 } from 'react-native-auth0';
+import { Theme, YStack, XStack, Button, Text as TamaguiText, H3, Card } from 'tamagui';
 
 
 export default function EventView() {
@@ -22,6 +25,7 @@ export default function EventView() {
   const [voteCounts, setVoteCounts] = useState({ going: 0, maybe: 0, not: 0 });
   const [userVote, setUserVote] = useState<null | VoteStatus>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isVoting, setIsVoting] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [eventStarted, setEventStarted] = useState(false);
 
@@ -95,15 +99,26 @@ export default function EventView() {
     
     const votingCutoff = new Date(eventData.CutoffDate.toDate ? eventData.CutoffDate.toDate() : eventData.CutoffDate);
     
-    const updateCountdown = () => {
-      const now = new Date();
-      const timeLeft = votingCutoff.getTime() - now.getTime();
-      
-      if (timeLeft <= 0) {
-        setIsVotingOpen(false);
-        setCountdown('Voting Closed');
-        return;
-      }
+          const updateCountdown = () => {
+        const now = new Date();
+        const timeLeft = votingCutoff.getTime() - now.getTime();
+        const eventStarted = hasEventStarted(eventData.EventDate);
+        const startedEarly = eventData.StartedEarly === true;
+        
+        // Close voting if cutoff time has passed OR event has started OR started early
+        if (timeLeft <= 0 || eventStarted || startedEarly) {
+          setIsVotingOpen(false);
+          if (startedEarly) {
+            setCountdown('Event Started Early');
+          } else if (eventStarted) {
+            setCountdown('Event Started');
+          } else {
+            setCountdown('Voting Closed');
+          }
+          return;
+        }
+        
+        setIsVotingOpen(true);
       
       const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
       const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -144,7 +159,12 @@ export default function EventView() {
       return;
     }
     
+    if (isVoting) {
+      return; // Prevent double-voting
+    }
+    
     try {
+      setIsVoting(true);
       await castVote(eventId, vote, userId);
       setUserVote(vote);
       setUserVoteStatus(`You voted: ${vote.charAt(0).toUpperCase() + vote.slice(1)}`);
@@ -161,7 +181,61 @@ export default function EventView() {
       } else {
         Alert.alert('Error', 'Failed to cast vote. Please try again.');
       }
+    } finally {
+      setIsVoting(false);
     }
+  };
+
+  const handleStartEventEarly = async () => {
+    if (!eventId) {
+      Alert.alert('Error', 'Event ID is missing.');
+      return;
+    }
+
+    Alert.alert(
+      'Start Event',
+      'This will close voting and open attendance tracking. Are you sure?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Start Event',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Update the event to mark it as started early
+              const eventRef = doc(db, 'events', eventId);
+              await updateDoc(eventRef, {
+                StartedEarly: true,
+                StartedEarlyAt: new Date()
+              });
+              
+              // Refresh the event data by refetching
+              const data = await getEvent(eventId);
+              if (data) {
+                setEventData(data);
+                setIsAdmin(data.CreatorID === userId);
+                setEventStarted(hasEventStarted(data.EventDate));
+              }
+              
+              Alert.alert('Success', 'Event started! Voting is now closed and attendance tracking is available.', [
+                {
+                  text: 'OK',
+                  onPress: () => {
+                    router.push({
+                      pathname: '/EventAttendance',
+                      params: { eventId: eventId }
+                    } as any);
+                  }
+                }
+              ]);
+            } catch (error) {
+              console.error('Error starting event early:', error);
+              Alert.alert('Error', 'Failed to start event early. Please try again.');
+            }
+          }
+        }
+      ]
+    );
   };
 
   const getResponseIcon = (response: string) => {
@@ -246,6 +320,21 @@ export default function EventView() {
             </View>
           </View>
           
+          {eventData?.TotalCost && (
+            <View style={styles.eventDetail}>
+              <Text style={styles.eventDetailIcon}>💰</Text>
+              <View style={styles.eventDetailContent}>
+                <Text style={styles.eventDetailLabel}>Total Cost</Text>
+                <Text style={styles.eventDetailValue}>${eventData.TotalCost.toFixed(2)}</Text>
+                {voteCounts.going > 0 && (
+                  <Text style={styles.eventDetailSub}>
+                    ~${(eventData.TotalCost / voteCounts.going).toFixed(2)} per person
+                  </Text>
+                )}
+              </View>
+            </View>
+          )}
+          
           <View style={styles.eventDetail}>
             <Text style={styles.eventDetailIcon}>⏰</Text>
             <View style={styles.eventDetailContent}>
@@ -289,13 +378,18 @@ export default function EventView() {
               <Text style={[styles.status, isVotingOpen ? styles.statusSuccess : styles.statusError]}>
                 {isVotingOpen ? 'Voting Open' : 'Voting Closed'}
               </Text>
+              {isVoting && (
+                <Text style={styles.votingIndicator}>
+                  Submitting your vote...
+                </Text>
+              )}
             </View>
             
             <View style={styles.votingButtons}>
               <TouchableOpacity 
-                style={[styles.voteBtn, styles.voteBtnGoing, userVote === 'going' && styles.voteBtnActive]}
+                style={[styles.voteBtn, styles.voteBtnGoing, userVote === 'going' && styles.voteBtnActive, isVoting && styles.voteBtnDisabled]}
                 onPress={() => handleVote('going')}
-                disabled={!isVotingOpen}
+                disabled={!isVotingOpen || isVoting}
               >
                 <Text style={styles.voteBtnIcon}>✓</Text>
                 <Text style={styles.voteBtnLabel}>Going</Text>
@@ -305,9 +399,9 @@ export default function EventView() {
               </TouchableOpacity>
               
               <TouchableOpacity 
-                style={[styles.voteBtn, styles.voteBtnMaybe, userVote === 'maybe' && styles.voteBtnActive]}
+                style={[styles.voteBtn, styles.voteBtnMaybe, userVote === 'maybe' && styles.voteBtnActive, isVoting && styles.voteBtnDisabled]}
                 onPress={() => handleVote('maybe')}
-                disabled={!isVotingOpen}
+                disabled={!isVotingOpen || isVoting}
               >
                 <Text style={styles.voteBtnIcon}>?</Text>
                 <Text style={styles.voteBtnLabel}>Maybe</Text>
@@ -317,9 +411,9 @@ export default function EventView() {
               </TouchableOpacity>
               
               <TouchableOpacity 
-                style={[styles.voteBtn, styles.voteBtnNotGoing, userVote === 'not' && styles.voteBtnActive]}
+                style={[styles.voteBtn, styles.voteBtnNotGoing, userVote === 'not' && styles.voteBtnActive, isVoting && styles.voteBtnDisabled]}
                 onPress={() => handleVote('not')}
-                disabled={!isVotingOpen}
+                disabled={!isVotingOpen || isVoting}
               >
                 <Text style={styles.voteBtnIcon}>✗</Text>
                 <Text style={styles.voteBtnLabel}>Not Going</Text>
@@ -335,25 +429,6 @@ export default function EventView() {
           </>
         )}
       </View>
-
-             {/* Admin Attendance Section - Only show for admin when event has started */}
-       {isAdmin && eventStarted && (
-         <View style={styles.card}>
-           <Text style={styles.sectionTitle}>Event Management</Text>
-                       <TouchableOpacity
-              style={styles.attendanceButton}
-              onPress={() => {
-                router.push({
-                  pathname: '/EventAttendance',
-                  params: { eventId: eventId }
-                } as any);
-              }}
-            >
-             <Text style={styles.attendanceButtonText}>📋 Manage Attendance</Text>
-             <Text style={styles.attendanceButtonSubtext}>Mark who has arrived at the event</Text>
-           </TouchableOpacity>
-         </View>
-       )}
 
        {/* Vote Summary Section - Only show if voting is enabled */}
        {eventData?.VotingEnabled !== false && (
@@ -406,6 +481,59 @@ export default function EventView() {
             </Text>
           </View>
         </View>
+      )}
+
+      {/* Event Management Section - Admin only, at the bottom */}
+      {isAdmin && (
+        <Theme name="earthy-sport-light">
+          <Card 
+            backgroundColor="$color2" 
+            padding="$4" 
+            marginHorizontal="$3" 
+            marginBottom="$3" 
+            borderRadius="$4"
+            borderWidth={1}
+            borderColor="$borderColor"
+          >
+                        <YStack space="$3">
+              <H3 color="$color" fontWeight="600" mb="$2">
+                Event Management
+              </H3>
+              
+              {/* Single button that changes based on event status */}
+              {(eventStarted || eventData?.StartedEarly === true) ? (
+                <Button
+                  bg="$color8"
+                  color="$color1"
+                  size="$4"
+                  onPress={() => {
+                    router.push({
+                      pathname: '/EventAttendance',
+                      params: { eventId: eventId }
+                    } as any);
+                  }}
+                  pressStyle={{ opacity: 0.8 }}
+                >
+                  <TamaguiText color="$color1" fontWeight="600">
+                    📋 Manage Attendance
+                  </TamaguiText>
+                </Button>
+              ) : (
+                <Button
+                  bg="$color9"
+                  color="$color1"
+                  size="$4"
+                  onPress={handleStartEventEarly}
+                  pressStyle={{ opacity: 0.8 }}
+                >
+                  <TamaguiText color="$color1" fontWeight="600">
+                    🚀 Start Event
+                  </TamaguiText>
+                </Button>
+              )}
+            </YStack>
+          </Card>
+        </Theme>
       )}
       </ScrollView>
     </SafeAreaView>
@@ -472,6 +600,7 @@ const styles = StyleSheet.create({
   eventDetail: {
     flexDirection: 'row',
     alignItems: 'flex-start',
+    marginBottom: 20,
   },
   eventDetailIcon: {
     fontSize: 20,
@@ -524,6 +653,14 @@ const styles = StyleSheet.create({
   votingStatus: {
     marginBottom: 16,
   },
+  votingIndicator: {
+    fontSize: 14,
+    color: '#007bff',
+    fontWeight: '500',
+    textAlign: 'center',
+    marginTop: 8,
+    fontStyle: 'italic',
+  },
   status: {
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -567,6 +704,9 @@ const styles = StyleSheet.create({
   },
   voteBtnNotGoing: {
     borderColor: '#dc3545',
+  },
+  voteBtnDisabled: {
+    opacity: 0.6,
   },
   voteBtnIcon: {
     fontSize: 18,
@@ -709,21 +849,5 @@ const styles = StyleSheet.create({
      color: '#666',
      textAlign: 'center',
    },
-   attendanceButton: {
-     backgroundColor: '#28a745',
-     borderRadius: 8,
-     padding: 16,
-     alignItems: 'center',
-     marginTop: 8,
-   },
-   attendanceButtonText: {
-     fontSize: 16,
-     fontWeight: 'bold',
-     color: '#fff',
-     marginBottom: 4,
-   },
-   attendanceButtonSubtext: {
-     fontSize: 14,
-     color: '#e8f5e8',
-   },
+
  }); 

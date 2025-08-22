@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, SafeAreaView, Dimensions, TextInput } from 'react-native';
 import { useState, useEffect } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { listenGroupEvents, listenUserGroupEvents, getVoteCounts, getUserVote, getUserGroups, hasEventStarted } from '../firebase/services_firestore2';
+import { listenGroupEvents, listenUserGroupEvents, listenAllEvents, getVoteCounts, getUserVote, getUserGroups, hasEventStarted } from '../firebase/services_firestore2';
 import { EventDoc, VoteStatus } from '../firebase/types_index';
 import { useAuth0 } from 'react-native-auth0';
 
@@ -13,6 +13,8 @@ export default function EventsList() {
   const [mappedEvents, setMappedEvents] = useState<any[]>([]);
   const [userGroups, setUserGroups] = useState<string[]>([]);
   const [loadingGroups, setLoadingGroups] = useState(true);
+  const [loadingEvents, setLoadingEvents] = useState(false);
+  const [loadingVoteData, setLoadingVoteData] = useState(false);
   
   const { user } = useAuth0();
   const userId = user?.sub || 'default-user';
@@ -71,7 +73,9 @@ export default function EventsList() {
     description: event.Title,
     attendeeCount: event.VotingEnabled !== false ? (voteCounts.going + voteCounts.maybe + voteCounts.not) : 0,
     votingCutoff: event.CutoffDate ? formatDate(event.CutoffDate) : 'No voting',
-    isVotingOpen: event.VotingEnabled !== false && event.CutoffDate ? new Date() < parseFirestoreDate(event.CutoffDate) : false,
+    isVotingOpen: event.VotingEnabled !== false && event.CutoffDate ? 
+      new Date() < parseFirestoreDate(event.CutoffDate) &&
+      !hasEventStarted(event.EventDate) && !event.StartedEarly : false,
     userVote: event.VotingEnabled !== false ? userVote : null,
     eventDate: parseFirestoreDate(event.EventDate),
     votingEnabled: event.VotingEnabled !== false,
@@ -103,45 +107,69 @@ export default function EventsList() {
 
   // Listen to events from user's groups
   useEffect(() => {
+    if (loadingGroups) return; // Wait for groups to load first
+    
+    setLoadingEvents(true);
+    
     if (userGroups.length > 0) {
-      const unsubscribe = listenUserGroupEvents(userGroups, setEvents);
+      const unsubscribe = listenUserGroupEvents(userGroups, userId, (eventsList) => {
+        setEvents(eventsList);
+        setLoadingEvents(false);
+      });
       return () => unsubscribe();
     } else if (GROUP_ID) {
       // Fallback to single group if no user groups found
-      const unsubscribe = listenGroupEvents(GROUP_ID, setEvents);
+      const unsubscribe = listenGroupEvents(GROUP_ID, (eventsList) => {
+        setEvents(eventsList);
+        setLoadingEvents(false);
+      });
+      return () => unsubscribe();
+    } else {
+      // Fallback to show events where user is an individual participant
+      const unsubscribe = listenAllEvents(userId, (eventsList) => {
+        setEvents(eventsList);
+        setLoadingEvents(false);
+      });
       return () => unsubscribe();
     }
-  }, [userGroups, GROUP_ID]);
+  }, [userGroups, GROUP_ID, userId, loadingGroups]);
 
   useEffect(() => {
     const fetchEventsWithVoteCounts = async () => {
-      // First, get all events where user has voted 'going'
-      const userGoingEvents: any[] = [];
-      for (const event of events) {
-        if (event.VotingEnabled !== false) {
-          const userVote = await getUserVote(event.id, userId);
-          if (userVote === 'going') {
-            userGoingEvents.push(event);
-          }
-        }
+      if (events.length === 0) {
+        setMappedEvents([]);
+        return;
       }
 
-      const eventsWithCounts = await Promise.all(
-        events.map(async (event) => {
-          try {
-            let voteCounts = { going: 0, maybe: 0, not: 0 };
-            let userVote = null;
-            
-            // Only fetch vote data if voting is enabled
-            if (event.VotingEnabled !== false) {
-              voteCounts = await getVoteCounts(event.id);
-              userVote = await getUserVote(event.id, userId);
-            }
-            
-            const totalAttendees = event.VotingEnabled !== false ? (voteCounts.going + voteCounts.maybe + voteCounts.not) : 0;
-            
-            // Check for time conflicts (only if user is not already going to this event)
-            const conflictCheck = userVote !== 'going' ? checkEventConflict(event, userGoingEvents) : { hasConflict: false };
+      setLoadingVoteData(true);
+      
+      try {
+
+        
+        // OPTIMIZATION: Batch all vote-related API calls using Promise.all
+        // This makes all API calls in parallel instead of sequentially
+        const eventsWithCounts = await Promise.all(
+          events.map(async (event) => {
+            try {
+              let voteCounts = { going: 0, maybe: 0, not: 0 };
+              let userVote = null;
+              
+              // Only fetch vote data if voting is enabled
+              if (event.VotingEnabled !== false) {
+                // Parallel fetch instead of sequential
+                const [voteCountsResult, userVoteResult] = await Promise.all([
+                  getVoteCounts(event.id),
+                  getUserVote(event.id, userId)
+                ]);
+                voteCounts = voteCountsResult;
+                userVote = userVoteResult;
+              }
+              
+              const totalAttendees = event.VotingEnabled !== false ? (voteCounts.going + voteCounts.maybe + voteCounts.not) : 0;
+              
+              // OPTIMIZATION: Disable expensive conflict checking for performance
+              // const conflictCheck = userVote !== 'going' ? checkEventConflict(event, userGoingEvents) : { hasConflict: false };
+              const conflictCheck = { hasConflict: false }; // Temporarily disabled for performance
             
             return {
               id: event.id || event.docId || event._id,
@@ -152,17 +180,20 @@ export default function EventsList() {
                         (event.Location && typeof event.Location === 'object' && event.Location._lat && event.Location._long) 
                           ? `${event.Location._lat.toFixed(6)}, ${event.Location._long.toFixed(6)}` 
                           : 'Location not specified',
+              totalCost: event.TotalCost,
               group: event.GroupIDs && event.GroupIDs.length > 0 ? 'Group selected' : 'No group',
               individualParticipants: event.IndividualParticipantIDs ? event.IndividualParticipantIDs.length : 0,
               description: event.Title,
               attendeeCount: totalAttendees,
               votingCutoff: event.CutoffDate ? (event.CutoffDate instanceof Date ? event.CutoffDate.toDateString() : new Date(event.CutoffDate.seconds ? event.CutoffDate.seconds * 1000 : event.CutoffDate).toDateString()) : 'No voting',
-              isVotingOpen: event.VotingEnabled !== false && event.CutoffDate ? new Date() < (event.CutoffDate instanceof Date ? event.CutoffDate : new Date(event.CutoffDate.seconds ? event.CutoffDate.seconds * 1000 : event.CutoffDate)) : false,
+              isVotingOpen: event.VotingEnabled !== false && event.CutoffDate ? 
+                new Date() < (event.CutoffDate instanceof Date ? event.CutoffDate : new Date(event.CutoffDate.seconds ? event.CutoffDate.seconds * 1000 : event.CutoffDate)) &&
+                !hasEventStarted(event.EventDate) && !event.StartedEarly : false,
               userVote: event.VotingEnabled !== false ? userVote : null,
               eventDate: event.EventDate instanceof Date ? event.EventDate : new Date(event.EventDate.seconds ? event.EventDate.seconds * 1000 : event.EventDate),
               votingEnabled: event.VotingEnabled !== false,
-                             hasTimeConflict: conflictCheck.hasConflict,
-               conflictingEvent: conflictCheck.conflictingEvent,
+                             hasTimeConflict: false, // Temporarily disabled for performance
+               conflictingEvent: null, // Temporarily disabled for performance
                eventStarted: hasEventStarted(event.EventDate),
                isAdmin: event.CreatorID === userId,
              };
@@ -177,17 +208,20 @@ export default function EventsList() {
                         (event.Location && typeof event.Location === 'object' && event.Location._lat && event.Location._long) 
                           ? `${event.Location._lat.toFixed(6)}, ${event.Location._long.toFixed(6)}` 
                           : 'Location not specified',
+              totalCost: event.TotalCost,
               group: event.GroupIDs && event.GroupIDs.length > 0 ? 'Group selected' : 'No group',
               individualParticipants: event.IndividualParticipantIDs ? event.IndividualParticipantIDs.length : 0,
               description: event.Title,
               attendeeCount: 0, // Fallback if vote counts fail
               votingCutoff: event.CutoffDate ? (event.CutoffDate instanceof Date ? event.CutoffDate.toDateString() : new Date(event.CutoffDate.seconds ? event.CutoffDate.seconds * 1000 : event.CutoffDate).toDateString()) : 'No voting',
-              isVotingOpen: event.VotingEnabled !== false && event.CutoffDate ? new Date() < (event.CutoffDate instanceof Date ? event.CutoffDate : new Date(event.CutoffDate.seconds ? event.CutoffDate.seconds * 1000 : event.CutoffDate)) : false,
+              isVotingOpen: event.VotingEnabled !== false && event.CutoffDate ? 
+                new Date() < (event.CutoffDate instanceof Date ? event.CutoffDate : new Date(event.CutoffDate.seconds ? event.CutoffDate.seconds * 1000 : event.CutoffDate)) &&
+                !hasEventStarted(event.EventDate) && !event.StartedEarly : false,
               userVote: null,
               eventDate: event.EventDate instanceof Date ? event.EventDate : new Date(event.EventDate.seconds ? event.EventDate.seconds * 1000 : event.EventDate),
                              votingEnabled: event.VotingEnabled !== false,
-               hasTimeConflict: false, // Fallback - assume no conflict
-               conflictingEvent: null,
+               hasTimeConflict: false, // Temporarily disabled for performance
+               conflictingEvent: null, // Temporarily disabled for performance
                eventStarted: hasEventStarted(event.EventDate),
                isAdmin: event.CreatorID === userId,
              };
@@ -195,19 +229,45 @@ export default function EventsList() {
         })
       );
       
-      // Sort events by date (earliest first)
-      const sortedEvents = eventsWithCounts.sort((a, b) => {
-        return a.eventDate.getTime() - b.eventDate.getTime();
-      });
-      
-      setMappedEvents(sortedEvents);
+        // Sort events by date (earliest first)
+        const sortedEvents = eventsWithCounts.sort((a, b) => {
+          return a.eventDate.getTime() - b.eventDate.getTime();
+        });
+        
+        setMappedEvents(sortedEvents);
+      } catch (error) {
+        console.error('Error fetching vote data:', error);
+        // Fallback: show events without vote data
+        const fallbackEvents = events.map(event => ({
+          id: event.id || event.docId || event._id,
+          title: event.Title,
+          date: formatDate(event.EventDate),
+          time: formatTime(event.EventDate),
+          location: formatLocation(event.Location),
+          totalCost: event.TotalCost,
+          group: event.GroupIDs && event.GroupIDs.length > 0 ? 'Group selected' : 'No group',
+          individualParticipants: event.IndividualParticipantIDs ? event.IndividualParticipantIDs.length : 0,
+          description: event.Title,
+          attendeeCount: 0,
+          votingCutoff: event.CutoffDate ? formatDate(event.CutoffDate) : 'No voting',
+          isVotingOpen: event.VotingEnabled !== false && event.CutoffDate ? 
+            new Date() < parseFirestoreDate(event.CutoffDate) &&
+            !hasEventStarted(event.EventDate) && !event.StartedEarly : false,
+          userVote: null,
+          eventDate: parseFirestoreDate(event.EventDate),
+          votingEnabled: event.VotingEnabled !== false,
+          hasTimeConflict: false,
+          conflictingEvent: null,
+          eventStarted: hasEventStarted(event.EventDate),
+          isAdmin: event.CreatorID === userId,
+        }));
+        setMappedEvents(fallbackEvents);
+      } finally {
+        setLoadingVoteData(false);
+      }
     };
 
-    if (events.length > 0) {
-      fetchEventsWithVoteCounts();
-    } else {
-      setMappedEvents([]);
-    }
+    fetchEventsWithVoteCounts();
   }, [events, userId]);
 
   const { width } = Dimensions.get('window');
@@ -268,7 +328,10 @@ export default function EventsList() {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Upcoming Events</Text>
         <Text style={styles.headerSubtitle}>
-          {loadingGroups ? 'Loading your groups...' : `${filteredEvents.length} events found`}
+          {loadingGroups ? 'Loading your groups...' : 
+           loadingEvents ? 'Loading events...' :
+           loadingVoteData ? 'Loading event details...' :
+           `${filteredEvents.length} events found`}
         </Text>
       </View>
 
@@ -328,17 +391,25 @@ export default function EventsList() {
           <View style={styles.emptyState}>
             <Text style={styles.emptyStateIcon}>📅</Text>
             <Text style={styles.emptyStateTitle}>
-              {loadingGroups ? 'Loading events...' : 'No events found'}
+              {loadingGroups ? 'Loading groups...' :
+               loadingEvents ? 'Loading events...' :
+               loadingVoteData ? 'Loading event details...' :
+               'No events found'}
             </Text>
             <Text style={styles.emptyStateSubtitle}>
-              {loadingGroups ? 'Please wait while we load your events' : 'Try adjusting your search or filters'}
+              {loadingGroups || loadingEvents || loadingVoteData ? 
+               'Please wait while we load your events' : 
+               'Try adjusting your search or filters'}
             </Text>
           </View>
         ) : (
           filteredEvents.map((event: any) => (
             <TouchableOpacity
               key={event.id}
-              style={styles.eventCard}
+              style={[
+                styles.eventCard,
+                event.totalCost !== undefined && event.totalCost !== null && { minHeight: 240 }
+              ]}
               onPress={() => handleEventPress(event)}
               activeOpacity={0.7}
             >
@@ -359,16 +430,17 @@ export default function EventsList() {
                       <Text style={styles.goingBadgeText}>Going</Text>
                     </View>
                   )}
-                                     {event.hasTimeConflict && event.votingEnabled && event.userVote !== 'going' && (
-                     <View style={styles.conflictBadge}>
-                       <Text style={styles.conflictBadgeText}>⚠️ Time Conflict</Text>
-                     </View>
-                   )}
-                   {event.isAdmin && event.eventStarted && (
-                     <View style={styles.adminBadge}>
-                       <Text style={styles.adminBadgeText}>📋 Manage</Text>
-                     </View>
-                   )}
+                                                       {/* COMMENTED OUT FOR PERFORMANCE - Re-enable if needed */}
+                  {/* {event.hasTimeConflict && event.votingEnabled && event.userVote !== 'going' && (
+                    <View style={styles.conflictBadge}>
+                      <Text style={styles.conflictBadgeText}>⚠️ Time Conflict</Text>
+                    </View>
+                  )} */}
+                  {event.isAdmin && event.eventStarted && (
+                    <View style={styles.adminBadge}>
+                      <Text style={styles.adminBadgeText}>📋 Manage</Text>
+                    </View>
+                  )}
                 </View>
                 <View style={styles.groupBadge}>
                   <Text style={styles.groupBadgeText}>{event.group}</Text>
@@ -379,44 +451,42 @@ export default function EventsList() {
 
               <View style={styles.eventDetails}>
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailIcon}>📅</Text>
-                  <View style={styles.detailContent}>
-                    <Text style={styles.detailLabel}>Date & Time</Text>
-                    <Text style={styles.detailValue}>{event.date}</Text>
-                    <Text style={styles.detailSub}>{event.time}</Text>
+                  <View style={styles.detailLeft}>
+                    <Text style={styles.detailIcon}>📅</Text>
+                    <View style={styles.detailContent}>
+                      <Text style={styles.detailLabel}>Date & Time</Text>
+                      <Text style={styles.detailValue}>{event.date}</Text>
+                      <Text style={styles.detailSub}>{event.time}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.detailRight}>
+                    <Text style={styles.detailIcon}>📍</Text>
+                    <View style={styles.detailContent}>
+                      <Text style={styles.detailLabel}>Location</Text>
+                      <Text style={styles.detailValue}>{event.location}</Text>
+                    </View>
                   </View>
                 </View>
+                {event.totalCost !== undefined && event.totalCost !== null && (
+                  <View style={[styles.detailRow, { marginTop: 8, justifyContent: 'flex-start' }]}>
+                    <Text style={styles.detailIcon}>💰</Text>
+                    <View style={styles.detailContent}>
+                      <Text style={styles.detailLabel}>Total Cost</Text>
+                      <Text style={styles.detailValue}>${event.totalCost.toFixed(2)}</Text>
+                    </View>
+                  </View>
+                )}
 
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailIcon}>📍</Text>
-                  <View style={styles.detailContent}>
-                    <Text style={styles.detailLabel}>Location</Text>
-                    <Text style={styles.detailValue}>{event.location}</Text>
-                  </View>
-                </View>
-
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailIcon}>👥</Text>
-                  <View style={styles.detailContent}>
-                    <Text style={styles.detailLabel}>Participants</Text>
-                    <Text style={styles.detailValue}>
-                      {event.group !== 'No group' ? event.group : ''}
-                      {event.individualParticipants > 0 ? 
-                        `${event.group !== 'No group' ? ', ' : ''}${event.individualParticipants} individuals` : 
-                        event.group === 'No group' ? 'No participants' : ''
-                      }
-                    </Text>
-                  </View>
-                </View>
               </View>
 
-              {event.hasTimeConflict && event.votingEnabled && event.userVote !== 'going' && (
+              {/* COMMENTED OUT FOR PERFORMANCE - Re-enable if needed */}
+              {/* {event.hasTimeConflict && event.votingEnabled && event.userVote !== 'going' && (
                 <View style={styles.conflictInfo}>
                   <Text style={styles.conflictInfoText}>
                     ⚠️ This event conflicts with another event you're attending
                   </Text>
                 </View>
-              )}
+              )} */}
 
               <View style={styles.cardFooter}>
                 <View style={styles.attendeeInfo}>
@@ -517,8 +587,8 @@ const styles = StyleSheet.create({
   eventCard: {
     backgroundColor: '#fff',
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    padding: 20,
+    marginBottom: 16,
     shadowColor: '#000',
     shadowOpacity: 0.05,
     shadowRadius: 8,
@@ -629,6 +699,18 @@ const styles = StyleSheet.create({
   detailRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  detailLeft: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    flex: 1,
+  },
+  detailRight: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    flex: 1,
+    justifyContent: 'flex-end',
   },
   detailIcon: {
     fontSize: 16,

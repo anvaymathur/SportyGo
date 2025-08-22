@@ -168,6 +168,7 @@ function eventsOverlap(event1: any, event2: any): boolean {
   return start1 < end2 && start2 < end1;
 }
 
+// DEPRECATED: This function is too slow - queries all events and all votes
 // Get all events where user has voted 'going'
 async function getUserGoingEvents(userId: string): Promise<any[]> {
   const eventsCol = collection(db, "events");
@@ -188,6 +189,13 @@ async function getUserGoingEvents(userId: string): Promise<any[]> {
   
   return userEvents;
 }
+
+// OPTIMIZED: Future implementation could use indexed queries
+// async function getUserGoingEventsOptimized(userId: string): Promise<any[]> {
+//   // This would require a composite index on (userId, status) in userVotes subcollection
+//   // and would be much faster than the current implementation
+//   return [];
+// }
 
 // Check if voting for this event would conflict with user's existing 'going' votes
 async function checkTimeConflict(eventId: string, userId: string): Promise<{ hasConflict: boolean; conflictingEvent?: any }> {
@@ -229,23 +237,52 @@ export async function castVote(eventId: string, status: keyof VoteShard, userId:
     throw new Error('Voting is not enabled for this event');
   }
 
-  // Check for time conflicts if user is voting 'going'
-  if (status === 'going') {
-    const conflictCheck = await checkTimeConflict(eventId, userId);
-    if (conflictCheck.hasConflict) {
-      const conflictingEvent = conflictCheck.conflictingEvent;
-      const conflictingDate = new Date(conflictingEvent.EventDate).toLocaleDateString();
-      const conflictingTime = new Date(conflictingEvent.EventDate).toLocaleTimeString([], { 
-        hour: '2-digit', 
-        minute: '2-digit' 
-      });
-      throw new Error(`You cannot attend this event because it conflicts with "${conflictingEvent.Title}" on ${conflictingDate} at ${conflictingTime}. You can only attend one event at a time.`);
+  // Check if event has started (naturally or early)
+  const eventStarted = hasEventStarted(eventData.EventDate);
+  const startedEarly = eventData.StartedEarly === true;
+  
+  if (eventStarted || startedEarly) {
+    throw new Error('Voting is closed because the event has started');
+  }
+
+  // Check if voting cutoff has passed
+  if (eventData.CutoffDate) {
+    const cutoffDate = new Date(eventData.CutoffDate.toDate ? eventData.CutoffDate.toDate() : eventData.CutoffDate);
+    const now = new Date();
+    if (now > cutoffDate) {
+      throw new Error('Voting cutoff time has passed');
     }
   }
+
+  // COMMENTED OUT FOR PERFORMANCE - Re-enable if needed
+  // Check for time conflicts if user is voting 'going'
+  // if (status === 'going') {
+  //   const conflictCheck = await checkTimeConflict(eventId, userId);
+  //   if (conflictCheck.hasConflict) {
+  //     const conflictingEvent = conflictCheck.conflictingEvent;
+  //     const conflictingDate = new Date(conflictingEvent.EventDate).toLocaleDateString();
+  //     const conflictingTime = new Date(conflictingEvent.EventDate).toLocaleTimeString([], { 
+  //       hour: '2-digit', 
+  //       minute: '2-digit' 
+  //     });
+  //     throw new Error(`You cannot attend this event because it conflicts with "${conflictingEvent.Title}" on ${conflictingDate} at ${conflictingTime}. You can only attend one event at a time.`);
+  //   }
+  // }
 
   // Check if user has already voted
   const userVoteRef = doc(db, "events", eventId, "userVotes", userId);
   const userVoteSnap = await getDoc(userVoteRef);
+  
+  // Use consistent shard selection based on userId for better performance
+  const getUserShard = (userId: string) => {
+    let hash = 0;
+    for (let i = 0; i < userId.length; i++) {
+      const char = userId.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    return Math.abs(hash) % NUM_SHARDS;
+  };
   
   const batch = writeBatch(db);
   
@@ -258,15 +295,15 @@ export async function castVote(eventId: string, status: keyof VoteShard, userId:
       return;
     }
     
-    // Remove previous vote from shards
-    const prevShard = Math.floor(Math.random() * NUM_SHARDS);
-    const prevShardRef = doc(db, "events", eventId, "voteShards", prevShard.toString());
-    batch.update(prevShardRef, { [previousVote]: increment(-1) });
+    // Use consistent shard for this user
+    const userShard = getUserShard(userId);
+    const shardRef = doc(db, "events", eventId, "voteShards", userShard.toString());
     
-    // Add new vote to shards
-    const newShard = Math.floor(Math.random() * NUM_SHARDS);
-    const newShardRef = doc(db, "events", eventId, "voteShards", newShard.toString());
-    batch.update(newShardRef, { [status]: increment(1) });
+    // Update vote counts in single shard operation
+    batch.update(shardRef, { 
+      [previousVote]: increment(-1),
+      [status]: increment(1)
+    });
     
     // Update user's vote record
     batch.set(userVoteRef, {
@@ -276,8 +313,8 @@ export async function castVote(eventId: string, status: keyof VoteShard, userId:
     });
   } else {
     // First time voting - just add the vote
-    const shard = Math.floor(Math.random() * NUM_SHARDS);
-    const shardRef = doc(db, "events", eventId, "voteShards", shard.toString());
+    const userShard = getUserShard(userId);
+    const shardRef = doc(db, "events", eventId, "voteShards", userShard.toString());
     batch.update(shardRef, { [status]: increment(1) });
     
     // Record user's vote
@@ -356,6 +393,7 @@ export function listenGroupEvents(groupId: string, callback: (events: EventDoc[]
           Title: evt.Title,
           EventDate: evt.EventDate,
           Location: evt.Location,
+          TotalCost: evt.TotalCost,
           CutoffDate: evt.CutoffDate,
           CreatorID: evt.CreatorID,
           VotingEnabled: evt.VotingEnabled
@@ -366,7 +404,7 @@ export function listenGroupEvents(groupId: string, callback: (events: EventDoc[]
   });
 }
 
-export function listenUserGroupEvents(userGroupIds: string[], callback: (events: EventDoc[]) => void) {
+export function listenUserGroupEvents(userGroupIds: string[], userId: string, callback: (events: EventDoc[]) => void) {
   const eventsCol = collection(db, "events");
   return onSnapshot(eventsCol, snap => {
     const result: EventDoc[] = [];
@@ -374,7 +412,7 @@ export function listenUserGroupEvents(userGroupIds: string[], callback: (events:
       const evt = doc.data();
       // Check if user is in any of the groups OR is an individual participant
       const isInGroup = evt.GroupIDs && evt.GroupIDs.some((groupId: string) => userGroupIds.includes(groupId));
-      const isIndividualParticipant = evt.IndividualParticipantIDs && evt.IndividualParticipantIDs.some((userId: string) => userGroupIds.includes(userId));
+      const isIndividualParticipant = evt.IndividualParticipantIDs && evt.IndividualParticipantIDs.includes(userId);
       
       if (isInGroup || isIndividualParticipant) {
         result.push({ 
@@ -384,6 +422,36 @@ export function listenUserGroupEvents(userGroupIds: string[], callback: (events:
           Title: evt.Title,
           EventDate: evt.EventDate,
           Location: evt.Location,
+          TotalCost: evt.TotalCost,
+          CutoffDate: evt.CutoffDate,
+          CreatorID: evt.CreatorID,
+          VotingEnabled: evt.VotingEnabled
+        } as EventDoc);
+      }
+    });
+    callback(result);
+  });
+}
+
+export function listenAllEvents(userId: string, callback: (events: EventDoc[]) => void) {
+  const eventsCol = collection(db, "events");
+  return onSnapshot(eventsCol, snap => {
+    const result: EventDoc[] = [];
+    snap.forEach(doc => {
+      const evt = doc.data();
+      // Check if user is an individual participant or the creator
+      const isIndividualParticipant = evt.IndividualParticipantIDs && evt.IndividualParticipantIDs.includes(userId);
+      const isCreator = evt.CreatorID === userId;
+      
+      if (isIndividualParticipant || isCreator) {
+        result.push({ 
+          id: doc.id, 
+          GroupIDs: evt.GroupIDs,
+          IndividualParticipantIDs: evt.IndividualParticipantIDs,
+          Title: evt.Title,
+          EventDate: evt.EventDate,
+          Location: evt.Location,
+          TotalCost: evt.TotalCost,
           CutoffDate: evt.CutoffDate,
           CreatorID: evt.CreatorID,
           VotingEnabled: evt.VotingEnabled
@@ -472,9 +540,17 @@ export async function getAttendanceRecords(eventId: string): Promise<AttendanceR
 }
 
 // Check if event has started (for showing attendance button)
-export function hasEventStarted(eventDate: Date): boolean {
+export function hasEventStarted(eventDate: any): boolean {
   const now = new Date();
-  const eventDateTime = new Date(eventDate);
+  let eventDateTime: Date;
+  
+  // Handle Firestore timestamps
+  if (eventDate && typeof eventDate === 'object' && 'toDate' in eventDate) {
+    eventDateTime = eventDate.toDate();
+  } else {
+    eventDateTime = new Date(eventDate);
+  }
+  
   return now >= eventDateTime;
 }
 
