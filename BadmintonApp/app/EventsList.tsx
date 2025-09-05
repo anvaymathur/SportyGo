@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { SafeAreaView } from 'react-native';
 import { router } from 'expo-router';
 import { listenGroupEvents, listenUserGroupEvents, getVoteCounts, getUserVote, getUserGroups } from '../firebase/services_firestore2';
 import { EventDoc, VoteStatus } from '../firebase/types_index';
 import { sharedState } from './shared';
 import { Theme, YStack, XStack, ScrollView, Button, Input, Paragraph, H2, Text, Card } from 'tamagui';
 import { useAuth0 } from 'react-native-auth0';
+import { SafeAreaWrapper } from './components/SafeAreaWrapper';
 
 export default function EventsList() {
   const [events, setEvents] = useState<any[]>([]);
@@ -222,7 +222,7 @@ export default function EventsList() {
 
   return (
     <Theme name="earthy-sport-light">
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#FAF7F2' }}>
+      <SafeAreaWrapper backgroundColor="#FAF7F2">
         <YStack flex={1} background="$background">
           {/* Header */}
           <YStack background="$color1" px={16} py={20} borderBottomWidth={1} borderColor="$borderColor">
@@ -372,7 +372,7 @@ export default function EventsList() {
             <Text fontSize="$8" fontWeight="bold" color="$color1">+</Text>
           </Button>
         </YStack>
-      </SafeAreaView>
+      </SafeAreaWrapper>
     </Theme>
   );
 } 

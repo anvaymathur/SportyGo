@@ -11,6 +11,7 @@ import {
   Square,
   Card,
   Theme,
+  Avatar,
 } from "tamagui";
 import { Ionicons } from "@expo/vector-icons";
 import { getGroups, getUserGroups } from '../../firebase/services_firestore2';
@@ -19,6 +20,18 @@ import { router } from "expo-router";
 import { GroupDoc } from '../../firebase/types_index';
 import { sharedState } from "../shared";
 
+function getGroupInitials(name: string) {
+  if (!name) return "?";
+  const parts = name.trim().split(/\s+/);
+  let initials;
+  if (parts.length === 1) {
+    initials = parts[0].slice(0, 2).toUpperCase();
+  } else {
+    initials = (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+  console.log('getGroupInitials for:', name, '=', initials);
+  return initials;
+}
 
 export default function DisplayGroups() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -119,6 +132,34 @@ export default function DisplayGroups() {
                     mt={20}
                   >
                   <XStack verticalAlign="center" space="$3">
+                    {/* Group Avatar */}
+                    <Avatar 
+                      circular 
+                      size="$8" 
+                      borderWidth={1} 
+                      borderColor="$color6" 
+                      backgroundColor="$color9"
+                    >
+                      {(() => {
+                        console.log('Group PhotoUrl:', group.PhotoUrl, 'for group:', group.Name);
+                        if (group.PhotoUrl && group.PhotoUrl.startsWith('data:')) {
+                          return <Avatar.Image src={group.PhotoUrl} />;
+                        } else {
+                          const displayText = group.PhotoUrl && group.PhotoUrl.startsWith('INITIALS:') 
+                            ? group.PhotoUrl.replace('INITIALS:', '') 
+                            : getGroupInitials(group.Name || "?");
+                          console.log('Display text:', displayText);
+                          return (
+                            <Avatar.Fallback backgroundColor="$color9" justifyContent="center" alignItems="center">
+                              <Text color="$color1" fontSize="$4" fontWeight="bold" style={{   textAlign: 'center' }}>
+                                {displayText}
+                              </Text>
+                            </Avatar.Fallback>
+                          );
+                        }
+                      })()}
+                    </Avatar>
+                    
                     {/* Team Details */}
                     <YStack flex={1} space="$1">
                       <H4 color="$color" fontWeight="600">

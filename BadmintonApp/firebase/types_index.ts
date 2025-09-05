@@ -6,6 +6,7 @@ export interface UserDoc {
   Groups: string[]; // Array of group IDs
   Phone: string;
   Address: string;
+  PhotoUrl?: string; // URL to the user photo or Base64 encoded image
 }
 
 export interface GroupDoc {
@@ -18,6 +19,7 @@ export interface GroupDoc {
   Privacy: string;
   HomeCourt: string;
   MeetingSchedule: string;
+  PhotoUrl?: string; // URL to the group photo or Base64 encoded image
 }
 
 export interface EventDoc {

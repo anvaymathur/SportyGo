@@ -8,11 +8,13 @@ import {
   TextArea, Sheet
 } from 'tamagui';
 import { Adapt } from '@tamagui/adapt'
+import * as ImagePicker from 'expo-image-picker';
 
 import { router } from "expo-router";
 import { useAuth0 } from "react-native-auth0";
-import { createGroup } from '../../firebase/services_firestore2';
+import { createGroup, uploadImage, testStorageConnection, imageToBase64 } from '../../firebase/services_firestore2';
 import { GroupDoc } from '../../firebase/types_index';
+import { SafeAreaWrapper } from '../components/SafeAreaWrapper';
 
 
 export default function CreateGroup() {
@@ -22,7 +24,20 @@ export default function CreateGroup() {
   const [privacy, setPrivacy] = useState('');
   const [homeCourt, setHomeCourt] = useState('');
   const [meetingSchedule, setMeetingSchedule] = useState('');
+  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const {user} = useAuth0();
+
+  // Function to generate group initials
+  const generateGroupInitials = (name: string): string => {
+    const initials = name
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase())
+      .join('')
+      .slice(0, 2);
+    console.log('Generated initials for:', name, '=', initials);
+    return initials;
+  };
 
   const skillLevels = [
     { value: 'recreational', label: 'Recreational' },
@@ -43,6 +58,32 @@ export default function CreateGroup() {
     { value: 'as-needed', label: 'As needed' }
   ];
 
+  const pickImage = async () => {
+    try {
+      // Request permissions
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Please grant camera roll permissions to select a photo.');
+        return;
+      }
+
+      // Launch image picker
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        setSelectedPhoto(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Error', 'Failed to select image. Please try again.');
+    }
+  };
+
   const handleCreateGroup = async () => {
     if (!groupName.trim()) {
       Alert.alert("Missing Information", "Please enter a group name.");
@@ -50,56 +91,105 @@ export default function CreateGroup() {
     }
         
     if (user && user.sub){
+      setUploadingPhoto(true);
+      let photoUrl = '';
 
-      const groupInfo: GroupDoc={
-        id: '',
-        Name: groupName,
-        OwnerId: user.sub,
-        MemberIds: [user.sub],
-        Description: description,
-        SkillLevel: skillLevel,
-        Privacy: privacy,
-        HomeCourt: homeCourt,
-        MeetingSchedule: meetingSchedule
-      }
       try {
+        // Convert photo to Base64 for Firestore storage (no Firebase Storage needed)
+        if (selectedPhoto) {
+          console.log('Converting photo to Base64...');
+          photoUrl = await imageToBase64(selectedPhoto);
+          console.log('Photo converted to Base64 successfully');
+        } else {
+          // Generate group initials if no photo is selected
+          const initials = generateGroupInitials(groupName);
+          console.log('Generated initials:', initials);
+          // Store initials as a special format that can be detected later
+          photoUrl = `INITIALS:${initials}`;
+        }
+
+        const groupInfo: GroupDoc={
+          id: '',
+          Name: groupName,
+          OwnerId: user.sub,
+          MemberIds: [user.sub],
+          Description: description,
+          SkillLevel: skillLevel,
+          Privacy: privacy,
+          HomeCourt: homeCourt,
+          MeetingSchedule: meetingSchedule,
+          PhotoUrl: photoUrl || undefined
+        }
+        
         await createGroup(user.sub, groupInfo);
         router.push('/groups/displayGroups');
       } catch (error) {
         console.error('Error creating group:', error);
-        console.log(error)
-        Alert.alert("Error", "Failed to create group. Please try again.");
+        console.log(error);
+        
+        // Provide more specific error messages
+        let errorMessage = "Failed to create group. Please try again.";
+        if (error instanceof Error) {
+          if (error.message.includes('storage/unauthorized')) {
+            errorMessage = "Storage access denied. Please check your permissions.";
+          } else if (error.message.includes('storage/quota-exceeded')) {
+            errorMessage = "Storage quota exceeded. Please try a smaller image.";
+          } else if (error.message.includes('Failed to fetch image')) {
+            errorMessage = "Failed to process image. Please try selecting a different image.";
+          }
+        }
+        
+        Alert.alert("Error", errorMessage);
+      } finally {
+        setUploadingPhoto(false);
       }
-
     }
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: 'white' }}>
+    <SafeAreaWrapper backgroundColor="white">
       <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
         <YStack flex={1} p="$4" space="$6">
           {/* Header */}
-            <H2 color="$color9" fontWeight="bold" flex={1} style={{ textAlign: 'center' }}>
+            <H2 color="$color9" fontWeight="bold" flex={1} style={{ textAlign: 'center' }} pb="$8">
               Group Details
             </H2>
 
           {/* Group Photo Placeholder */}
-          <YStack mb="$6" style={{ alignItems: 'center' }}>
-            <Avatar 
-              circular
-              size="$16" 
-              borderWidth={2} 
-              borderColor="$color9"
-              borderStyle="dashed"
-              background="transparent"
-              mb="$2"
+          <YStack mb="$6" style={{ alignItems: 'center' }} p="$4">
+            <Button
+              onPress={pickImage}
+              bg="transparent"
+              borderWidth={0}
+              p={0}
+              disabled={uploadingPhoto}
             >
-              <Avatar.Fallback background="transparent">
-                <Text fontSize="$8" color="$color9">+</Text>
-              </Avatar.Fallback>
-            </Avatar>
+              <Avatar 
+                circular
+                size="$16" 
+                borderWidth={2} 
+                borderColor="$color9"
+                borderStyle={selectedPhoto ? "solid" : "dashed"}
+                background="transparent"
+                mb="$2"
+              >
+                {selectedPhoto ? (
+                  <Avatar.Image src={selectedPhoto} />
+                ) : groupName ? (
+                  <Avatar.Fallback backgroundColor="$color9" justifyContent="center" alignItems="center">
+                    <Text fontSize="$6" color="$color1" fontWeight="bold" style={{ textAlign: 'center' }}>
+                      {generateGroupInitials(groupName)}
+                    </Text>
+                  </Avatar.Fallback>
+                ) : (
+                  <Avatar.Fallback background="transparent">
+                    <Text fontSize="$8" color="$color9">+</Text>
+                  </Avatar.Fallback>
+                )}
+              </Avatar>
+            </Button>
             <Text color="$color10" fontSize="$3" style={{ textAlign: 'center' }}>
-              Add Group Photo
+              {uploadingPhoto ? 'Uploading...' : selectedPhoto ? 'Photo selected' : groupName ? `Will show: ${generateGroupInitials(groupName)}` : 'Add Group Photo'}
             </Text>
           </YStack>
 
@@ -329,15 +419,16 @@ export default function CreateGroup() {
           {/* Create Group Button */}
           
           <Button
-          bg="$color9"
-          color="$color1"
-          onPress={handleCreateGroup}
-          style={{ borderRadius: 8 }}
+            bg="$color9"
+            color="$color1"
+            onPress={handleCreateGroup}
+            style={{ borderRadius: 8 }}
+            disabled={uploadingPhoto}
           >
-            Create Group
+            {uploadingPhoto ? 'Creating Group...' : 'Create Group'}
           </Button>
         </YStack>
       </ScrollView>
-    </View>
+    </SafeAreaWrapper>
   );
 }

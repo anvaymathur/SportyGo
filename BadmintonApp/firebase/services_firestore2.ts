@@ -4,10 +4,130 @@ import {
   increment, CollectionReference, QueryDocumentSnapshot, DocumentData, getDocs, query, where,
   deleteDoc,
 } from "firebase/firestore";
-import { db } from "./index";
+import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+import { db, storage } from "./index";
 import { UserDoc, GroupDoc, EventDoc, VoteShard, VoteStatus, newMatchHistory, GroupInviteDoc } from "./types_index";
 
 const NUM_SHARDS = 10;
+
+// --- STORAGE ---
+// Alternative: Convert image to Base64 for Firestore storage
+export async function imageToBase64(uri: string): Promise<string> {
+  try {
+    console.log('Converting image to Base64...');
+    const response = await fetch(uri);
+    const blob = await response.blob();
+    
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = reader.result as string;
+        console.log('Image converted to Base64, size:', base64.length);
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (error) {
+    console.error('Error converting image to Base64:', error);
+    throw error;
+  }
+}
+
+// Test function to verify Firebase Storage connectivity
+export async function testStorageConnection(): Promise<boolean> {
+  try {
+    console.log('Testing Firebase Storage connection...');
+    console.log('Storage bucket:', storage.app.options.storageBucket);
+    
+    // Try to create a simple test file
+    const testRef = ref(storage, 'test-connection.txt');
+    const testBlob = new Blob(['test'], { type: 'text/plain' });
+    
+    await uploadBytes(testRef, testBlob);
+    console.log('Storage connection test successful');
+    
+    // Clean up test file
+    try {
+      await deleteObject(testRef);
+      console.log('Test file cleaned up');
+    } catch (cleanupError) {
+      console.log('Cleanup failed (not critical):', cleanupError);
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Storage connection test failed:', error);
+    return false;
+  }
+}
+export async function uploadImage(uri: string, path: string): Promise<string> {
+  try {
+    console.log('Starting image upload for URI:', uri);
+    console.log('Upload path:', path);
+    
+    // For React Native, we need to handle file URIs differently
+    // Convert URI to blob with proper error handling
+    const response = await fetch(uri);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+    }
+    
+    const blob = await response.blob();
+    console.log('Blob created, size:', blob.size);
+    
+    // Create storage reference
+    const storageRef = ref(storage, path);
+    
+    // Upload blob with metadata
+    const metadata = {
+      contentType: 'image/jpeg',
+      cacheControl: 'public, max-age=31536000', // Cache for 1 year
+    };
+    
+    console.log('Uploading to Firebase Storage...');
+    console.log('Storage bucket:', storage.app.options.storageBucket);
+    
+    // Try upload with retry logic
+    let uploadResult;
+    try {
+      uploadResult = await uploadBytes(storageRef, blob, metadata);
+      console.log('Upload completed successfully');
+    } catch (uploadError) {
+      console.error('Upload failed, trying alternative approach:', uploadError);
+      
+      // Alternative: Try without metadata
+      uploadResult = await uploadBytes(storageRef, blob);
+      console.log('Upload completed with alternative approach');
+    }
+    
+    // Get download URL
+    const downloadURL = await getDownloadURL(storageRef);
+    console.log('Download URL obtained:', downloadURL);
+    return downloadURL;
+  } catch (error) {
+    console.error('Error uploading image:', error);
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      code: (error as any)?.code,
+      serverResponse: (error as any)?.serverResponse
+    });
+    
+    // Provide more specific error information
+    if (error instanceof Error) {
+      if (error.message.includes('storage/unauthorized')) {
+        throw new Error('Storage access denied. Please check your authentication and storage rules.');
+      } else if (error.message.includes('storage/quota-exceeded')) {
+        throw new Error('Storage quota exceeded. Please try a smaller image.');
+      } else if (error.message.includes('storage/unauthenticated')) {
+        throw new Error('User not authenticated. Please log in again.');
+      }
+    }
+    
+    throw error;
+  }
+}
 
 // --- USERS ---
 export async function createUserProfile(uid: string, userDoc: UserDoc) {
