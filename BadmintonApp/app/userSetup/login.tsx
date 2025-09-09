@@ -82,7 +82,7 @@ export default function LoginScreen() {
               height={96}
               style={{ marginBottom: 8 }}
             /> */}
-            <H3 color="$color" style={{ textAlign: 'center' }}>Welcome to BadmintonApp</H3>
+            <H3 color="$color" style={{ textAlign: 'center' }}>Welcome to SportyGo</H3>
             <Paragraph color="$color10" style={{ textAlign: 'center' }}>
               Track matches, manage groups, and compete with ease.
             </Paragraph>
