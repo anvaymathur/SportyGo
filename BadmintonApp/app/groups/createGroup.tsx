@@ -89,12 +89,13 @@ export default function CreateGroup() {
       Alert.alert("Missing Information", "Please enter a group name.");
       return;
     }
-        
+
     if (user && user.sub){
       setUploadingPhoto(true);
       let photoUrl = '';
 
       try {
+
         // Convert photo to Base64 for Firestore storage (no Firebase Storage needed)
         if (selectedPhoto) {
           console.log('Converting photo to Base64...');

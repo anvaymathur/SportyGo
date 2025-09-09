@@ -56,7 +56,7 @@ export default function LoginScreen() {
       await clearSession();
       // router.replace('/userSetup/login' );
     } catch (e) {
-      console.log('Logout error:', e);
+
     }
   };
 

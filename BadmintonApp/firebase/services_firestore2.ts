@@ -1,13 +1,23 @@
+/**
+ * @fileoverview Firebase Firestore Services
+ * 
+ * Service layer providing all database operations for the Badminton App including
+ * user management, group operations, event CRUD, voting system, and attendance tracking.
+ */
+
 // services/firestore.ts
 import {
   getFirestore, collection, doc, setDoc, getDoc, updateDoc, writeBatch, onSnapshot,
   increment, CollectionReference, QueryDocumentSnapshot, DocumentData, getDocs, query, where,
-  deleteDoc,
+  Timestamp, deleteDoc,
 } from "firebase/firestore";
+import { db, storage} from "./index";
+import { UserDoc, GroupDoc, EventDoc, VoteShard, VoteStatus, newMatchHistory, AttendanceRecord, GroupInviteDoc } from "./types_index";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
-import { db, storage } from "./index";
-import { UserDoc, GroupDoc, EventDoc, VoteShard, VoteStatus, newMatchHistory, GroupInviteDoc } from "./types_index";
 
+/**
+ * Number of shards used for distributed vote counting to ensure scalability
+ */
 const NUM_SHARDS = 10;
 
 // --- STORAGE ---
@@ -130,16 +140,28 @@ export async function uploadImage(uri: string, path: string): Promise<string> {
 }
 
 // --- USERS ---
-export async function createUserProfile(uid: string, userDoc: UserDoc) {
+
+/**
+ * Creates a new user profile in Firestore
+ * @param {string} uid - Unique user identifier (Auth0 sub)
+ * @param {UserDoc} userDoc - Complete user document data
+ * @returns {Promise<void>} Promise that resolves when user is created
+ */
+export async function createUserProfile(uid: string, userDoc: UserDoc): Promise<void> {
   return setDoc(doc(db, "users", uid), userDoc);
 }
 
+/**
+ * Retrieves a user profile from Firestore
+ * @param {string} uid - Unique user identifier (Auth0 sub)
+ * @returns {Promise<UserDoc | undefined>} User document or undefined if not found
+ */
 export async function getUserProfile(uid: string): Promise<UserDoc | undefined> {
   const snap = await getDoc(doc(db, "users", uid));
   return snap.exists() ? (snap.data() as UserDoc) : undefined;
 }
 
-export async function updateUserProfile(uid: string, data: Partial<UserDoc>) {
+export async function updateUserProfile(uid: string, data: Partial<UserDoc>): Promise<void> {
   return updateDoc(doc(db, "users", uid), data);
 }
 
@@ -188,7 +210,8 @@ export async function getEventUserProfiles(eventId: string): Promise<UserDoc[]> 
 // --- GROUPS ---
 import { v4 as uuidv4 } from 'uuid';
 
-export async function createGroup(userId: string, group: Omit<GroupDoc, "createdAt">) {
+
+export async function createGroup(userId: string, group: Omit<GroupDoc, "ownerId" | "memberIds" | "createdAt">): Promise<string> {
   const groupRef = doc(collection(db, "groups"));
   const groupId = groupRef.id
   const now = new Date();
@@ -260,11 +283,13 @@ export async function createEvent(event: EventDoc) {
   };
   batch.set(eventRef, eventWithId);
 
-  // Pre-seed vote shards
-  for (let i = 0; i < NUM_SHARDS; i++) {
-    batch.set(doc(collection(eventRef, "voteShards"), i.toString()), {
-      going: 0, maybe: 0, not: 0
-    });
+  // Pre-seed vote shards only if voting is enabled
+  if (event.VotingEnabled !== false) {
+    for (let i = 0; i < NUM_SHARDS; i++) {
+      batch.set(doc(collection(eventRef, "voteShards"), i.toString()), {
+        going: 0, maybe: 0, not: 0
+      });
+    }
   }
   await batch.commit();
   return eventRef.id;
@@ -283,11 +308,137 @@ export async function getEvent(eventId: string) {
   return snap.exists() ? snap.data() : undefined;
 }
 
+// --- HELPER FUNCTIONS ---
+
+// Check if two events overlap in time
+function eventsOverlap(event1: any, event2: any): boolean {
+  const start1 = new Date(event1.EventDate);
+  const start2 = new Date(event2.EventDate);
+  
+  // Assume events last 2 hours by default (can be made configurable)
+  const duration = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
+  const end1 = new Date(start1.getTime() + duration);
+  const end2 = new Date(start2.getTime() + duration);
+  
+  // Check if events overlap
+  return start1 < end2 && start2 < end1;
+}
+
+// DEPRECATED: This function is too slow - queries all events and all votes
+// Get all events where user has voted 'going'
+async function getUserGoingEvents(userId: string): Promise<any[]> {
+  const eventsCol = collection(db, "events");
+  const snapshot = await getDocs(eventsCol);
+  const userEvents: any[] = [];
+  
+  for (const eventDoc of snapshot.docs) {
+    const eventData = eventDoc.data();
+    const userVote = await getUserVote(eventDoc.id, userId);
+    
+    if (userVote === 'going') {
+      userEvents.push({
+        id: eventDoc.id,
+        ...eventData
+      });
+    }
+  }
+  
+  return userEvents;
+}
+
+// OPTIMIZED: Future implementation could use indexed queries
+// async function getUserGoingEventsOptimized(userId: string): Promise<any[]> {
+//   // This would require a composite index on (userId, status) in userVotes subcollection
+//   // and would be much faster than the current implementation
+//   return [];
+// }
+
+// Check if voting for this event would conflict with user's existing 'going' votes
+async function checkTimeConflict(eventId: string, userId: string): Promise<{ hasConflict: boolean; conflictingEvent?: any }> {
+  const currentEventRef = doc(db, "events", eventId);
+  const currentEventSnap = await getDoc(currentEventRef);
+  
+  if (!currentEventSnap.exists()) {
+    throw new Error('Event not found');
+  }
+  
+  const currentEvent = currentEventSnap.data();
+  const userGoingEvents = await getUserGoingEvents(userId);
+  
+  // Check for conflicts with existing 'going' votes
+  for (const userEvent of userGoingEvents) {
+    if (userEvent.id !== eventId && eventsOverlap(currentEvent, userEvent)) {
+      return {
+        hasConflict: true,
+        conflictingEvent: userEvent
+      };
+    }
+  }
+  
+  return { hasConflict: false };
+}
+
 // --- SHARDED VOTE SYSTEM ---
 export async function castVote(eventId: string, status: keyof VoteShard, userId: string = 'default-user') {
+  // First check if voting is enabled for this event
+  const eventRef = doc(db, "events", eventId);
+  const eventSnap = await getDoc(eventRef);
+  
+  if (!eventSnap.exists()) {
+    throw new Error('Event not found');
+  }
+  
+  const eventData = eventSnap.data();
+  if (eventData.VotingEnabled === false) {
+    throw new Error('Voting is not enabled for this event');
+  }
+
+  // Check if event has started (naturally or early)
+  const eventStarted = hasEventStarted(eventData.EventDate);
+  const startedEarly = eventData.StartedEarly === true;
+  
+  if (eventStarted || startedEarly) {
+    throw new Error('Voting is closed because the event has started');
+  }
+
+  // Check if voting cutoff has passed
+  if (eventData.CutoffDate) {
+    const cutoffDate = new Date(eventData.CutoffDate.toDate ? eventData.CutoffDate.toDate() : eventData.CutoffDate);
+    const now = new Date();
+    if (now > cutoffDate) {
+      throw new Error('Voting cutoff time has passed');
+    }
+  }
+
+  // COMMENTED OUT FOR PERFORMANCE - Re-enable if needed
+  // Check for time conflicts if user is voting 'going'
+  // if (status === 'going') {
+  //   const conflictCheck = await checkTimeConflict(eventId, userId);
+  //   if (conflictCheck.hasConflict) {
+  //     const conflictingEvent = conflictCheck.conflictingEvent;
+  //     const conflictingDate = new Date(conflictingEvent.EventDate).toLocaleDateString();
+  //     const conflictingTime = new Date(conflictingEvent.EventDate).toLocaleTimeString([], { 
+  //       hour: '2-digit', 
+  //       minute: '2-digit' 
+  //     });
+  //     throw new Error(`You cannot attend this event because it conflicts with "${conflictingEvent.Title}" on ${conflictingDate} at ${conflictingTime}. You can only attend one event at a time.`);
+  //   }
+  // }
+
   // Check if user has already voted
   const userVoteRef = doc(db, "events", eventId, "userVotes", userId);
   const userVoteSnap = await getDoc(userVoteRef);
+  
+  // Use consistent shard selection based on userId for better performance
+  const getUserShard = (userId: string) => {
+    let hash = 0;
+    for (let i = 0; i < userId.length; i++) {
+      const char = userId.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    return Math.abs(hash) % NUM_SHARDS;
+  };
   
   const batch = writeBatch(db);
   
@@ -300,15 +451,15 @@ export async function castVote(eventId: string, status: keyof VoteShard, userId:
       return;
     }
     
-    // Remove previous vote from shards
-    const prevShard = Math.floor(Math.random() * NUM_SHARDS);
-    const prevShardRef = doc(db, "events", eventId, "voteShards", prevShard.toString());
-    batch.update(prevShardRef, { [previousVote]: increment(-1) });
+    // Use consistent shard for this user
+    const userShard = getUserShard(userId);
+    const shardRef = doc(db, "events", eventId, "voteShards", userShard.toString());
     
-    // Add new vote to shards
-    const newShard = Math.floor(Math.random() * NUM_SHARDS);
-    const newShardRef = doc(db, "events", eventId, "voteShards", newShard.toString());
-    batch.update(newShardRef, { [status]: increment(1) });
+    // Update vote counts in single shard operation
+    batch.update(shardRef, { 
+      [previousVote]: increment(-1),
+      [status]: increment(1)
+    });
     
     // Update user's vote record
     batch.set(userVoteRef, {
@@ -318,8 +469,8 @@ export async function castVote(eventId: string, status: keyof VoteShard, userId:
     });
   } else {
     // First time voting - just add the vote
-    const shard = Math.floor(Math.random() * NUM_SHARDS);
-    const shardRef = doc(db, "events", eventId, "voteShards", shard.toString());
+    const userShard = getUserShard(userId);
+    const shardRef = doc(db, "events", eventId, "voteShards", userShard.toString());
     batch.update(shardRef, { [status]: increment(1) });
     
     // Record user's vote
@@ -356,19 +507,27 @@ export function listenVoteCounts(
       totals.not += v.not || 0;
     });
     callback(totals);
+  }, (error) => {
+    // If vote shards don't exist (e.g., voting disabled), return zeros
+    callback({ going: 0, maybe: 0, not: 0 });
   });
 }
 
 export async function getVoteCounts(eventId: string): Promise<VoteShard> {
-  const snapshot = await getDocs(collection(db, "events", eventId, "voteShards"));
-  const totals = { going: 0, maybe: 0, not: 0 };
-  snapshot.forEach(doc => {
-    const v = doc.data() as VoteShard;
-    totals.going += v.going || 0;
-    totals.maybe += v.maybe || 0;
-    totals.not += v.not || 0;
-  });
-  return totals;
+  try {
+    const snapshot = await getDocs(collection(db, "events", eventId, "voteShards"));
+    const totals = { going: 0, maybe: 0, not: 0 };
+    snapshot.forEach(doc => {
+      const v = doc.data() as VoteShard;
+      totals.going += v.going || 0;
+      totals.maybe += v.maybe || 0;
+      totals.not += v.not || 0;
+    });
+    return totals;
+  } catch (error) {
+    // If vote shards don't exist (e.g., voting disabled), return zeros
+    return { going: 0, maybe: 0, not: 0 };
+  }
 }
 
 
@@ -379,15 +538,19 @@ export function listenGroupEvents(groupId: string, callback: (events: EventDoc[]
     const result: EventDoc[] = [];
     snap.forEach(doc => {
       const evt = doc.data();
-      if (evt.GroupID === groupId) {
+      // Check if the event has the group in its GroupIDs array
+      if (evt.GroupIDs && evt.GroupIDs.includes(groupId)) {
         result.push({ 
           id: doc.id, 
-          GroupID: evt.GroupID,
+          GroupIDs: evt.GroupIDs,
+          IndividualParticipantIDs: evt.IndividualParticipantIDs,
           Title: evt.Title,
           EventDate: evt.EventDate,
           Location: evt.Location,
+          TotalCost: evt.TotalCost,
           CutoffDate: evt.CutoffDate,
-          CreatorID: evt.CreatorID
+          CreatorID: evt.CreatorID,
+          VotingEnabled: evt.VotingEnabled
         } as EventDoc);
       }
     });
@@ -395,21 +558,57 @@ export function listenGroupEvents(groupId: string, callback: (events: EventDoc[]
   });
 }
 
-export function listenUserGroupEvents(userGroupIds: string[], callback: (events: EventDoc[]) => void) {
+export function listenUserGroupEvents(userGroupIds: string[], userId: string, callback: (events: EventDoc[]) => void) {
   const eventsCol = collection(db, "events");
   return onSnapshot(eventsCol, snap => {
     const result: EventDoc[] = [];
     snap.forEach(doc => {
       const evt = doc.data();
-      if (userGroupIds.includes(evt.GroupID)) {
+      // Check if user is in any of the groups OR is an individual participant
+      const isInGroup = evt.GroupIDs && evt.GroupIDs.some((groupId: string) => userGroupIds.includes(groupId));
+      const isIndividualParticipant = evt.IndividualParticipantIDs && evt.IndividualParticipantIDs.includes(userId);
+      
+      if (isInGroup || isIndividualParticipant) {
         result.push({ 
           id: doc.id, 
-          GroupID: evt.GroupID,
+          GroupIDs: evt.GroupIDs,
+          IndividualParticipantIDs: evt.IndividualParticipantIDs,
           Title: evt.Title,
           EventDate: evt.EventDate,
           Location: evt.Location,
+          TotalCost: evt.TotalCost,
           CutoffDate: evt.CutoffDate,
-          CreatorID: evt.CreatorID
+          CreatorID: evt.CreatorID,
+          VotingEnabled: evt.VotingEnabled
+        } as EventDoc);
+      }
+    });
+    callback(result);
+  });
+}
+
+export function listenAllEvents(userId: string, callback: (events: EventDoc[]) => void) {
+  const eventsCol = collection(db, "events");
+  return onSnapshot(eventsCol, snap => {
+    const result: EventDoc[] = [];
+    snap.forEach(doc => {
+      const evt = doc.data();
+      // Check if user is an individual participant or the creator
+      const isIndividualParticipant = evt.IndividualParticipantIDs && evt.IndividualParticipantIDs.includes(userId);
+      const isCreator = evt.CreatorID === userId;
+      
+      if (isIndividualParticipant || isCreator) {
+        result.push({ 
+          id: doc.id, 
+          GroupIDs: evt.GroupIDs,
+          IndividualParticipantIDs: evt.IndividualParticipantIDs,
+          Title: evt.Title,
+          EventDate: evt.EventDate,
+          Location: evt.Location,
+          TotalCost: evt.TotalCost,
+          CutoffDate: evt.CutoffDate,
+          CreatorID: evt.CreatorID,
+          VotingEnabled: evt.VotingEnabled
         } as EventDoc);
       }
     });
@@ -463,6 +662,58 @@ export async function getUserMatchHistory(userId: string): Promise<newMatchHisto
   });
 }
 
+// --- ATTENDANCE FUNCTIONS ---
+
+// Update attendance records for an event
+export async function updateAttendance(eventId: string, attendanceRecords: AttendanceRecord[]) {
+  const eventRef = doc(db, "events", eventId);
+  
+  // Convert dates to Firestore timestamps
+  const recordsWithTimestamps = attendanceRecords.map(record => ({
+    ...record,
+    arrivalTime: record.arrivalTime ? Timestamp.fromDate(record.arrivalTime) : undefined
+  }));
+
+  await updateDoc(eventRef, {
+    AttendanceRecords: recordsWithTimestamps
+  });
+}
+
+// Get attendance records for an event
+export async function getAttendanceRecords(eventId: string): Promise<AttendanceRecord[]> {
+  const eventRef = doc(db, "events", eventId);
+  const eventSnap = await getDoc(eventRef);
+  
+  if (!eventSnap.exists()) {
+    throw new Error('Event not found');
+  }
+  
+  const eventData = eventSnap.data();
+  const records = eventData.AttendanceRecords || [];
+  
+  // Convert Firestore timestamps back to Date objects
+  return records.map((record: any) => ({
+    ...record,
+    arrivalTime: record.arrivalTime ? record.arrivalTime.toDate() : undefined
+  }));
+}
+
+// Check if event has started (for showing attendance button)
+export function hasEventStarted(eventDate: any): boolean {
+  const now = new Date();
+  let eventDateTime: Date;
+  
+  // Handle Firestore timestamps
+  if (eventDate && typeof eventDate === 'object' && 'toDate' in eventDate) {
+    eventDateTime = eventDate.toDate();
+  } else {
+    eventDateTime = new Date(eventDate);
+  }
+  
+  return now >= eventDateTime;
+}
+
+
 // Add: fetch a single match by ID
 export async function getMatchHistoryById(matchId: string): Promise<newMatchHistory | undefined> {
   const snap = await getDoc(doc(db, "matchHistory", matchId));
@@ -503,6 +754,7 @@ export async function getGroupInvites(groupId: string): Promise<GroupInviteDoc[]
     return dateB.getTime() - dateA.getTime();
   });
 }
+
 
 export async function addGroupMember(userId: string, groupId: string){
   const groupRef = doc(db, "groups", groupId);

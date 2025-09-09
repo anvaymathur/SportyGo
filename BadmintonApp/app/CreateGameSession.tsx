@@ -1,23 +1,43 @@
+/**
+ * @fileoverview CreateGameSession Component
+ * 
+ * Form component for creating new badminton events with group selection,
+ * participant management, voting configuration, and form validation.
+ */
+
 import React, { useState, useEffect } from 'react';
-import { Alert, Platform } from 'react-native';
+import { Alert, Platform, TouchableOpacity } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { router } from 'expo-router';
-import { createEvent, getGroups, getUserGroups } from '../firebase/services_firestore2';
-import { GroupDoc } from '../firebase/types_index';
+import { createEvent, getUserGroups, getAllUserProfiles } from '../firebase/services_firestore2';
+import { GroupDoc, UserDoc } from '../firebase/types_index';
 import { useAuth0 } from 'react-native-auth0';
 import { Theme, YStack, XStack, ScrollView, Button, Input, Label, Paragraph, H2, Text, Card } from 'tamagui';
 
- type FormErrors = {
+/**
+ * Interface for form validation errors
+ */
+type FormErrors = {
+
   title?: string;
   gameDate?: string;
   gameTime?: string;
   location?: string;
+
+  totalCost?: string;
   votingCutoff?: string;
-  group?: string;
+  groups?: string;
+  participants?: string;
 };
 
+/**
+ * Main CreateGameSession component for creating new badminton events
+ * @returns {JSX.Element} The rendered create game session form
+ */
 export default function CreateGameSession() {
+  // Date setup for form defaults
+
   const today = new Date();
   const tomorrow = new Date(today);
   const { user } = useAuth0();
@@ -36,94 +56,184 @@ export default function CreateGameSession() {
   const [gameTime, setGameTime] = useState(new Date());
   const [showGameTime, setShowGameTime] = useState(false);
   const [location, setLocation] = useState('');
-  const [votingCutoff, setVotingCutoff] = useState(today);
+  const [totalCost, setTotalCost] = useState('');
+  const [votingEnabled, setVotingEnabled] = useState(true);
+  const [votingCutoff, setVotingCutoff] = useState(() => {
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
+    return endOfToday;
+  });
   const [showVotingCutoff, setShowVotingCutoff] = useState(false);
-  const [group, setGroup] = useState('');
+  const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
+  const [groupsLoaded, setGroupsLoaded] = useState(false);
+  const [selectedParticipants, setSelectedParticipants] = useState<string[]>([]);
+  const [userSearchQuery, setUserSearchQuery] = useState('');
 
-  // State for groups
+  // State for groups and users
   const [groups, setGroups] = useState<GroupDoc[]>([]);
+  const [users, setUsers] = useState<UserDoc[]>([]);
   const [loadingGroups, setLoadingGroups] = useState(true);
+  const [loadingUsers, setLoadingUsers] = useState(true);
 
-  // State for errors
+  // State for errors and success
   const [errors, setErrors] = useState<FormErrors>({});
-  // State for success
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Fetch groups on component mount
+  /**
+   * Fetches user groups and profiles on component mount
+   * Loads data needed for group and participant selection
+   */
   useEffect(() => {
-    const fetchGroups = async () => {
+    const fetchData = async () => {
       try {
         setLoadingGroups(true);
-        if (user && user.sub) {
-          const fetchedGroups = await getUserGroups(user.sub);
-          setGroups(fetchedGroups);
-        } else {
-          // Fallback to all groups if user is not authenticated
-          const fetchedGroups = await getGroups();
-          setGroups(fetchedGroups);
-        }
+        setLoadingUsers(true);
+        
+        const [fetchedGroups, fetchedUsers] = await Promise.all([
+          getUserGroups(userId),
+          getAllUserProfiles()
+        ]);
+        
+        setGroups(fetchedGroups);
+        setUsers(fetchedUsers);
+        setGroupsLoaded(true);
       } catch (error) {
-        Alert.alert('Error', 'Failed to load groups.');
+        Alert.alert('Error', 'Failed to load groups and users.');
       } finally {
         setLoadingGroups(false);
+        setLoadingUsers(false);
       }
     };
 
-    fetchGroups();
-  }, [user]);
+    fetchData();
+  }, []);
 
-  // Validation helpers
-  const validate = () => {
+  /**
+   * Validates all form fields and sets error messages
+   * 
+   * @returns {boolean} True if validation passes, false otherwise
+   */
+  const validate = (): boolean => {
     const newErrors: FormErrors = {};
+    
+    // Title validation
     if (!title || title.trim().length < 3) {
       newErrors.title = 'Title must be at least 3 characters';
     }
+    
+    // Date validation
     if (!gameDate || gameDate < new Date(today.setHours(0, 0, 0, 0))) {
       newErrors.gameDate = 'Game date cannot be in the past';
     }
+    
+    // Time validation
     if (!gameTime) {
       newErrors.gameTime = 'Game time is required';
     }
+    
+    // Location validation
     if (!location || location.trim().length < 3) {
       newErrors.location = 'Location must be at least 3 characters';
     }
-    if (!votingCutoff || votingCutoff < new Date(today.setHours(0, 0, 0, 0))) {
-      newErrors.votingCutoff = 'Voting cutoff cannot be in the past';
+    
+    // Cost validation
+    if (totalCost && (isNaN(Number(totalCost)) || Number(totalCost) < 0)) {
+      newErrors.totalCost = 'Total cost must be a valid positive number';
     }
-    if (votingCutoff > gameDate) {
-      newErrors.votingCutoff = 'Voting cutoff must be before or on the game date';
+    
+    // Voting cutoff validation
+    if (votingEnabled) {
+      if (!votingCutoff) {
+        newErrors.votingCutoff = 'Voting cutoff date is required';
+      } else {
+        const now = new Date();
+        now.setHours(0, 0, 0, 0); // Set to 12:00am
+        if (votingCutoff < now) {
+          newErrors.votingCutoff = 'Voting cutoff cannot be in the past';
+        }
+        // Allow voting cutoff on the same date as the game
+        // The voting will automatically close when the event starts
+      }
     }
-    if (!group) {
-      newErrors.group = 'Group is required';
+    
+    // Check minimum participants requirement
+    const selectedGroupData = selectedGroup ? groups.find(g => g.id === selectedGroup) : null;
+    const groupMemberCount = selectedGroupData ? selectedGroupData.MemberIds.length : 0;
+    const individualCount = selectedParticipants.length + (!selectedGroup && !selectedParticipants.includes(userId) ? 1 : 0);
+    const totalParticipants = groupMemberCount + individualCount;
+    
+    if (totalParticipants < 2) {
+      newErrors.participants = 'You need at least 2 participants total (group and/or individuals)';
     }
+    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  // Handlers for date/time pickers
-  const onChangeGameDate = (event: any, selectedDate?: Date) => {
+  /**
+   * Handles date picker changes for game date
+   * 
+   * @param {any} event - The picker event
+   * @param {Date | undefined} selectedDate - The selected date
+   */
+  const onChangeGameDate = (event: any, selectedDate?: Date): void => {
     setShowGameDate(false);
     if (selectedDate) setGameDate(selectedDate);
   };
-  const onChangeGameTime = (event: any, selectedTime?: Date) => {
+
+  /**
+   * Handles time picker changes for game time
+   * 
+   * @param {any} event - The picker event
+   * @param {Date | undefined} selectedTime - The selected time
+   */
+  const onChangeGameTime = (event: any, selectedTime?: Date): void => {
     setShowGameTime(false);
     if (selectedTime) setGameTime(selectedTime);
   };
-  const onChangeVotingCutoff = (event: any, selectedDate?: Date) => {
+
+  /**
+   * Handles date picker changes for voting cutoff
+   * Sets the cutoff to the end of the selected date (23:59:59)
+   * 
+   * @param {any} event - The picker event
+   * @param {Date | undefined} selectedDate - The selected date
+   */
+  const onChangeVotingCutoff = (event: any, selectedDate?: Date): void => {
     setShowVotingCutoff(false);
-    if (selectedDate) setVotingCutoff(selectedDate);
+    if (selectedDate) {
+      // Set the voting cutoff to the end of the selected date (23:59:59)
+      const endOfDay = new Date(selectedDate);
+      endOfDay.setHours(23, 59, 59, 999);
+      setVotingCutoff(endOfDay);
+    }
   };
 
-  // Submit handler
-  const handleSubmit = async () => {
+  /**
+   * Handles form submission and event creation
+   * Validates form data and creates the event in Firestore
+   */
+  const handleSubmit = async (): Promise<void> => {
     if (!validate()) return;
+    
     setLoading(true);
     try {
+      // Ensure creator is always included as a participant
+      let finalIndividualParticipants = [...selectedParticipants];
+      
+      // If no group is selected, creator must be in individual participants
+      if (!selectedGroup && !finalIndividualParticipants.includes(userId)) {
+        finalIndividualParticipants.push(userId);
+      }
+      
       // Build EventDoc object
       const event = {
         id: '', // Firestore will generate the ID
-        GroupID: group,
+        GroupIDs: selectedGroup ? [selectedGroup] : [],
+        IndividualParticipantIDs: finalIndividualParticipants,
+
         Title: title.trim(),
         EventDate: new Date(
           gameDate.getFullYear(),
@@ -133,9 +243,12 @@ export default function CreateGameSession() {
           gameTime.getMinutes()
         ),
         Location: location,
-        CutoffDate: votingCutoff,
+        TotalCost: totalCost ? Number(totalCost) : undefined,
+        CutoffDate: votingEnabled ? votingCutoff : new Date('1970-01-01'),
         CreatorID: userId,
+        VotingEnabled: votingEnabled,
       };
+
       await createEvent(event);
       setLoading(false);
       setSuccess(true);
@@ -145,38 +258,112 @@ export default function CreateGameSession() {
     }
   };
 
-  const handleCancel = () => {
+  /**
+   * Handles form cancellation with confirmation dialog
+   */
+  const handleCancel = (): void => {
+
     Alert.alert('Cancel', 'Are you sure you want to cancel? All entered data will be lost.', [
       { text: 'No' },
       { text: 'Yes', onPress: () => router.back() },
     ]);
   };
 
-  const resetForm = () => {
+  /**
+   * Resets the form to initial state
+   * Clears all fields and resets to default values
+   */
+  const resetForm = (): void => {
+
     setTitle('');
     setGameDate(tomorrow);
     setGameTime(new Date());
     setLocation('');
-    setVotingCutoff(today);
-    setGroup('');
+    setTotalCost('');
+    setVotingEnabled(true);
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
+    setVotingCutoff(endOfToday);
+    setSelectedGroup(null);
+    setSelectedParticipants([]);
+    setUserSearchQuery('');
     setErrors({});
     setSuccess(false);
     setLoading(false);
   };
 
-  const handleCreateAnother = () => {
+  /**
+   * Handles "Create Another" action after successful event creation
+   */
+  const handleCreateAnother = (): void => {
     resetForm();
   };
 
-  const handleViewSessions = () => {
+  /**
+   * Navigates to the events list after successful event creation
+   */
+  const handleViewSessions = (): void => {
     router.push('/EventsList');
   };
 
-  const FieldError = ({ message }: { message?: string }) =>
+  /**
+   * Toggles a participant's selection status
+   * 
+   * @param {string} userId - The user ID to toggle
+   */
+  const toggleParticipant = (userId: string): void => {
+    setSelectedParticipants(prev => 
+      prev.includes(userId) 
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    );
+  };
+
+  /**
+   * Gets the names of selected participants
+   * 
+   * @returns {string[]} Array of participant names
+   */
+  const getSelectedParticipantNames = (): string[] => {
+    return selectedParticipants.map(userId => 
+      users.find(u => u.id === userId)?.Name || 'Unknown User'
+    );
+  };
+
+  /**
+   * Filters users based on search query
+   * 
+   * @returns {UserDoc[]} Filtered array of users
+   */
+  const getFilteredUsers = (): UserDoc[] => {
+    if (!userSearchQuery.trim()) return users;
+    return users.filter(user => 
+      user.Name.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+      user.Email.toLowerCase().includes(userSearchQuery.toLowerCase())
+    );
+  };
+
+  /**
+   * FieldError component for displaying validation errors
+   * 
+   * @param {Object} props - Component props
+   * @param {string | undefined} props.message - Error message to display
+   * @returns {JSX.Element | null} Error message component or null
+   */
+  const FieldError = ({ message }: { message?: string }): JSX.Element | null =>
     message ? (
-      <Paragraph style={{ fontSize: 13, marginTop: 2, color: '#EF4444' }}>{message}</Paragraph>
+      <Paragraph fontSize={13} mt={2} color="#EF4444">{message}</Paragraph>
     ) : null;
 
+  /**
+   * InputLikeButton component for date/time picker triggers
+   * 
+   * @param {Object} props - Component props
+   * @param {React.ReactNode} props.children - Button content
+   * @param {() => void} props.onPress - Press handler
+   * @param {boolean | undefined} props.disabled - Disabled state
+   * @returns {JSX.Element} Button component styled like an input
+   */
   const InputLikeButton = ({
     children,
     onPress,
@@ -185,7 +372,8 @@ export default function CreateGameSession() {
     children: React.ReactNode;
     onPress: () => void;
     disabled?: boolean;
-  }) => (
+  }): JSX.Element => (
+
     <Button
       onPress={onPress}
       disabled={disabled}
@@ -203,64 +391,71 @@ export default function CreateGameSession() {
     </Button>
   );
 
-  const FormGroup = ({ children }: { children: React.ReactNode }) => (
-    <YStack mb={18}>{children}</YStack>
+  /**
+   * FormGroup component for consistent form layout
+   * 
+   * @param {Object} props - Component props
+   * @param {React.ReactNode} props.children - Form group content
+   * @returns {JSX.Element} Form group wrapper
+   */
+  const FormGroup = ({ children }: { children: React.ReactNode }): JSX.Element => (
+    <YStack mb={12}>{children}</YStack>
+
   );
 
   return (
     <Theme name="earthy-sport-light">
       <YStack flex={1} bg="$background">
-        <YStack p={24} pb={16}>
-          <Text onPress={() => router.back()} color="$color9" fontWeight="600" style={{ fontSize: 16 }} mb={16}>
+        <YStack p={20} pb={12}>
+          <Text onPress={() => router.back()} color="$color9" fontWeight="600" style={{ fontSize: 16 }} mb={12}>
             ← Back
           </Text>
-          <H2 verticalAlign="center" mb={4}>
+          <H2 verticalAlign="center" mb={2}>
             Create New Game Session
           </H2>
-          <Paragraph verticalAlign="center" color="$color10" style={{ fontSize: 16 }} mb={24}>
+          <Paragraph verticalAlign="center" color="$color10" style={{ fontSize: 16 }} mb={16}>
             Set up a new game session for your group
           </Paragraph>
         </YStack>
 
         {!success ? (
           <ScrollView>
-            <YStack px={20} pb={24}>
+
+            <YStack px={16} pb={20}>
               <Card
                 backgroundColor="$color2"
-                padding={20}
+                padding={16}
                 borderRadius={12}
                 shadowColor="$shadowColor"
                 borderWidth={1}
                 borderColor="$borderColor"
               >
-                                 <YStack>
-                   {/* Title */}
-                   <YStack mb={18}>
-                    <Label htmlFor="title" style={{ fontSize: 16, fontWeight: '500' }} mb={6}>
+                <YStack>
+                  {/* Title */}
+                  <FormGroup>
+                    <Label htmlFor="title" style={{ fontSize: 16, fontWeight: '500' }} mb={4}>
                       Event Title
                     </Label>
-                   
                     <Input
                       id="title"
                       value={title}
                       onChangeText={setTitle}
                       placeholder="Enter event title (e.g., 'Weekend Tournament')"
                       autoCapitalize="words"
-                      borderColor={errors.title ? ('#EF4444' as any) : ('$borderColor' as any)}
+                       borderColor={errors.title ? "#EF4444" : "$borderColor"}
                       bg="$color1"
-                      keyboardType="default"
-                      focusStyle={{ borderColor: errors.title ? '#EF4444' : '$color9', borderWidth: 2 }}
-                      />
+                    />
                     <FieldError message={errors.title} />
-                  </YStack>
+                  </FormGroup>
 
                   {/* Game Date */}
-                  <YStack mb={18}>
-                    <Label style={{ fontSize: 16, fontWeight: '500' }} mb={6}>
+                  <FormGroup>
+                    <Label style={{ fontSize: 16, fontWeight: '500' }} mb={4}>
                       Game Date
                     </Label>
                     <InputLikeButton onPress={() => setShowGameDate(true)} >
-                      {gameDate ? gameDate.toISOString().split('T')[0] : 'Select date'}
+                      {gameDate ? gameDate.toLocaleDateString() : 'Select date'}
+
                     </InputLikeButton>
                     {showGameDate && (
                       <DateTimePicker
@@ -272,11 +467,13 @@ export default function CreateGameSession() {
                       />
                     )}
                     <FieldError message={errors.gameDate} />
-                  </YStack>
+
+                  </FormGroup>
 
                   {/* Game Time */}
-                  <YStack mb={18}>
-                    <Label style={{ fontSize: 16, fontWeight: '500' }} mb={6}>
+                  <FormGroup>
+                    <Label style={{ fontSize: 16, fontWeight: '500' }} mb={4}>
+
                       Game Time
                     </Label>
                     <InputLikeButton onPress={() => setShowGameTime(true)}>
@@ -293,64 +490,279 @@ export default function CreateGameSession() {
                       />
                     )}
                     <FieldError message={errors.gameTime} />
-                  </YStack>
+                  </FormGroup>
 
                   {/* Location */}
-                  <YStack mb={18}>
-                    <Label style={{ fontSize: 16, fontWeight: '500' }} mb={6}>
+                  <FormGroup>
+                    <Label style={{ fontSize: 16, fontWeight: '500' }} mb={4}>
                       Location
                     </Label>
-                                         <Input
-                       value={location}
-                       onChangeText={setLocation}
-                       placeholder="Enter game location"
-                       autoCapitalize="words"
-                       borderColor={errors.location ? ('#EF4444' as any) : ('$borderColor' as any)}
-                       bg="$color1"
-                       keyboardType="default"
-                       focusStyle={{ borderColor: errors.location ? '#EF4444' : '$color9', borderWidth: 2 }}
-                     />
+                    <Input
+                      value={location}
+                      onChangeText={setLocation}
+                      placeholder="Enter game location"
+                      autoCapitalize="words"
+                       borderColor={errors.location ? "#EF4444" : "$borderColor"}
+                      bg="$color1"
+                    />
                     <FieldError message={errors.location} />
-                  </YStack>
+                  </FormGroup>
 
-                  {/* Voting Cutoff */}
-                  <YStack mb={18}>
-                    <Label style={{ fontSize: 16, fontWeight: '500' }} mb={6}>
+                  {/* Total Cost */}
+                  <FormGroup>
+                    <Label style={{ fontSize: 16, fontWeight: '500' }} mb={4}>
+                      Total Cost (Optional)
+                    </Label>
+                    <Input
+                      value={totalCost}
+                      onChangeText={setTotalCost}
+                      placeholder="Enter total cost (e.g., 50.00)"
+                      keyboardType="numeric"
+                      borderColor={errors.totalCost ? "#EF4444" : "$borderColor"}
+                      bg="$color1"
+                    />
+                    <FieldError message={errors.totalCost} />
+                  </FormGroup>
+
+                  {/* Voting Toggle */}
+                  <FormGroup>
+                    <Label style={{ fontSize: 16, fontWeight: '500' }} mb={4}>
+                      Enable Voting
+                    </Label>
+                    <XStack verticalAlign="center" space={12}>
+                      <Button
+                        size="$3"
+                        bg={votingEnabled ? '$color9' : '$color3'}
+                        color={votingEnabled ? '$color1' : '$color'}
+                        onPress={() => setVotingEnabled(true)}
+                        disabled={loading}
+                      >
+                        Yes
+                      </Button>
+                      <Button
+                        size="$3"
+                        bg={!votingEnabled ? '$color9' : '$color3'}
+                        color={!votingEnabled ? '$color1' : '$color'}
+                        onPress={() => setVotingEnabled(false)}
+                        disabled={loading}
+                      >
+                        No
+                      </Button>
+                    </XStack>
+                  </FormGroup>
+
+                  {/* Voting Cutoff - Only show if voting is enabled */}
+                  {votingEnabled && (
+                  <FormGroup>
+                      <Label style={{ fontSize: 16, fontWeight: '500' }} mb={4}>
                       Voting closes on:
                     </Label>
-                    <InputLikeButton onPress={() => setShowVotingCutoff(true)}>
-                      {votingCutoff ? votingCutoff.toISOString().split('T')[0] : 'Select date'}
-                    </InputLikeButton>
+                                          <InputLikeButton onPress={() => setShowVotingCutoff(true)}>
+                        {votingCutoff ? votingCutoff.toLocaleDateString() : 'Select date'}
+                      </InputLikeButton>
                     {showVotingCutoff && (
                       <DateTimePicker
                         value={votingCutoff}
                         mode="date"
                         display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                        minimumDate={today}
+                          minimumDate={new Date(today.setHours(0, 0, 0, 0))}
                         onChange={onChangeVotingCutoff}
                       />
                     )}
                     <FieldError message={errors.votingCutoff} />
-                  </YStack>
+                  </FormGroup>
+                  )}
 
-                  {/* Group */}
-                  <YStack mb={18}>
-                    <Label style={{ fontSize: 16, fontWeight: '500' }} mb={6}>
-                      Group
+                  {/* Group Selection */}
+                  <FormGroup>
+                    <Label style={{ fontSize: 16, fontWeight: '500' }} mb={4}>
+                      Group (Optional)
                     </Label>
+                    {loadingGroups ? (
+                      <YStack p={12} bg="$color3" verticalAlign="center">
+                        <Text fontSize={14} color="$color10">
+                          Loading your groups...
+                        </Text>
+                      </YStack>
+                                        ) : (
+                      <YStack>
                     <YStack borderWidth={1} borderColor="$borderColor" overflow="hidden" bg="$color1">
-                      <Picker selectedValue={group} onValueChange={setGroup} enabled={!loadingGroups}>
-                        <Picker.Item label={loadingGroups ? 'Loading groups...' : 'Select a group'} value="" />
+                          <Picker 
+                            selectedValue={selectedGroup} 
+                            onValueChange={setSelectedGroup} 
+                            enabled={!loadingGroups && groupsLoaded}
+                            style={{ 
+                              backgroundColor: 'transparent',
+                              color: Platform.OS === 'ios' ? '#000' : undefined
+                            }}
+                          >
+                            <Picker.Item 
+                              label="No group selected" 
+                              value={null}
+                              color={Platform.OS === 'ios' ? '#666' : undefined}
+                            />
                         {groups.map((g) => (
-                          <Picker.Item key={g.id} label={g.Name} value={g.id} />
+                              <Picker.Item 
+                                key={g.id} 
+                                label={g.Name} 
+                                value={g.id}
+                                color={Platform.OS === 'ios' ? '#000' : undefined}
+                              />
                         ))}
                       </Picker>
                     </YStack>
-                    <FieldError message={errors.group} />
-                  </YStack>
+                        {selectedGroup && (
+                          <Card mt={4} p={8} bg="$color3" borderRadius="$2">
+                            <Text fontSize={12} color="$color10">
+                              Selected: {groups.find(g => g.id === selectedGroup)?.Name}
+                            </Text>
+                          </Card>
+                        )}
+
+
+                      </YStack>
+                    )}
+                  </FormGroup>
+
+                                    {/* Individual Participants Selection */}
+                  <FormGroup>
+                    <Label style={{ fontSize: 16, fontWeight: '500' }} mb={4}>
+                      Individual Participants (Optional)
+                    </Label>
+                    <Input
+                      placeholder="Search users by name or email..."
+                      value={userSearchQuery}
+                      onChangeText={setUserSearchQuery}
+                      mb={8}
+                      bg="$color1"
+                      borderColor="$borderColor"
+                    />
+                    <YStack space="$2" height={200}>
+                      <ScrollView showsVerticalScrollIndicator={false}>
+                        {/* Selected users at the top */}
+                        {getFilteredUsers()
+                          .filter(user => selectedParticipants.includes(user.id))
+                          .map((user) => (
+                            <TouchableOpacity
+                              key={user.id}
+                              onPress={() => toggleParticipant(user.id)}
+                              disabled={loadingUsers}
+                            >
+                              <Card
+                                p={8}
+                                bg="$color9"
+                                borderWidth={1}
+                                borderColor="$color9"
+                                borderRadius="$2"
+                                mb={2}
+                              >
+                                <Text
+                                  fontSize={13}
+                                  fontWeight="500"
+                                  color="$color1"
+                                >
+                                  {user.Name}
+                                </Text>
+                                <Text
+                                  fontSize={11}
+                                  color="$color1"
+                                  mt={1}
+                                >
+                                  {user.Email}
+                                </Text>
+                              </Card>
+                            </TouchableOpacity>
+                          ))}
+                        
+                        {/* Unselected users below */}
+                        {getFilteredUsers()
+                          .filter(user => !selectedParticipants.includes(user.id))
+                          .map((user) => (
+                            <TouchableOpacity
+                              key={user.id}
+                              onPress={() => toggleParticipant(user.id)}
+                              disabled={loadingUsers}
+                            >
+                              <Card
+                                p={8}
+                                bg="$color1"
+                                borderWidth={1}
+                                borderColor="$borderColor"
+                                borderRadius="$2"
+                                mb={2}
+                              >
+                                <Text
+                                  fontSize={13}
+                                  fontWeight="500"
+                                  color="$color"
+                                >
+                                  {user.Name}
+                                </Text>
+                                <Text
+                                  fontSize={11}
+                                  color="$color10"
+                                  mt={1}
+                                >
+                                  {user.Email}
+                                </Text>
+                              </Card>
+                            </TouchableOpacity>
+                          ))}
+                        
+                        {getFilteredUsers().length === 0 && !loadingUsers && (
+                          <Card p={16} bg="$color3" borderRadius="$2">
+                            <Text color="$color10" fontSize={14} style={{ textAlign: 'center' }}>
+                              {userSearchQuery ? 'No users found matching your search' : 'No users available'}
+                            </Text>
+                          </Card>
+                        )}
+                        {loadingUsers && (
+                          <Card p={16} bg="$color3" borderRadius="$2">
+                            <Text color="$color10" fontSize={14} style={{ textAlign: 'center' }}>
+                              Loading users...
+                            </Text>
+                          </Card>
+                        )}
+                      </ScrollView>
+                    </YStack>
+                    <FieldError message={errors.participants} />
+                  </FormGroup>
+
+                  {/* Participants Summary */}
+                  <FormGroup>
+                    <Label style={{ fontSize: 16, fontWeight: '500' }} mb={4}>
+                      Participants Summary
+                    </Label>
+                    <Card p={12} bg="$color3" borderRadius="$2">
+                      {(() => {
+                        const selectedGroupData = selectedGroup ? groups.find(g => g.id === selectedGroup) : null;
+                        const groupMemberCount = selectedGroupData ? selectedGroupData.MemberIds.length : 0;
+                        const individualCount = selectedParticipants.length + (!selectedGroup && !selectedParticipants.includes(userId) ? 1 : 0);
+                        const totalParticipants = groupMemberCount + individualCount;
+                        
+                        return (
+                          <>
+                            <Text fontSize={14} fontWeight="500" mb={4}>
+                              Total Participants: {totalParticipants}
+                            </Text>
+                            <Text fontSize={12} color="$color10">
+                              Group: {selectedGroup ? `${selectedGroupData?.Name} (${groupMemberCount} members)` : 'No'} | Individuals: {individualCount}
+                              {!selectedGroup && !selectedParticipants.includes(userId) && ' (including you)'}
+                            </Text>
+
+                            {totalParticipants < 2 && (
+                              <Text fontSize={12} color="#EF4444" mt={4}>
+                                ⚠️ Minimum 2 participants required
+                              </Text>
+                            )}
+                          </>
+                        );
+                      })()}
+                    </Card>
+                  </FormGroup>
 
                   {/* Actions */}
-                  <XStack flexDirection="row" justify="space-between" mt={16}>
+                  <XStack flexDirection="row" justify="space-between" mt={12}>
                     <Button
                       flex={1}
                       bg="$color2"
