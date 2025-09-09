@@ -9,15 +9,135 @@
 import {
   getFirestore, collection, doc, setDoc, getDoc, updateDoc, writeBatch, onSnapshot,
   increment, CollectionReference, QueryDocumentSnapshot, DocumentData, getDocs, query, where,
-  Timestamp,
+  Timestamp, deleteDoc,
 } from "firebase/firestore";
-import { db } from "./index";
-import { UserDoc, GroupDoc, EventDoc, VoteShard, VoteStatus, newMatchHistory, AttendanceRecord } from "./types_index";
+import { db, storage} from "./index";
+import { UserDoc, GroupDoc, EventDoc, VoteShard, VoteStatus, newMatchHistory, AttendanceRecord, GroupInviteDoc } from "./types_index";
+import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 
 /**
  * Number of shards used for distributed vote counting to ensure scalability
  */
 const NUM_SHARDS = 10;
+
+// --- STORAGE ---
+// Alternative: Convert image to Base64 for Firestore storage
+export async function imageToBase64(uri: string): Promise<string> {
+  try {
+    console.log('Converting image to Base64...');
+    const response = await fetch(uri);
+    const blob = await response.blob();
+    
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = reader.result as string;
+        console.log('Image converted to Base64, size:', base64.length);
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (error) {
+    console.error('Error converting image to Base64:', error);
+    throw error;
+  }
+}
+
+// Test function to verify Firebase Storage connectivity
+export async function testStorageConnection(): Promise<boolean> {
+  try {
+    console.log('Testing Firebase Storage connection...');
+    console.log('Storage bucket:', storage.app.options.storageBucket);
+    
+    // Try to create a simple test file
+    const testRef = ref(storage, 'test-connection.txt');
+    const testBlob = new Blob(['test'], { type: 'text/plain' });
+    
+    await uploadBytes(testRef, testBlob);
+    console.log('Storage connection test successful');
+    
+    // Clean up test file
+    try {
+      await deleteObject(testRef);
+      console.log('Test file cleaned up');
+    } catch (cleanupError) {
+      console.log('Cleanup failed (not critical):', cleanupError);
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Storage connection test failed:', error);
+    return false;
+  }
+}
+export async function uploadImage(uri: string, path: string): Promise<string> {
+  try {
+    console.log('Starting image upload for URI:', uri);
+    console.log('Upload path:', path);
+    
+    // For React Native, we need to handle file URIs differently
+    // Convert URI to blob with proper error handling
+    const response = await fetch(uri);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+    }
+    
+    const blob = await response.blob();
+    console.log('Blob created, size:', blob.size);
+    
+    // Create storage reference
+    const storageRef = ref(storage, path);
+    
+    // Upload blob with metadata
+    const metadata = {
+      contentType: 'image/jpeg',
+      cacheControl: 'public, max-age=31536000', // Cache for 1 year
+    };
+    
+    console.log('Uploading to Firebase Storage...');
+    console.log('Storage bucket:', storage.app.options.storageBucket);
+    
+    // Try upload with retry logic
+    let uploadResult;
+    try {
+      uploadResult = await uploadBytes(storageRef, blob, metadata);
+      console.log('Upload completed successfully');
+    } catch (uploadError) {
+      console.error('Upload failed, trying alternative approach:', uploadError);
+      
+      // Alternative: Try without metadata
+      uploadResult = await uploadBytes(storageRef, blob);
+      console.log('Upload completed with alternative approach');
+    }
+    
+    // Get download URL
+    const downloadURL = await getDownloadURL(storageRef);
+    console.log('Download URL obtained:', downloadURL);
+    return downloadURL;
+  } catch (error) {
+    console.error('Error uploading image:', error);
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      code: (error as any)?.code,
+      serverResponse: (error as any)?.serverResponse
+    });
+    
+    // Provide more specific error information
+    if (error instanceof Error) {
+      if (error.message.includes('storage/unauthorized')) {
+        throw new Error('Storage access denied. Please check your authentication and storage rules.');
+      } else if (error.message.includes('storage/quota-exceeded')) {
+        throw new Error('Storage quota exceeded. Please try a smaller image.');
+      } else if (error.message.includes('storage/unauthenticated')) {
+        throw new Error('User not authenticated. Please log in again.');
+      }
+    }
+    
+    throw error;
+  }
+}
 
 // --- USERS ---
 
@@ -90,6 +210,7 @@ export async function getEventUserProfiles(eventId: string): Promise<UserDoc[]> 
 // --- GROUPS ---
 import { v4 as uuidv4 } from 'uuid';
 
+
 export async function createGroup(userId: string, group: Omit<GroupDoc, "ownerId" | "memberIds" | "createdAt">): Promise<string> {
   const groupRef = doc(collection(db, "groups"));
   const groupId = groupRef.id
@@ -97,8 +218,7 @@ export async function createGroup(userId: string, group: Omit<GroupDoc, "ownerId
   const batch = writeBatch(db);
   batch.set(groupRef, {
     ...group,
-    ownerId: userId,
-    memberIds: [userId],
+    id: groupId,
     createdAt: now
   });
   batch.update(doc(db, "users", userId), {
@@ -120,13 +240,27 @@ export async function getGroups(): Promise<GroupDoc[]> {
 
 export async function getUserGroups(userId: string): Promise<GroupDoc[]> {
   const groupsCol = collection(db, "groups");
-  const q = query(groupsCol, where("memberIds", "array-contains", userId));
+  const q = query(groupsCol, where("MemberIds", "array-contains", userId));
   const snapshot = await getDocs(q);
   const groups: GroupDoc[] = [];
   snapshot.forEach(doc => {
     groups.push({ id: doc.id, ...doc.data() } as GroupDoc);
   });
   return groups;
+}
+
+export async function getGroupById(groupId: string): Promise<GroupDoc | undefined> {
+  const snap = await getDoc(doc(db, "groups", groupId));
+  return snap.exists() ? ({ id: snap.id, ...snap.data() } as GroupDoc) : undefined;
+}
+
+export async function getUsersByIds(userIds: string[]): Promise<UserDoc[]> {
+  const users: UserDoc[] = [];
+  for (const uid of userIds) {
+    const profile = await getUserProfile(uid);
+    if (profile) users.push(profile);
+  }
+  return users;
 }
 
 function incrementOrPushToArray(groupId: string) {
@@ -485,7 +619,12 @@ export function listenAllEvents(userId: string, callback: (events: EventDoc[]) =
 // --- MATCH HISTORY ---
 export async function createMatchHistory(matchData: newMatchHistory) {
   const matchHistoryRef = doc(collection(db, "matchHistory"));
-  return setDoc(matchHistoryRef, matchData);
+  const { id, ...matchDataWithoutId } = matchData;
+  const matchDataWithId = {
+    ...matchDataWithoutId,
+    id: matchHistoryRef.id
+  };
+  return setDoc(matchHistoryRef, matchDataWithId);
 }
 
 export async function getUserMatchHistory(userId: string): Promise<newMatchHistory[]> {
@@ -575,3 +714,77 @@ export function hasEventStarted(eventDate: any): boolean {
 }
 
 
+// Add: fetch a single match by ID
+export async function getMatchHistoryById(matchId: string): Promise<newMatchHistory | undefined> {
+  const snap = await getDoc(doc(db, "matchHistory", matchId));
+  return snap.exists() ? (snap.data() as newMatchHistory) : undefined;
+}
+
+export async function deleteMatchHistory(matchId: string) {
+  return deleteDoc(doc(db, "matchHistory", matchId));
+}
+
+export async function createGroupInvite(groupInvite: GroupInviteDoc) {
+  const inviteRef = doc(collection(db, "groupInvites"));
+  return setDoc(inviteRef, groupInvite);
+}
+
+export async function getGroupInvite(inviteCode: string): Promise<GroupInviteDoc | undefined> {
+  const snap = await getDoc(doc(db, "groupInvites", inviteCode));
+  return snap.exists() ? (snap.data() as GroupInviteDoc) : undefined;
+}
+
+export async function getGroupInvites(groupId: string): Promise<GroupInviteDoc[]> {
+  const invitesCol = collection(db, "groupInvites");
+  const q = query(invitesCol, where("groupId", "==", groupId));
+  const snapshot = await getDocs(q);
+  const invites: GroupInviteDoc[] = [];
+  snapshot.forEach(doc => {
+    const data = doc.data();
+    invites.push({
+      ...data,
+      id: doc.id
+    } as GroupInviteDoc);
+  });
+  
+  // Sort by validUntil date (most recent first)
+  return invites.sort((a, b) => {
+    const dateA = new Date(a.validUntil);
+    const dateB = new Date(b.validUntil);
+    return dateB.getTime() - dateA.getTime();
+  });
+}
+
+
+export async function addGroupMember(userId: string, groupId: string){
+  const groupRef = doc(db, "groups", groupId);
+  const groupSnap = await getDoc(groupRef);
+  if (!groupSnap.exists()) {
+    return;
+  }
+  const groupData = groupSnap.data() as GroupDoc;
+  
+  // Check if user is already a member
+  if (groupData.MemberIds && groupData.MemberIds.includes(userId)) {
+    return false; // User is already a member
+  }
+  
+  const batch = writeBatch(db);
+  
+  // Add userId to group's MemberIds array
+  batch.update(groupRef, {
+    MemberIds: [...(groupData.MemberIds || []), userId]
+  });
+  
+  // Add groupId to user's Groups array
+  const userRef = doc(db, "users", userId);
+  const userSnap = await getDoc(userRef);
+  if (userSnap.exists()) {
+    const userData = userSnap.data() as UserDoc;
+    batch.update(userRef, {
+      Groups: [...(userData.Groups || []), groupId]
+    });
+  }
+  
+  await batch.commit();
+}

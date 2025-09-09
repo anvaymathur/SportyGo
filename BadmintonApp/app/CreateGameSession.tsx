@@ -19,10 +19,12 @@ import { Theme, YStack, XStack, ScrollView, Button, Input, Label, Paragraph, H2,
  * Interface for form validation errors
  */
 type FormErrors = {
+
   title?: string;
   gameDate?: string;
   gameTime?: string;
   location?: string;
+
   totalCost?: string;
   votingCutoff?: string;
   groups?: string;
@@ -35,6 +37,7 @@ type FormErrors = {
  */
 export default function CreateGameSession() {
   // Date setup for form defaults
+
   const today = new Date();
   const tomorrow = new Date(today);
   const { user } = useAuth0();
@@ -164,6 +167,7 @@ export default function CreateGameSession() {
       newErrors.participants = 'You need at least 2 participants total (group and/or individuals)';
     }
     
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -229,6 +233,7 @@ export default function CreateGameSession() {
         id: '', // Firestore will generate the ID
         GroupIDs: selectedGroup ? [selectedGroup] : [],
         IndividualParticipantIDs: finalIndividualParticipants,
+
         Title: title.trim(),
         EventDate: new Date(
           gameDate.getFullYear(),
@@ -243,7 +248,7 @@ export default function CreateGameSession() {
         CreatorID: userId,
         VotingEnabled: votingEnabled,
       };
-      
+
       await createEvent(event);
       setLoading(false);
       setSuccess(true);
@@ -257,6 +262,7 @@ export default function CreateGameSession() {
    * Handles form cancellation with confirmation dialog
    */
   const handleCancel = (): void => {
+
     Alert.alert('Cancel', 'Are you sure you want to cancel? All entered data will be lost.', [
       { text: 'No' },
       { text: 'Yes', onPress: () => router.back() },
@@ -268,6 +274,7 @@ export default function CreateGameSession() {
    * Clears all fields and resets to default values
    */
   const resetForm = (): void => {
+
     setTitle('');
     setGameDate(tomorrow);
     setGameTime(new Date());
@@ -366,6 +373,7 @@ export default function CreateGameSession() {
     onPress: () => void;
     disabled?: boolean;
   }): JSX.Element => (
+
     <Button
       onPress={onPress}
       disabled={disabled}
@@ -392,6 +400,7 @@ export default function CreateGameSession() {
    */
   const FormGroup = ({ children }: { children: React.ReactNode }): JSX.Element => (
     <YStack mb={12}>{children}</YStack>
+
   );
 
   return (
@@ -411,10 +420,11 @@ export default function CreateGameSession() {
 
         {!success ? (
           <ScrollView>
+
             <YStack px={16} pb={20}>
               <Card
                 backgroundColor="$color2"
-                  padding={16}
+                padding={16}
                 borderRadius={12}
                 shadowColor="$shadowColor"
                 borderWidth={1}
@@ -445,6 +455,7 @@ export default function CreateGameSession() {
                     </Label>
                     <InputLikeButton onPress={() => setShowGameDate(true)} >
                       {gameDate ? gameDate.toLocaleDateString() : 'Select date'}
+
                     </InputLikeButton>
                     {showGameDate && (
                       <DateTimePicker
@@ -456,11 +467,13 @@ export default function CreateGameSession() {
                       />
                     )}
                     <FieldError message={errors.gameDate} />
+
                   </FormGroup>
 
                   {/* Game Time */}
                   <FormGroup>
                     <Label style={{ fontSize: 16, fontWeight: '500' }} mb={4}>
+
                       Game Time
                     </Label>
                     <InputLikeButton onPress={() => setShowGameTime(true)}>

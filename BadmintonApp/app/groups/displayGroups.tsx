@@ -11,6 +11,7 @@ import {
   Square,
   Card,
   Theme,
+  Avatar,
 } from "tamagui";
 import { Ionicons } from "@expo/vector-icons";
 import { getGroups, getUserGroups } from '../../firebase/services_firestore2';
@@ -19,6 +20,18 @@ import { router } from "expo-router";
 import { GroupDoc } from '../../firebase/types_index';
 
 
+function getGroupInitials(name: string) {
+  if (!name) return "?";
+  const parts = name.trim().split(/\s+/);
+  let initials;
+  if (parts.length === 1) {
+    initials = parts[0].slice(0, 2).toUpperCase();
+  } else {
+    initials = (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+  console.log('getGroupInitials for:', name, '=', initials);
+  return initials;
+}
 
 export default function DisplayGroups() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -26,18 +39,15 @@ export default function DisplayGroups() {
   const [groups, setGroups] = useState<GroupDoc[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const {user, clearSession} = useAuth0()
+  const {user} = useAuth0()
 
-
-  const toAddScore = async() => {
-    router.push('/matchHistory/viewScore')
-  }
 
   const loadGroups = async () => {
     if (user && user.sub) {
       try {
         setLoading(true);
         const groupsData = await getUserGroups(user.sub);
+        
         setGroups(groupsData);
       } catch (error) {
         console.error("Error loading groups:", error);
@@ -73,22 +83,20 @@ export default function DisplayGroups() {
         
 
         {/* Search Bar */}
-        {/* <YStack space="$4">
+        <YStack space="$4">
           <Input
-            placeholder="Search teams..."
+            placeholder="Search groups..."
             value={searchQuery}
             onChangeText={setSearchQuery}
-            background="$gray2"
-            borderColor="$green6"
-            borderWidth={2}
-            
+            background="$color2"
+            borderColor="$color6"
             px="$4"
             py="$3"
-            color="white"
-            placeholderTextColor="$gray10"
+            color="$color"
+            placeholderTextColor="$color10"
             fontSize="$4"
           />
-        </YStack> */}
+        </YStack>
 
         {/* Groups List */}
         <ScrollView
@@ -112,17 +120,46 @@ export default function DisplayGroups() {
                     bg="$color2"
                     borderRadius="$4"
                     p="$4"
-                    borderWidth={1}
+                    borderWidth="$1"
                     borderColor="$color6"
                     onPress={() => {
+                      sharedState.groupPressedId = group.id;
                       router.push({
-                        pathname: '/EventsList',
-                        params: { groupId: group.id }
-                      } as any);
+                         pathname: '/groups/viewMembers',
+                         params: { groupId: group.id }
+                      });
                     }}
                     mt={20}
                   >
                   <XStack verticalAlign="center" space="$3">
+                    {/* Group Avatar */}
+                    <Avatar 
+                      circular 
+                      size="$8" 
+                      borderWidth={1} 
+                      borderColor="$color6" 
+                      backgroundColor="$color9"
+                    >
+                      {(() => {
+                        console.log('Group PhotoUrl:', group.PhotoUrl, 'for group:', group.Name);
+                        if (group.PhotoUrl && group.PhotoUrl.startsWith('data:')) {
+                          return <Avatar.Image src={group.PhotoUrl} />;
+                        } else {
+                          const displayText = group.PhotoUrl && group.PhotoUrl.startsWith('INITIALS:') 
+                            ? group.PhotoUrl.replace('INITIALS:', '') 
+                            : getGroupInitials(group.Name || "?");
+                          console.log('Display text:', displayText);
+                          return (
+                            <Avatar.Fallback backgroundColor="$color9" justifyContent="center" alignItems="center">
+                              <Text color="$color1" fontSize="$4" fontWeight="bold" style={{   textAlign: 'center' }}>
+                                {displayText}
+                              </Text>
+                            </Avatar.Fallback>
+                          );
+                        }
+                      })()}
+                    </Avatar>
+                    
                     {/* Team Details */}
                     <YStack flex={1} space="$1">
                       <H4 color="$color" fontWeight="600">
@@ -155,7 +192,7 @@ export default function DisplayGroups() {
         <Button
           bg="$color9"
           color="$color1"
-          borderWidth={0} 
+          borderWidth="$0" 
           onPress={() => router.push('/groups/createGroup')}
           p='$2'
           flexDirection="row"
@@ -178,7 +215,7 @@ export default function DisplayGroups() {
 
           }
           bg="$color9"
-          borderWidth={0}
+          borderWidth="$0"
           onPress={() => router.push('/matchHistory/dashboard')}
           shadowColor="$color8"
           shadowOffset={{ width: 0, height: 2 }}
@@ -188,7 +225,7 @@ export default function DisplayGroups() {
           color='$color1'
           
         >
-          <Ionicons name="home" size={20} color="$white" />
+          <Ionicons name="home" size={20}  />
         </Button>
       </YStack>
   );

@@ -7,6 +7,7 @@ export default function AuthLayout() {
       <Stack.Screen name="addScore" />
       <Stack.Screen name="viewScore" />
       <Stack.Screen name="dashboard" />
+      <Stack.Screen name="viewIndividualScore" />
 
     </Stack>
   );

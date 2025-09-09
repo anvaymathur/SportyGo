@@ -73,6 +73,7 @@ export default function EventsList() {
     return new Date(date.seconds ? date.seconds * 1000 : date);
   };
 
+
   /**
    * Formats a date to a readable string format
    * @param {any} date - The date to format
@@ -93,6 +94,7 @@ export default function EventsList() {
    * @returns {string} Formatted location string
    */
   const formatLocation = (location: any): string => {
+
     if (typeof location === 'string') return location;
     if (location?._lat && location?._long) return `${location._lat.toFixed(6)}, ${location._long.toFixed(6)}`;
     return 'Location not specified';
@@ -108,6 +110,7 @@ export default function EventsList() {
    * @returns {MappedEvent} Formatted event data for UI display
    */
   const mapEventToUI = (event: any, voteCounts: any, userVote: any): MappedEvent => ({
+
     id: event.id || event.docId || event._id,
     title: event.Title,
     date: formatDate(event.EventDate),
@@ -154,7 +157,6 @@ export default function EventsList() {
 
     fetchUserGroups();
   }, [user]);
-
   /**
    * Sets up real-time listeners for events based on user's groups
    * Falls back to single group or all events if no user groups found
@@ -313,8 +315,6 @@ export default function EventsList() {
     fetchEventsWithVoteCounts();
   }, [events, userId]);
 
-
-
   /**
    * Filters events based on search query and selected filter
    * 
@@ -325,11 +325,11 @@ export default function EventsList() {
                          (event.group && event.group.toLowerCase().includes(searchQuery.toLowerCase())) ||
                          (typeof event.location === 'string' && event.location.toLowerCase().includes(searchQuery.toLowerCase()));
     
+
     const matchesFilter = selectedFilter === 'all' ||
                          (selectedFilter === 'voting-open' && event.isVotingOpen) ||
                          (selectedFilter === 'voting-closed' && !event.isVotingOpen) ||
                          (selectedFilter === 'my-events' && event.userVote === 'going');
-    
     return matchesSearch && matchesFilter;
   });
 
@@ -352,14 +352,13 @@ export default function EventsList() {
       if (daysAgo < 7) return `${daysAgo} days ago`;
       const weeksAgo = Math.floor(daysAgo / 7);
       return `${weeksAgo} week${weeksAgo > 1 ? 's' : ''} ago`;
-    }
+    }    
     
     // Event is in the future
     const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
     if (days === 0) return 'Today';
     if (days === 1) return 'Tomorrow';
     if (days < 7) return `In ${days} days`;
-    
     const weeks = Math.floor(days / 7);
     return `In ${weeks} week${weeks > 1 ? 's' : ''}`;
   };
@@ -370,6 +369,7 @@ export default function EventsList() {
    * @param {MappedEvent} event - The event to navigate to
    */
   const handleEventPress = (event: MappedEvent): void => {
+
     // Navigate to the EventView with the event data
     if (!event.id) {
       console.error('Event ID is missing:', event);
@@ -825,3 +825,185 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 }); 
+
+ {/* const FilterButton = ({
+    label,
+    active,
+    onPress,
+  }: {
+    label: string;
+    active: boolean;
+    onPress: () => void;
+  }) => (
+    <Button
+      flex={1}
+      p={2}
+      style={{ borderRadius: 6 }}
+      borderWidth={1}
+      mx={4}
+      background={active ? ('$color9' as any) : ('$color2' as any)}
+      borderColor={active ? ('$color9' as any) : ('$borderColor' as any)}
+      onPress={onPress}
+    >
+      <Text style={{ fontSize: 12, fontWeight: '600' }} color={active ? ('$color12' as any) : ('$color' as any)}>
+        {label}
+      </Text>
+    </Button>
+  );
+
+  return (
+    <Theme name="earthy-sport-light">
+      <SafeAreaWrapper backgroundColor="#FAF7F2">
+        <YStack flex={1} background="$background">
+          {/* Header 
+          <YStack background="$color1" px={16} py={20} borderBottomWidth={1} borderColor="$borderColor">
+            <H2 style={{ fontSize: 28, fontWeight: 'bold' }} color="$color" mb={4}>
+              Upcoming Events
+            </H2>
+            <Paragraph color="$color10" style={{ fontSize: 16 }}>
+              {loadingGroups ? 'Loading your groups...' : `${filteredEvents.length} events found`}
+            </Paragraph>
+          </YStack>
+
+          {/* Search and Filter 
+          <YStack background="$color1" px={16} py={12} borderBottomWidth={1} borderColor="$borderColor">
+            <Input
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search events..."
+              placeholderTextColor="#999"
+              background="$color1"
+              borderWidth={1}
+              borderColor="$borderColor"
+              style={{ borderRadius: 8 }}
+              px={16}
+              py={12}
+              mb={12}
+            />
+
+            <XStack>
+              <FilterButton label="All" active={selectedFilter === 'all'} onPress={() => setSelectedFilter('all')} />
+              <FilterButton label="My Events"  active={selectedFilter === 'my-events'} onPress={() => setSelectedFilter('my-events')} />
+              <FilterButton label="Voting Open" active={selectedFilter === 'voting-open'} onPress={() => setSelectedFilter('voting-open')} />
+              <FilterButton label="Voting Closed" active={selectedFilter === 'voting-closed'} onPress={() => setSelectedFilter('voting-closed')} />
+            </XStack>
+          </YStack>
+
+          {/* Events List 
+          <ScrollView px={12} pt={12} showsVerticalScrollIndicator={false}>
+            {filteredEvents.length === 0 ? (
+              <YStack flex={1} verticalAlign="center" justify="center" py={60}>
+                <Text fontSize="$10"  style={{ textAlign: 'center' }} color="$color"mb="$3">
+                  📅
+                </Text>
+                <Text fontSize="$4" fontWeight="bold" style={{ textAlign: 'center' }} color="$color" mb="$3" >
+                  No events found
+                </Text>
+                <Paragraph color="$color10" fontSize="$4" mb="$3" style={{ textAlign: 'center' }}>
+                   {loadingGroups ? 'Please wait while we load your events' : 'Try adjusting your search or filters'}
+                </Paragraph>
+              </YStack>
+            ) : (
+              filteredEvents.map((event: any) => (
+                <Card key={event.id} background="$color2" style={{ borderRadius: 12 }} p={16} mb={12} elevation={2}>
+                  <YStack>
+                    {/* Card Header 
+                    <XStack justify="space-between" verticalAlign="start" mb={12}>
+                      <XStack verticalAlign="center">
+                        <YStack px={8} py={4} style={{ borderRadius: 12 }} background={event.isVotingOpen ? ('$color3' as any) : ('$color2' as any)}>
+                          <Text style={{ fontSize: 10, fontWeight: '600' }}>
+                            {event.isVotingOpen ? 'Voting Open' : 'Voting Closed'}
+                          </Text>
+                        </YStack>
+                        {event.userVote === 'going' && (
+                          <YStack ml={8} px={6} py={2} style={{ borderRadius: 8 }} background="$color9">
+                            <Text style={{ fontSize: 10, fontWeight: '600' }} color="$color12">
+                              Going
+                            </Text>
+                          </YStack>
+                        )}
+                      </XStack>
+                    </XStack>
+                    <Text style={{ fontSize: 10, fontWeight: 600 }} color="$color" mb={8}>{event.group}</Text>
+                    {/* Title 
+                    <Text style={{ fontSize: 18, fontWeight: 'bold' }} color="$color" mb={8}>
+                      {event.title}
+                    </Text>
+
+                    {/* Details 
+                    <YStack gap={12} mb={16}>
+                      <XStack verticalAlign="start">
+                        <Text style={{ fontSize: 16, marginRight: 8, marginTop: 2 }}>📅</Text>
+                        <YStack flex={1}>
+                          <Text style={{ fontSize: 12 }} color="$color10" mb={2}>
+                            Date & Time
+                          </Text>
+                          <Text style={{ fontSize: 14, fontWeight: '600' }} color="$color">
+                            {event.date}
+                          </Text>
+                          <Text style={{ fontSize: 12 }} color="$color10" mt={2}>
+                            {event.time}
+                          </Text>
+                        </YStack>
+                      </XStack>
+
+                      <XStack verticalAlign="start">
+                        <Text style={{ fontSize: 16, marginRight: 8, marginTop: 2 }}>📍</Text>
+                        <YStack flex={1}>
+                          <Text style={{ fontSize: 12 }} color="$color10" mb={2}>
+                            Location
+                          </Text>
+                          <Text style={{ fontSize: 14, fontWeight: '600' }} color="$color">
+                            {event.location}
+                          </Text>
+                        </YStack>
+                      </XStack>
+                    </YStack>
+
+                    {/* Footer 
+                    <XStack justify="space-between" verticalAlign="center" pt={12} borderTopWidth={1} borderColor="$borderColor">
+                      <XStack verticalAlign="center">
+                        <Text style={{ fontSize: 14, marginRight: 4 }}>👥</Text>
+                        <Text style={{ fontSize: 12 }} color="$color10">
+                          {event.attendeeCount} attending
+                        </Text>
+                      </XStack>
+                      <Text style={{ fontSize: 12, fontWeight: '600' }} color="$color9">
+                        {getTimeUntilEvent(event.date)}
+                      </Text>
+                    </XStack>
+
+                    {/* Overlay button 
+                    <Button
+                      position="absolute"
+                      t={0}
+                      l={0}
+                      r={0}
+                      b={0}
+                      opacity={0}
+                      onPress={() => handleEventPress(event)}
+                    />
+                  </YStack>
+                </Card>
+                
+              ))
+            )}
+          </ScrollView>
+          {/* Floating Action Button 
+          <Button
+            position="absolute"
+            b={24}
+            l={24}
+            width={56}
+            height={56}
+            style={{ borderRadius: 28 }}
+            bg="$color9"
+            onPress={() => router.push('/CreateGameSession')}
+          >
+            <Text fontSize="$8" fontWeight="bold" color="$color1">+</Text>
+          </Button>
+        </YStack>
+      </SafeAreaWrapper>
+    </Theme>
+  );
+} */}
