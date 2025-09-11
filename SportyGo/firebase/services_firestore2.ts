@@ -8,7 +8,7 @@
 // services/firestore.ts
 import {
   getFirestore, collection, doc, setDoc, getDoc, updateDoc, writeBatch, onSnapshot,
-  increment, CollectionReference, QueryDocumentSnapshot, DocumentData, getDocs, query, where,
+  increment, arrayUnion, CollectionReference, QueryDocumentSnapshot, DocumentData, getDocs, query, where,
   Timestamp, deleteDoc,
 } from "firebase/firestore";
 import { db, storage} from "./index";
@@ -221,9 +221,8 @@ export async function createGroup(userId: string, group: Omit<GroupDoc, "ownerId
     id: groupId,
     createdAt: now
   });
-  batch.update(doc(db, "users", userId), {
-    groups: incrementOrPushToArray(groupId)
-  });
+  const userRef = doc(db, "users", userId);
+  batch.set(userRef, { Groups: arrayUnion(groupId) }, { merge: true });
   await batch.commit();
   return groupId;
 }
@@ -771,20 +770,13 @@ export async function addGroupMember(userId: string, groupId: string){
   
   const batch = writeBatch(db);
   
-  // Add userId to group's MemberIds array
-  batch.update(groupRef, {
-    MemberIds: [...(groupData.MemberIds || []), userId]
-  });
+  // Add userId to group's MemberIds array (deduped)
+  batch.set(groupRef, { MemberIds: arrayUnion(userId) }, { merge: true });
   
-  // Add groupId to user's Groups array
+  // Add groupId to user's Groups array (deduped)
   const userRef = doc(db, "users", userId);
-  const userSnap = await getDoc(userRef);
-  if (userSnap.exists()) {
-    const userData = userSnap.data() as UserDoc;
-    batch.update(userRef, {
-      Groups: [...(userData.Groups || []), groupId]
-    });
-  }
+  batch.set(userRef, { Groups: arrayUnion(groupId) }, { merge: true });
   
   await batch.commit();
+  return true;
 }
