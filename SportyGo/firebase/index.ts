@@ -6,6 +6,7 @@ import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getAnalytics } from "firebase/analytics";
+import { Platform } from "react-native";
 
 /**
  * Firebase configuration object
@@ -21,7 +22,7 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
+const analytics = Platform.OS === 'web' ? null : getAnalytics(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
 

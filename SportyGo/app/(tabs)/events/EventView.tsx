@@ -6,10 +6,10 @@ import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert, Animated, SafeAreaView } from 'react-native';
 import { useState, useEffect, useRef } from 'react';
 import { useLocalSearchParams, router } from 'expo-router';
-import { castVote, listenVoteCounts, getEvent, getUserVote, hasEventStarted } from '../firebase/services_firestore2';
+import { castVote, listenVoteCounts, getEvent, getUserVote, hasEventStarted } from '../../../firebase/services_firestore2';
 import { doc, updateDoc } from 'firebase/firestore';
-import { db } from '../firebase/index';
-import { VoteStatus } from '../firebase/types_index';
+import { db } from '../../../firebase/index';
+import { VoteStatus } from '../../../firebase/types_index';
 import { useAuth0 } from 'react-native-auth0';
 import { Theme, YStack, XStack, Button, Text as TamaguiText, H3, Card } from 'tamagui';
 
@@ -253,7 +253,7 @@ export default function EventView() {
                   text: 'OK',
                   onPress: () => {
                     router.push({
-                      pathname: '/EventAttendance',
+                      pathname: '/events/EventAttendance',
                       params: { eventId: eventId }
                     } as any);
                   }
@@ -555,7 +555,7 @@ export default function EventView() {
                   size="$4"
                   onPress={() => {
                     router.push({
-                      pathname: '/EventAttendance',
+                      pathname: '/events/EventAttendance',
                       params: { eventId: eventId }
                     } as any);
                   }}
@@ -1086,7 +1086,7 @@ export default function EventView() {
         </TouchableOpacity>
       </View>
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-                {/* Event Header */
+                {/* Event Header 
         <View style={styles.eventHeader}>
           <Text style={styles.eventTitle}>{eventData?.Title || 'Event'}</Text>
           <View style={styles.eventDetail}>
@@ -1145,7 +1145,7 @@ export default function EventView() {
           </View>
         </View>
 
-      {/* Voting Section */}
+      {/* Voting Section 
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>Will you be attending?</Text>
         <View style={styles.votingStatus}>
@@ -1197,7 +1197,7 @@ export default function EventView() {
         </View>
       </View>
 
-      {/* Vote Summary Section */}
+      {/* Vote Summary Section 
       <View style={styles.card}>
         <View style={styles.attendeesHeader}>
           <Text style={styles.sectionTitle}>Vote Summary</Text>

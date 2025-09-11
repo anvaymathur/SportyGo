@@ -52,7 +52,7 @@ export default function SetupProfile() {
             }
             await createUserProfile(user.sub,userProfile)
             await saveUser({name: name, email: email})
-            router.replace('/matchHistory/dashboard')
+            router.replace('/dashboard')
         } else {
             Alert.alert(
                 "Missing Information",

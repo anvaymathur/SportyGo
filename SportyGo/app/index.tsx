@@ -3,9 +3,9 @@ import { useAuth0 } from 'react-native-auth0';
 import { router } from 'expo-router';
 import { View, Text, StyleSheet } from 'react-native';
 import React from 'react';
-import { UserContext } from './components/userContext';
-import { getUserProfile } from '../firebase/services_firestore2';
-import { SafeAreaWrapper } from './components/SafeAreaWrapper';
+import { UserContext } from './components/userContext'
+import { getUserProfile } from '../firebase/services_firestore2'
+import { SafeAreaWrapper } from './components/SafeAreaWrapper'
 
 export default function Index() {
   const { user, isLoading } = useAuth0();
@@ -27,9 +27,9 @@ export default function Index() {
 
       if (user && user.sub) {
         fetchUserProfile()
-        router.replace('/matchHistory/dashboard');
+        router.replace('/dashboard');
       } else {
-        router.replace('/userSetup/login');
+        router.replace('/login');
       }
     }
   }, [user, isLoading, initializing]);

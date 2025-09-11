@@ -18,14 +18,13 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useAuth0 } from "react-native-auth0";
-import { sharedState } from '../shared';
-import { GroupDoc } from "../../firebase/types_index";
-import { getGroupById, getGroupInvites } from "../../firebase/services_firestore2";
+import { GroupDoc } from "../../../firebase/types_index";
+import { getGroupById, getGroupInvites } from "../../../firebase/services_firestore2";
 import { Picker } from '@react-native-picker/picker';
-import { createGroupInvite } from "../../firebase/services_firestore2";
-import { GroupInviteDoc } from "../../firebase/types_index";
+import { createGroupInvite } from "../../../firebase/services_firestore2";
+import { GroupInviteDoc } from "../../../firebase/types_index";
 import { nanoid } from "nanoid/non-secure";
-import { SafeAreaWrapper } from "../components/SafeAreaWrapper";
+import { SafeAreaWrapper } from "../../components/SafeAreaWrapper";
 
 export default function AddMembers() {
   const [inviteLink, setInviteLink] = useState('');
@@ -99,7 +98,7 @@ export default function AddMembers() {
   // Load group data and invites
   useEffect(() => {
     const loadGroupAndInvites = async () => {
-      const gid = (typeof groupId === 'string' && groupId) || sharedState.groupPressedId;
+      const gid = (typeof groupId === 'string' && groupId);
       if (!gid) {
         setLoading(false);
         return;

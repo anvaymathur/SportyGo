@@ -9,8 +9,8 @@ import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, SafeAreaView, TextInput } from 'react-native';
 import { useState, useEffect } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { listenGroupEvents, listenUserGroupEvents, listenAllEvents, getVoteCounts, getUserVote, getUserGroups, hasEventStarted } from '../firebase/services_firestore2';
-import { VoteStatus } from '../firebase/types_index';
+import { listenGroupEvents, listenUserGroupEvents, listenAllEvents, getVoteCounts, getUserVote, getUserGroups, hasEventStarted } from '../../../firebase/services_firestore2';
+import { VoteStatus } from '../../../firebase/types_index';
 import { useAuth0 } from 'react-native-auth0';
 
 /**
@@ -376,7 +376,7 @@ export default function EventsList() {
       return;
     }
     router.push({
-      pathname: '/EventView',
+      pathname: '/events/EventView',
       params: { eventId: event.id.toString() }
     });
   };
@@ -550,7 +550,7 @@ export default function EventsList() {
       {/* Floating Action Button */}
       <TouchableOpacity
         style={styles.fab}
-        onPress={() => router.push('/CreateGameSession')}
+        onPress={() => router.push('/events/CreateGameSession')}
         activeOpacity={0.8}
       >
         <Text style={styles.fabText}>+</Text>
@@ -998,7 +998,7 @@ const styles = StyleSheet.create({
             height={56}
             style={{ borderRadius: 28 }}
             bg="$color9"
-            onPress={() => router.push('/CreateGameSession')}
+            onPress={() => router.push('/events/CreateGameSession')}
           >
             <Text fontSize="$8" fontWeight="bold" color="$color1">+</Text>
           </Button>

@@ -18,10 +18,10 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useAuth0 } from "react-native-auth0";
-import { getUserProfile, getUserMatchHistory } from '../../firebase/services_firestore2';
+import { getUserProfile, getUserMatchHistory } from '../../../firebase/services_firestore2';
 import { newMatchHistory } from "@/firebase/types_index";
-import { UserContext } from "../components/userContext";
-import { SafeAreaWrapper } from "../components/SafeAreaWrapper";
+import { UserContext } from '../../components/userContext';
+import { SafeAreaWrapper } from '../../components/SafeAreaWrapper';
 
 // Light status colors for win/tie/lose
 const STATUS_COLORS = {
@@ -191,7 +191,7 @@ export default function ViewScore() {
           <Button
             variant="outlined"
             size="$3"
-            onPress={() => router.replace('/matchHistory/dashboard')}
+            onPress={() => router.replace('/dashboard')}
             mr="$3"
             icon={<Ionicons name="arrow-back" size={20} />}
           />
