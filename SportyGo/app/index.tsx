@@ -11,7 +11,7 @@ export default function Index() {
   const { user, isLoading } = useAuth0();
   const [initializing, setInitializing] = useState(true);
   const {globalUser, saveUser} = useContext(UserContext)
-
+   
   useEffect(() => {
     const fetchUserProfile = async () => {
       if (user && user.sub) {
