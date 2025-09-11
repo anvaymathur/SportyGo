@@ -4,11 +4,9 @@ import React from "react";
 export default function AuthLayout() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="addScore" />
-      <Stack.Screen name="viewScore" />
-      <Stack.Screen name="dashboard" />
-      <Stack.Screen name="viewIndividualScore" />
-
+      <Stack.Screen name="userProfile" />
+      <Stack.Screen name="login" />
+      <Stack.Screen name="setupProfile" />
     </Stack>
   );
 }

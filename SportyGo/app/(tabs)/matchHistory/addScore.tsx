@@ -20,12 +20,12 @@ import { Adapt } from '@tamagui/adapt'
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useAuth0 } from "react-native-auth0";
-import { getAllUserProfiles, createMatchHistory} from '../../firebase/services_firestore2';
+import { getAllUserProfiles, createMatchHistory} from '../../../firebase/services_firestore2';
 import { newMatchHistory } from "@/firebase/types_index";
 import { Alert } from "react-native";
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { UserContext } from "../components/userContext";
-import { SafeAreaWrapper } from "../components/SafeAreaWrapper";
+import { UserContext } from '../../components/userContext';
+import { SafeAreaWrapper } from '../../components/SafeAreaWrapper';
 
 
 export default function AddScore() {

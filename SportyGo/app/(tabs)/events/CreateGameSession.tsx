@@ -6,14 +6,15 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Alert, Platform, TouchableOpacity } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { router } from 'expo-router';
-import { createEvent, getUserGroups, getAllUserProfiles } from '../firebase/services_firestore2';
-import { GroupDoc, UserDoc } from '../firebase/types_index';
+import { createEvent, getUserGroups, getAllUserProfiles } from '../../../firebase/services_firestore2';
+import { GroupDoc, UserDoc } from '../../../firebase/types_index';
 import { useAuth0 } from 'react-native-auth0';
-import { Theme, YStack, XStack, ScrollView, Button, Input, Label, Paragraph, H2, Text, Card } from 'tamagui';
+import { YStack, XStack, Button, Input, Label, Paragraph, H2, Text, Card, ScrollView } from 'tamagui';
+import { SafeAreaWrapper } from '../../components/SafeAreaWrapper';
 
 /**
  * Interface for form validation errors
@@ -303,7 +304,7 @@ export default function CreateGameSession() {
    * Navigates to the events list after successful event creation
    */
   const handleViewSessions = (): void => {
-    router.push('/EventsList');
+    router.push('/events/EventsList');
   };
 
   /**
@@ -404,7 +405,7 @@ export default function CreateGameSession() {
   );
 
   return (
-    <Theme name="earthy-sport-light">
+      <SafeAreaWrapper>
       <YStack flex={1} bg="$background">
         <YStack p={20} pb={12}>
           <Text onPress={() => router.back()} color="$color9" fontWeight="600" style={{ fontSize: 16 }} mb={12}>
@@ -419,7 +420,7 @@ export default function CreateGameSession() {
         </YStack>
 
         {!success ? (
-          <ScrollView>
+          <ScrollView keyboardShouldPersistTaps="always" keyboardDismissMode="on-drag">
 
             <YStack px={16} pb={20}>
               <Card
@@ -432,7 +433,7 @@ export default function CreateGameSession() {
               >
                 <YStack>
                   {/* Title */}
-                  <FormGroup>
+                  <YStack mb={12}>
                     <Label htmlFor="title" style={{ fontSize: 16, fontWeight: '500' }} mb={4}>
                       Event Title
                     </Label>
@@ -442,14 +443,15 @@ export default function CreateGameSession() {
                       onChangeText={setTitle}
                       placeholder="Enter event title (e.g., 'Weekend Tournament')"
                       autoCapitalize="words"
+                      blurOnSubmit={false}
                        borderColor={errors.title ? "#EF4444" : "$borderColor"}
                       bg="$color1"
                     />
                     <FieldError message={errors.title} />
-                  </FormGroup>
+                  </YStack>  
 
                   {/* Game Date */}
-                  <FormGroup>
+                  <YStack mb={12}>
                     <Label style={{ fontSize: 16, fontWeight: '500' }} mb={4}>
                       Game Date
                     </Label>
@@ -468,10 +470,10 @@ export default function CreateGameSession() {
                     )}
                     <FieldError message={errors.gameDate} />
 
-                  </FormGroup>
+                  </YStack>
 
                   {/* Game Time */}
-                  <FormGroup>
+                  <YStack mb={12}>
                     <Label style={{ fontSize: 16, fontWeight: '500' }} mb={4}>
 
                       Game Time
@@ -490,10 +492,10 @@ export default function CreateGameSession() {
                       />
                     )}
                     <FieldError message={errors.gameTime} />
-                  </FormGroup>
+                  </YStack>
 
                   {/* Location */}
-                  <FormGroup>
+                  <YStack mb={12}>
                     <Label style={{ fontSize: 16, fontWeight: '500' }} mb={4}>
                       Location
                     </Label>
@@ -502,14 +504,15 @@ export default function CreateGameSession() {
                       onChangeText={setLocation}
                       placeholder="Enter game location"
                       autoCapitalize="words"
+                      blurOnSubmit={false}
                        borderColor={errors.location ? "#EF4444" : "$borderColor"}
                       bg="$color1"
                     />
                     <FieldError message={errors.location} />
-                  </FormGroup>
+                  </YStack>
 
                   {/* Total Cost */}
-                  <FormGroup>
+                  <YStack mb={12}>
                     <Label style={{ fontSize: 16, fontWeight: '500' }} mb={4}>
                       Total Cost (Optional)
                     </Label>
@@ -518,14 +521,15 @@ export default function CreateGameSession() {
                       onChangeText={setTotalCost}
                       placeholder="Enter total cost (e.g., 50.00)"
                       keyboardType="numeric"
-                      borderColor={errors.totalCost ? "#EF4444" : "$borderColor"}
+                      blurOnSubmit={false}
+                       borderColor={errors.totalCost ? "#EF4444" : "$borderColor"}
                       bg="$color1"
                     />
                     <FieldError message={errors.totalCost} />
-                  </FormGroup>
+                  </YStack>
 
                   {/* Voting Toggle */}
-                  <FormGroup>
+                  <YStack mb={12}>
                     <Label style={{ fontSize: 16, fontWeight: '500' }} mb={4}>
                       Enable Voting
                     </Label>
@@ -549,11 +553,11 @@ export default function CreateGameSession() {
                         No
                       </Button>
                     </XStack>
-                  </FormGroup>
+                  </YStack>
 
                   {/* Voting Cutoff - Only show if voting is enabled */}
                   {votingEnabled && (
-                  <FormGroup>
+                  <YStack mb={12}>
                       <Label style={{ fontSize: 16, fontWeight: '500' }} mb={4}>
                       Voting closes on:
                     </Label>
@@ -570,11 +574,11 @@ export default function CreateGameSession() {
                       />
                     )}
                     <FieldError message={errors.votingCutoff} />
-                  </FormGroup>
+                  </YStack>
                   )}
 
                   {/* Group Selection */}
-                  <FormGroup>
+                  <YStack mb={12}>
                     <Label style={{ fontSize: 16, fontWeight: '500' }} mb={4}>
                       Group (Optional)
                     </Label>
@@ -622,10 +626,10 @@ export default function CreateGameSession() {
 
                       </YStack>
                     )}
-                  </FormGroup>
+                  </YStack>
 
                                     {/* Individual Participants Selection */}
-                  <FormGroup>
+                  <YStack mb={12}>
                     <Label style={{ fontSize: 16, fontWeight: '500' }} mb={4}>
                       Individual Participants (Optional)
                     </Label>
@@ -636,77 +640,73 @@ export default function CreateGameSession() {
                       mb={8}
                       bg="$color1"
                       borderColor="$borderColor"
+                      blurOnSubmit={false}
                     />
                     <YStack space="$2" height={200}>
-                      <ScrollView showsVerticalScrollIndicator={false}>
+                      <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="always">
                         {/* Selected users at the top */}
                         {getFilteredUsers()
                           .filter(user => selectedParticipants.includes(user.id))
                           .map((user) => (
-                            <TouchableOpacity
+                            <Card
                               key={user.id}
                               onPress={() => toggleParticipant(user.id)}
                               disabled={loadingUsers}
+                              p={8}
+                              bg="$color9"
+                              borderWidth={1}
+                              borderColor="$color9"
+                              borderRadius="$2"
+                              mb={2}
+                              
                             >
-                              <Card
-                                p={8}
-                                bg="$color9"
-                                borderWidth={1}
-                                borderColor="$color9"
-                                borderRadius="$2"
-                                mb={2}
+                              <Text
+                                fontSize={13}
+                                fontWeight="500"
+                                color="$color1"
                               >
-                                <Text
-                                  fontSize={13}
-                                  fontWeight="500"
-                                  color="$color1"
-                                >
-                                  {user.Name}
-                                </Text>
-                                <Text
-                                  fontSize={11}
-                                  color="$color1"
-                                  mt={1}
-                                >
-                                  {user.Email}
-                                </Text>
-                              </Card>
-                            </TouchableOpacity>
+                                {user.Name}
+                              </Text>
+                              <Text
+                                fontSize={11}
+                                color="$color1"
+                                mt={1}
+                              >
+                                {user.Email}
+                              </Text>
+                            </Card>
                           ))}
                         
                         {/* Unselected users below */}
                         {getFilteredUsers()
                           .filter(user => !selectedParticipants.includes(user.id))
                           .map((user) => (
-                            <TouchableOpacity
+                            <Card
                               key={user.id}
                               onPress={() => toggleParticipant(user.id)}
                               disabled={loadingUsers}
+                              p={8}
+                              bg="$color1"
+                              borderWidth={1}
+                              borderColor="$borderColor"
+                              borderRadius="$2"
+                              mb={2}
                             >
-                              <Card
-                                p={8}
-                                bg="$color1"
-                                borderWidth={1}
-                                borderColor="$borderColor"
-                                borderRadius="$2"
-                                mb={2}
+                              <Text
+                                fontSize={13}
+                                fontWeight="500"
+                                color="$color"
                               >
-                                <Text
-                                  fontSize={13}
-                                  fontWeight="500"
-                                  color="$color"
-                                >
-                                  {user.Name}
-                                </Text>
-                                <Text
-                                  fontSize={11}
-                                  color="$color10"
-                                  mt={1}
-                                >
-                                  {user.Email}
-                                </Text>
-                              </Card>
-                            </TouchableOpacity>
+                                {user.Name}
+                              </Text>
+                              <Text
+                                fontSize={11}
+                                color="$color10"
+                                mt={1}
+                              >
+                                {user.Email}
+                              </Text>
+                            </Card>
                           ))}
                         
                         {getFilteredUsers().length === 0 && !loadingUsers && (
@@ -726,10 +726,10 @@ export default function CreateGameSession() {
                       </ScrollView>
                     </YStack>
                     <FieldError message={errors.participants} />
-                  </FormGroup>
+                  </YStack>
 
                   {/* Participants Summary */}
-                  <FormGroup>
+                  <YStack mb={12}>
                     <Label style={{ fontSize: 16, fontWeight: '500' }} mb={4}>
                       Participants Summary
                     </Label>
@@ -759,7 +759,7 @@ export default function CreateGameSession() {
                         );
                       })()}
                     </Card>
-                  </FormGroup>
+                  </YStack>
 
                   {/* Actions */}
                   <XStack flexDirection="row" justify="space-between" mt={12}>
@@ -812,6 +812,6 @@ export default function CreateGameSession() {
           </YStack>
         )}
       </YStack>
-    </Theme>
+      </SafeAreaWrapper>
   );
 } 

@@ -14,10 +14,10 @@ import {
   Avatar,
 } from "tamagui";
 import { Ionicons } from "@expo/vector-icons";
-import { getGroups, getUserGroups } from '../../firebase/services_firestore2';
+import { getGroups, getUserGroups } from '../../../firebase/services_firestore2';
 import { useAuth0 } from "react-native-auth0";
 import { router } from "expo-router";
-import { GroupDoc } from '../../firebase/types_index';
+import { GroupDoc } from '../../../firebase/types_index';
 
 
 function getGroupInitials(name: string) {
@@ -29,7 +29,6 @@ function getGroupInitials(name: string) {
   } else {
     initials = (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   }
-  console.log('getGroupInitials for:', name, '=', initials);
   return initials;
 }
 
@@ -123,7 +122,7 @@ export default function DisplayGroups() {
                     borderWidth="$1"
                     borderColor="$color6"
                     onPress={() => {
-                      sharedState.groupPressedId = group.id;
+                      
                       router.push({
                          pathname: '/groups/viewMembers',
                          params: { groupId: group.id }
@@ -141,14 +140,12 @@ export default function DisplayGroups() {
                       backgroundColor="$color9"
                     >
                       {(() => {
-                        console.log('Group PhotoUrl:', group.PhotoUrl, 'for group:', group.Name);
                         if (group.PhotoUrl && group.PhotoUrl.startsWith('data:')) {
                           return <Avatar.Image src={group.PhotoUrl} />;
                         } else {
                           const displayText = group.PhotoUrl && group.PhotoUrl.startsWith('INITIALS:') 
                             ? group.PhotoUrl.replace('INITIALS:', '') 
                             : getGroupInitials(group.Name || "?");
-                          console.log('Display text:', displayText);
                           return (
                             <Avatar.Fallback backgroundColor="$color9" justifyContent="center" alignItems="center">
                               <Text color="$color1" fontSize="$4" fontWeight="bold" style={{   textAlign: 'center' }}>
@@ -216,7 +213,7 @@ export default function DisplayGroups() {
           }
           bg="$color9"
           borderWidth="$0"
-          onPress={() => router.push('/matchHistory/dashboard')}
+          onPress={() => router.push('/dashboard')}
           shadowColor="$color8"
           shadowOffset={{ width: 0, height: 2 }}
           shadowOpacity={0.25}

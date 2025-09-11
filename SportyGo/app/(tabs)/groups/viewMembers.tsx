@@ -2,10 +2,9 @@ import React, { useEffect, useMemo, useState } from "react";
 import { YStack, XStack, Text, H2, H4, Input, Button, Card, ScrollView, Avatar } from "tamagui";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import { GroupDoc, UserDoc } from "../../firebase/types_index";
-import { getGroupById, getUsersByIds } from "../../firebase/services_firestore2";
-import { sharedState } from "../shared";
-import { SafeAreaWrapper } from "../components/SafeAreaWrapper";
+import { GroupDoc, UserDoc } from "../../../firebase/types_index";
+import { getGroupById, getUsersByIds } from "../../../firebase/services_firestore2";
+import { SafeAreaWrapper } from "../../components/SafeAreaWrapper";
 
 function getInitials(name: string) {
   if (!name) return "?";
@@ -23,7 +22,7 @@ export default function ViewMembers() {
 
   useEffect(() => {
     const load = async () => {
-      const gid = (typeof groupId === 'string' && groupId) || sharedState.groupPressedId;
+      const gid = (typeof groupId === 'string' && groupId);
       if (!gid) {
         setLoading(false);
         return;
@@ -133,7 +132,7 @@ export default function ViewMembers() {
                 >
                   <XStack verticalAlign="center" space="$3">
                     <Avatar circular size="$6" borderWidth={1} borderColor="$color6" backgroundColor="$color2">
-                      <Avatar.Image src={require("../../assets/images/defaultUserProfileImage.png")} />
+                      <Avatar.Image src={require("../../../assets/images/defaultUserProfileImage.png")} />
                       <Avatar.Fallback backgroundColor="$color2">
                         <Text color="$color9">{getInitials(u.Name)}</Text>
                       </Avatar.Fallback>

@@ -23,9 +23,9 @@ export default function LoginScreen() {
       }
       fetchUserProfile();
       if (user["https://badmintonapp.com/is_signup"]){
-        router.replace('/userSetup/setupProfile');
+        router.replace('/setupProfile');
       } else { 
-        router.replace('/matchHistory/dashboard')
+        router.replace('/dashboard')
       }
     }
   }, [user, isLoading]);

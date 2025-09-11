@@ -1,20 +1,22 @@
 import React, { useState } from "react";
-import { View, Alert, ScrollView } from "react-native";
+import { View, Alert, Dimensions, Platform } from "react-native";
 import { 
   Button, Input, 
   YStack, XStack, 
   Text, Avatar, 
   H2, Select,
-  TextArea, Sheet
+  TextArea, Sheet,
+  ScrollView, Card
 } from 'tamagui';
 import { Adapt } from '@tamagui/adapt'
 import * as ImagePicker from 'expo-image-picker';
+import { Picker } from '@react-native-picker/picker';
 
 import { router } from "expo-router";
 import { useAuth0 } from "react-native-auth0";
-import { createGroup, uploadImage, testStorageConnection, imageToBase64 } from '../../firebase/services_firestore2';
-import { GroupDoc } from '../../firebase/types_index';
-import { SafeAreaWrapper } from '../components/SafeAreaWrapper';
+import { createGroup, uploadImage, testStorageConnection, imageToBase64 } from '../../../firebase/services_firestore2';
+import { GroupDoc } from '../../../firebase/types_index';
+import { SafeAreaWrapper } from '../../components/SafeAreaWrapper';
 
 
 export default function CreateGroup() {
@@ -27,6 +29,10 @@ export default function CreateGroup() {
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const {user} = useAuth0();
+
+  // Count only non-space characters (spaces don't count toward the limit)
+  const countNonSpaceChars = (val: string) => val.replace(/ /g, '').length;
+  const DESCRIPTION_LIMIT = 150;
 
   // Function to generate group initials
   const generateGroupInitials = (name: string): string => {
@@ -57,6 +63,18 @@ export default function CreateGroup() {
     { value: 'monthly', label: 'Monthly' },
     { value: 'as-needed', label: 'As needed' }
   ];
+
+  // Compute a sheet snap point (%) that fits the number of items comfortably
+  const getSheetSnapPercentForItems = (count: number, rowHeight = 56, basePadding = 160) => {
+    const screenHeight = Dimensions.get('window').height || 800;
+    const desiredPx = count * rowHeight + basePadding;
+    const pct = Math.round((desiredPx / screenHeight) * 100);
+    return Math.max(35, Math.min(90, pct));
+  };
+
+  const skillSnap = getSheetSnapPercentForItems(skillLevels.length);
+  const privacySnap = getSheetSnapPercentForItems(privacyOptions.length);
+  const meetingSnap = getSheetSnapPercentForItems(frequencyOptions.length);
 
   const pickImage = async () => {
     try {
@@ -149,8 +167,8 @@ export default function CreateGroup() {
 
   return (
     <SafeAreaWrapper backgroundColor="white">
-      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
-        <YStack flex={1} p="$4" space="$6">
+      <ScrollView>
+        <YStack flex={1} p="$4" space="$6" z={1}>
           {/* Header */}
             <H2 color="$color9" fontWeight="bold" flex={1} style={{ textAlign: 'center' }} pb="$8">
               Group Details
@@ -223,7 +241,12 @@ export default function CreateGroup() {
               </Text>
               <TextArea
                 value={description}
-                onChangeText={setDescription}
+                onChangeText={(text) => {
+                  // Enforce limit based on non-space characters only
+                  if (countNonSpaceChars(text) <= DESCRIPTION_LIMIT) {
+                    setDescription(text);
+                  }
+                }}
                 placeholder="What's this group about?"
                 borderColor="$color6"
                 borderWidth={1}
@@ -232,13 +255,13 @@ export default function CreateGroup() {
                 placeholderTextColor="$color10"
                 fontSize="$4"
                 p="$3"
-                lineHeight={100}
+                numberOfLines={5}
                 maxLength={150}
-                style={{ borderRadius: 8 }}
+                style={{ borderRadius: 8, textAlignVertical: 'top', minHeight: 120 }}
               />
               <XStack style={{ justifyContent: 'flex-end' }}>
                 <Text color="$color10" fontSize="$2">
-                  {description.length}/150
+                  {countNonSpaceChars(description)}/{DESCRIPTION_LIMIT}
                 </Text>
               </XStack>
             </YStack>
@@ -248,50 +271,51 @@ export default function CreateGroup() {
               <Text color="$color" fontSize="$4" fontWeight="600">
                 Group Skill Level
               </Text>
-              <Select
-                value={skillLevel}
-                onValueChange={setSkillLevel}
-                defaultValue=""
-              >
-                <Select.Trigger
-                  borderWidth={2}
-                  borderColor="$color6"
-                  backgroundColor="$color2"
-                  p="$3"
-                  borderRadius={8}
+              {Platform.OS === 'web' ? (
+                <Select
+                  value={skillLevel}
+                  onValueChange={setSkillLevel}
+                  defaultValue=""
                 >
-                  <Select.Value placeholder="Select skill level" />
-                </Select.Trigger>
+                  <Select.Trigger
+                    borderWidth={2}
+                    borderColor="$color6"
+                    backgroundColor="$color2"
+                    p="$3"
+                    borderRadius={8}
+                  >
+                    <Select.Value placeholder="Select skill level" />
+                  </Select.Trigger>
 
-                {/* Mobile (touch) + small screen = render as Sheet */}
-                <Adapt when={true} platform="touch">
-                  <Sheet modal dismissOnSnapToBottom snapPoints={[50]}>
-                    <Sheet.Frame>
-                      <Adapt.Contents />
-                    </Sheet.Frame>
-                    <Sheet.Overlay />
-                  </Sheet>
-                </Adapt>
-
-                {/* Web or large screens: render as dropdown */}
-                <Select.Content zIndex={1000}>
-                  <Select.ScrollUpButton />
-                  <Select.Viewport>
-                    <Select.Group>
-                      {skillLevels.map((level, index) => (
-                        <Select.Item
-                          key={level.value}
-                          index={index}
-                          value={level.value}
-                        >
-                          <Select.ItemText>{level.label}</Select.ItemText>
-                        </Select.Item>
-                      ))}
-                    </Select.Group>
-                  </Select.Viewport>
-                  <Select.ScrollDownButton />
-                </Select.Content>
-              </Select>
+                  <Select.Content zIndex={1000}>
+                    <Select.ScrollUpButton />
+                    <Select.Viewport height={56 * skillLevels.length + 16}>
+                      <Select.Group>
+                        {skillLevels.map((level, index) => (
+                          <Select.Item
+                            key={level.value}
+                            index={index}
+                            value={level.value}
+                          >
+                            <Select.ItemText>{level.label}</Select.ItemText>
+                          </Select.Item>
+                        ))}
+                      </Select.Group>
+                    </Select.Viewport>
+                    <Select.ScrollDownButton />
+                  </Select.Content>
+                </Select>
+              ) : (
+                <Card borderRadius="$3" overflow="hidden" borderWidth={1} borderColor="$color6" bg="$color2">
+                  <Picker
+                    selectedValue={skillLevel}
+                    onValueChange={setSkillLevel}
+                  >
+                    <Picker.Item label="Select skill level" value="" />
+                    {skillLevels.map(l => <Picker.Item key={l.value} label={l.label} value={l.value} />)}
+                  </Picker>
+                </Card>
+              )}
             </YStack>
 
             {/* Privacy */}
@@ -299,50 +323,53 @@ export default function CreateGroup() {
               <Text color="$color" fontSize="$4" fontWeight="600">
                 Privacy
               </Text>
-              <Select
-                value={privacy}
-                onValueChange={setPrivacy}
-                defaultValue=""
-              >
-                <Select.Trigger
-                  borderWidth={2}
-                  borderColor="$color6"
-                  backgroundColor="$color2"
-                  p="$3"
-                  borderRadius={8}
+              {Platform.OS === 'web' ? (
+                <Select
+                  value={privacy}
+                  onValueChange={setPrivacy}
+                  defaultValue=""
                 >
-                  <Select.Value placeholder="Select privacy" />
-                </Select.Trigger>
+                  <Select.Trigger
+                    borderWidth={2}
+                    borderColor="$color6"
+                    backgroundColor="$color2"
+                    p="$3"
+                    borderRadius={8}
+                  >
+                    <Select.Value placeholder="Select privacy" />
+                  </Select.Trigger>
 
-                {/* Mobile (touch) + small screen = render as Sheet */}
-                <Adapt when={true} platform="touch">
-                  <Sheet modal dismissOnSnapToBottom snapPoints={[50]}>
-                    <Sheet.Frame>
-                      <Adapt.Contents />
-                    </Sheet.Frame>
-                    <Sheet.Overlay />
-                  </Sheet>
-                </Adapt>
-
-                {/* Web or large screens: render as dropdown */}
-                <Select.Content zIndex={1000}>
-                  <Select.ScrollUpButton />
-                  <Select.Viewport>
-                    <Select.Group>
-                      {privacyOptions.map((level, index) => (
-                        <Select.Item
-                          key={level.value}
-                          index={index}
-                          value={level.value}
-                        >
-                          <Select.ItemText>{level.label}</Select.ItemText>
-                        </Select.Item>
-                      ))}
-                    </Select.Group>
-                  </Select.Viewport>
-                  <Select.ScrollDownButton />
-                </Select.Content>
-              </Select>
+                  <Select.Content zIndex={1000}>
+                    <Select.ScrollUpButton />
+                    <Select.Viewport>
+                      <Select.Group>
+                        {privacyOptions.map((level, index) => (
+                          <Select.Item
+                            key={level.value}
+                            index={index}
+                            value={level.value}
+                          >
+                            <Select.ItemText>{level.label}</Select.ItemText>
+                          </Select.Item>
+                        ))}
+                      </Select.Group>
+                    </Select.Viewport>
+                    <Select.ScrollDownButton />
+                  </Select.Content>
+                </Select>
+              ) : (
+                <Card borderRadius="$3" overflow="hidden" borderWidth={1} borderColor="$color6" bg="$color2">
+                  <Picker
+                    selectedValue={privacy}
+                    onValueChange={(val) => setPrivacy(val)}
+                  >
+                    <Picker.Item label="Select privacy" value="" />
+                    {privacyOptions.map((opt) => (
+                      <Picker.Item key={opt.value} label={opt.label} value={opt.value} />
+                    ))}
+                  </Picker>
+                </Card>
+              )}
             </YStack>
 
             {/* Home Court */}
@@ -370,50 +397,53 @@ export default function CreateGroup() {
               <Text color="$color" fontSize="$4" fontWeight="600">
                 Meeting Schedule
               </Text>
-              <Select
-                value={meetingSchedule}
-                onValueChange={setMeetingSchedule}
-                defaultValue=""
-              >
-                <Select.Trigger
-                  borderWidth={2}
-                  borderColor="$color6"
-                  backgroundColor="$color2"
-                  p="$3"
-                  borderRadius={8}
+              {Platform.OS === 'web' ? (
+                <Select
+                  value={meetingSchedule}
+                  onValueChange={setMeetingSchedule}
+                  defaultValue=""
                 >
-                  <Select.Value placeholder="Select meeting schedule" />
-                </Select.Trigger>
+                  <Select.Trigger
+                    borderWidth={2}
+                    borderColor="$color6"
+                    backgroundColor="$color2"
+                    p="$3"
+                    borderRadius={8}
+                  >
+                    <Select.Value placeholder="Select meeting schedule" />
+                  </Select.Trigger>
 
-                {/* Mobile (touch) + small screen = render as Sheet */}
-                <Adapt when={true} platform="touch">
-                  <Sheet modal dismissOnSnapToBottom snapPoints={[50]}>
-                    <Sheet.Frame>
-                      <Adapt.Contents />
-                    </Sheet.Frame>
-                    <Sheet.Overlay />
-                  </Sheet>
-                </Adapt>
-
-                {/* Web or large screens: render as dropdown */}
-                <Select.Content zIndex={1000}>
-                  <Select.ScrollUpButton />
-                  <Select.Viewport>
-                    <Select.Group>
-                      {frequencyOptions.map((level, index) => (
-                        <Select.Item
-                          key={level.value}
-                          index={index}
-                          value={level.value}
-                        >
-                          <Select.ItemText>{level.label}</Select.ItemText>
-                        </Select.Item>
-                      ))}
-                    </Select.Group>
-                  </Select.Viewport>
-                  <Select.ScrollDownButton />
-                </Select.Content>
-              </Select>
+                  <Select.Content zIndex={1000}>
+                    <Select.ScrollUpButton />
+                    <Select.Viewport>
+                      <Select.Group>
+                        {frequencyOptions.map((level, index) => (
+                          <Select.Item
+                            key={level.value}
+                            index={index}
+                            value={level.value}
+                          >
+                            <Select.ItemText>{level.label}</Select.ItemText>
+                          </Select.Item>
+                        ))}
+                      </Select.Group>
+                    </Select.Viewport>
+                    <Select.ScrollDownButton />
+                  </Select.Content>
+                </Select>
+              ) : (
+                <Card borderRadius="$3" overflow="hidden" borderWidth={1} borderColor="$color6" bg="$color2">
+                  <Picker
+                    selectedValue={meetingSchedule}
+                    onValueChange={(val) => setMeetingSchedule(val)}
+                  >
+                    <Picker.Item label="Select meeting schedule" value="" />
+                    {frequencyOptions.map((opt) => (
+                      <Picker.Item key={opt.value} label={opt.label} value={opt.value} />
+                    ))}
+                  </Picker>
+                </Card>
+              )}
             </YStack>
           </YStack>
 

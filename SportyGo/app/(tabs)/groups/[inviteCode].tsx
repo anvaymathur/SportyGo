@@ -2,11 +2,11 @@ import React from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { View, YStack, Card, Button, Text, Paragraph, H3, Spinner } from "tamagui";
-import { getGroupInvite } from "../../firebase/services_firestore2";
-import { addGroupMember } from "../../firebase/services_firestore2";
+import { getGroupInvite } from "../../../firebase/services_firestore2";
+import { addGroupMember } from "../../../firebase/services_firestore2";
 import { useAuth0 } from "react-native-auth0";
 import { Alert } from "react-native";
-import { GroupInviteDoc } from "../../firebase/types_index";
+import { GroupInviteDoc } from "../../../firebase/types_index";
 
 export default function GroupInviteScreen() {
   const { inviteCode } = useLocalSearchParams<{ inviteCode: string }>();

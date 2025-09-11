@@ -2,9 +2,9 @@ import React, { useEffect, useState } from "react";
 import { View, Text, Button, XStack, YStack, Card, H4, Paragraph, Separator, Spinner, Avatar } from "tamagui";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { deleteMatchHistory, getMatchHistoryById, getUserProfile } from "../../firebase/services_firestore2";
+import { deleteMatchHistory, getMatchHistoryById, getUserProfile } from '../../../firebase/services_firestore2';
 import type { newMatchHistory } from "@/firebase/types_index";
-import { SafeAreaWrapper } from "../components/SafeAreaWrapper";
+import { SafeAreaWrapper } from '../../components/SafeAreaWrapper';
 
 function getInitials(name: string) {
   const parts = name.trim().split(/\s+/);
