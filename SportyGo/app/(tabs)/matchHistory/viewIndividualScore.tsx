@@ -239,7 +239,6 @@ export default function ViewIndividualScore() {
           {/* Actions */}
           <XStack space="$3">
             <Button flex={1} bg="$color9" color="$color1" onPress={() => router.back()} icon={<Ionicons name="arrow-back" size={18} />}>Back to History</Button>
-            <Button flex={1} bg="#ed5e68"variant="outlined" onPress={() => {deleteMatchHistory(matchId); router.replace('/matchHistory/viewScore')}} icon={<Ionicons name="trash-outline" size={18} />}>Delete Match</Button>
           </XStack>
         </YStack>
       </View>
