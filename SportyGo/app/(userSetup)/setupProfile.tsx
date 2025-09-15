@@ -21,6 +21,7 @@ export default function SetupProfile() {
     const [phone, setPhone] = useState('')
     const [address, setAddress] = useState('')
     const [photoUrl, setPhotoUrl] = useState<string>('')
+    const [dob, setDob] = useState('')
 
     useEffect(() => {
         if (user && user.email){
@@ -41,14 +42,17 @@ export default function SetupProfile() {
    const createProfile = async () => {
         if (user && name && email && phone.length == 10 && user.sub){
             
+            const dateOfBirth = /^\d{4}-\d{2}-\d{2}$/.test(dob) ? new Date(dob + 'T00:00:00') : undefined
+
             const userProfile = {
                 id: user.sub, 
                 Name: name,
                 Email: email,
                 Groups: [], 
                 Phone: phone,
-                Address: '',
-                PhotoUrl: photoUrl || undefined
+                Address: '', //address.trim(),
+                PhotoUrl: photoUrl || undefined,
+                DateOfBirth: dateOfBirth || undefined
             }
             await createUserProfile(user.sub,userProfile)
             await saveUser({name: name, email: email})
@@ -129,6 +133,35 @@ export default function SetupProfile() {
                         style={{ borderRadius: 8 }}
                     />
                     
+                    <Input
+                        value={dob}
+                        onChangeText={(text) => {
+                            const digits = text.replace(/\D/g, '').slice(0, 8)
+                            let formatted = digits
+                            if (digits.length > 4) {
+                                formatted = `${digits.slice(0,4)}-${digits.slice(4)}`
+                            }
+                            if (digits.length > 6) {
+                                formatted = `${digits.slice(0,4)}-${digits.slice(4,6)}-${digits.slice(6)}`
+                            }
+                            setDob(formatted)
+                        }}
+                        placeholder="Date of Birth (YYYY-MM-DD)"
+                        maxLength={10}
+                        borderColor="$color6"
+                        borderWidth={1}
+                        focusStyle={{
+                            borderWidth: 2,
+                            borderColor: '$color6'
+                        }}
+                        background="$color2"
+                        placeholderTextColor="$color10"
+                        color="$color"
+                        fontSize="$4"
+                        p="$3"
+                        style={{ borderRadius: 8 }}
+                    />
+                    
                     {/* <PhoneInput/> */}
                     <Input
                         keyboardType="numeric"
@@ -157,7 +190,14 @@ export default function SetupProfile() {
                     {/* <Input
                         value={address}
                         onChangeText={setAddress}
-                        placeholder="Address (optional)"
+                        placeholder="Address"
+                        autoCapitalize="words"
+                        autoComplete="street-address"
+                        textContentType="fullStreetAddress"
+                        autoCorrect={false}
+                        returnKeyType="done"
+                        inputMode="text"
+                        clearButtonMode="while-editing"
                         borderColor="$color6"
                         borderWidth={1}
                         focusStyle={{
@@ -169,7 +209,7 @@ export default function SetupProfile() {
                         color="$color"
                         fontSize="$4"
                         p="$3"
-                        style={{ borderRadius: 2 }}
+                        style={{ borderRadius: 8 }}
                     /> */}
                 
                 </YStack>

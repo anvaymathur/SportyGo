@@ -16,6 +16,7 @@ export interface UserDoc {
   Phone: string;
   Address: string;
   PhotoUrl?: string; // URL to the user photo or Base64 encoded image
+  DateOfBirth?: Date;
 }
 
 /**
