@@ -100,7 +100,7 @@ export default function CreateGameSession() {
         setUsers(fetchedUsers);
         setGroupsLoaded(true);
       } catch (error) {
-        Alert.alert('Error', 'Failed to load groups and users.');
+        Alert.alert('Error', 'Failed to load groups and users. Becasue of ' + error);
       } finally {
         setLoadingGroups(false);
         setLoadingUsers(false);
@@ -244,7 +244,7 @@ export default function CreateGameSession() {
           gameTime.getMinutes()
         ),
         Location: location,
-        TotalCost: totalCost ? Number(totalCost) : undefined,
+        TotalCost: totalCost ? Number(totalCost) : 0,
         CutoffDate: votingEnabled ? votingCutoff : new Date('1970-01-01'),
         CreatorID: userId,
         VotingEnabled: votingEnabled,
@@ -255,7 +255,8 @@ export default function CreateGameSession() {
       setSuccess(true);
     } catch (e) {
       setLoading(false);
-      Alert.alert('Error', 'Failed to create event.');
+      Alert.alert('Error', 'Failed to create event. Becasue of ' + e);
+      console.log(e);
     }
   };
 

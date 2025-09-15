@@ -68047,6 +68047,9 @@
         "color10": "#6B7280",
         "color11": "#0F172A",
         "color12": "#000000",
+        "success": "#22C55E",
+        "warning": "#F59E0B",
+        "danger": "#EF4444",
         "primary": "#065F46",
         "primaryHover": "#0B7A5C",
         "primaryPress": "#054C39",
@@ -68056,9 +68059,6 @@
         "accent": "#14B8A6",
         "accentHover": "#10A392",
         "accentPress": "#0E8074",
-        "success": "#22C55E",
-        "warning": "#F59E0B",
-        "danger": "#EF4444",
         "surface": "#E5E7DB",
         "card": "#ECE9DF",
         "input": "#F3F1EA",
@@ -68091,6 +68091,9 @@
         "color10": "#9CA3AF",
         "color11": "#E7E4DD",
         "color12": "#FFFFFF",
+        "success": "#34D399",
+        "warning": "#F59E0B",
+        "danger": "#F87171",
         "primary": "#14B8A6",
         "primaryHover": "#11A090",
         "primaryPress": "#0E8376",
@@ -68100,9 +68103,6 @@
         "accent": "#22C55E",
         "accentHover": "#1FB155",
         "accentPress": "#199247",
-        "success": "#34D399",
-        "warning": "#F59E0B",
-        "danger": "#F87171",
         "surface": "#1B1E18",
         "card": "#1E221B",
         "input": "#232820",
@@ -68857,6 +68857,29 @@
           "key": "$4.5",
           "name": "c-size-4--5",
           "val": 48,
+          "variable": ""
+        }
+      },
+      "color": {
+        "success": {
+          "isVar": true,
+          "key": "$success",
+          "name": "c-color-success",
+          "val": "#22C55E",
+          "variable": ""
+        },
+        "warning": {
+          "isVar": true,
+          "key": "$warning",
+          "name": "c-color-warning",
+          "val": "#F59E0B",
+          "variable": ""
+        },
+        "danger": {
+          "isVar": true,
+          "key": "$danger",
+          "name": "c-color-danger",
+          "val": "#EF4444",
           "variable": ""
         }
       }
@@ -69697,6 +69720,27 @@
         "key": "$4.5",
         "name": "c-size-4--5",
         "val": 48,
+        "variable": ""
+      },
+      "$color.success": {
+        "isVar": true,
+        "key": "$success",
+        "name": "c-color-success",
+        "val": "#22C55E",
+        "variable": ""
+      },
+      "$color.warning": {
+        "isVar": true,
+        "key": "$warning",
+        "name": "c-color-warning",
+        "val": "#F59E0B",
+        "variable": ""
+      },
+      "$color.danger": {
+        "isVar": true,
+        "key": "$danger",
+        "name": "c-color-danger",
+        "val": "#EF4444",
         "variable": ""
       }
     },

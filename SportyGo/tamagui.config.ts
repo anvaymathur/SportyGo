@@ -73,6 +73,9 @@ const earthyLightSteps = {
   color10: '#6B7280', // muted text
   color11: '#0F172A', // text
   color12: '#000000', // highest contrast
+  success: earthyTokens.earthySuccess,
+  warning: earthyTokens.earthyWarning,
+  danger: earthyTokens.earthyDanger,
 }
 
 const earthyDarkSteps = {
@@ -88,11 +91,21 @@ const earthyDarkSteps = {
   color10: '#9CA3AF', // muted text
   color11: '#E7E4DD', // text
   color12: '#FFFFFF', // highest contrast
+  success: earthyDarkTokens.earthySuccess,
+  warning: earthyDarkTokens.earthyWarning,
+  danger: earthyDarkTokens.earthyDanger,
 }
 
 export const config = createTamagui({
   ...defaultConfig,
-  // removed tokens override to use default scales (size/space/radius/zIndex)
+  tokens: {
+    ...defaultConfig.tokens,
+    color: {
+      success: '#22C55E', // or earthyTokens.earthySuccess
+      warning: '#F59E0B',
+      danger: '#EF4444',
+    },
+  },
   themes: {
     ...defaultConfig.themes,
     'earthy-sport-light': {
