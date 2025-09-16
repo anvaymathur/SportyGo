@@ -3,10 +3,12 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, SafeAreaView, Alert } from 'react-native';
+import { Alert } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { getEvent, getVoteCounts, getUserVote, getAllUserProfiles, updateAttendance, getAttendanceRecords } from '../../../firebase/services_firestore2';
 import { useAuth0 } from 'react-native-auth0';
+import { SafeAreaWrapper } from '../../components/SafeAreaWrapper';
+import { YStack, XStack, Text, Card, ScrollView, Button, Paragraph, H3 } from 'tamagui';
 
 
 interface AttendanceRecord {
@@ -126,6 +128,7 @@ export default function EventAttendance() {
           ? { 
               ...record, 
               hasArrived: !record.hasArrived,
+              // Firestore rejects undefined; we'll normalize to null on save
               arrivalTime: !record.hasArrived ? new Date() : undefined
             }
           : record
@@ -142,11 +145,22 @@ export default function EventAttendance() {
 
     try {
       setSaving(true);
-      await updateAttendance(eventId, attendanceList);
+      // Persist only arrived attendees (unchecked are effectively deleted)
+      const normalized = attendanceList
+        .filter((r) => r.hasArrived)
+        .map((r) => ({
+          userId: r.userId,
+          userName: r.userName,
+          userEmail: r.userEmail,
+          votedStatus: r.votedStatus,
+          hasArrived: true,
+          arrivalTime: r.arrivalTime ?? new Date(),
+        }));
+      await updateAttendance(eventId, normalized as any);
       Alert.alert('Success', 'Attendance saved successfully');
     } catch (error) {
       console.error('Error saving attendance:', error);
-      Alert.alert('Error', 'Failed to save attendance');
+      Alert.alert('Error', 'Failed to save attendance: ' + error);
     } finally {
       setSaving(false);
     }
@@ -173,360 +187,138 @@ export default function EventAttendance() {
   // Loading state
   if (loading) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading attendance...</Text>
-        </View>
-      </SafeAreaView>
+      <SafeAreaWrapper>
+        <YStack flex={1} bg="$background" justify="center" style={{ alignItems: 'center' }}>
+          <Text color="$color10">Loading attendance...</Text>
+        </YStack>
+      </SafeAreaWrapper>
     );
   }
 
   // Access denied state for non-admins
   if (!isAdmin) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Text style={styles.backButtonText}>← Back</Text>
-          </TouchableOpacity>
-        </View>
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Access Denied</Text>
-          <Text style={styles.errorSubtext}>Only the event creator can manage attendance</Text>
-        </View>
-      </SafeAreaView>
+      <SafeAreaWrapper>
+        <YStack>
+          <YStack bg="$color1" px="$4" py="$3" borderBottomWidth={1} borderColor="$borderColor">
+            <Button bg="$color2" borderColor="$borderColor" borderWidth={1} onPress={() => router.back()} px="$3" py="$2">
+              <Text color="$color">← Back</Text>
+            </Button>
+          </YStack>
+          <YStack flex={1} justify="center" style={{ alignItems: 'center' }} p="$4">
+            <Text style={{ fontSize: 20, fontWeight: 'bold' }} color="$color">Access Denied</Text>
+            <Text style={{ fontSize: 16 }} color="$color10">Only the event creator can manage attendance</Text>
+          </YStack>
+        </YStack>
+      </SafeAreaWrapper>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Text style={styles.backButtonText}>← Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Event Attendance</Text>
-      </View>
+    <SafeAreaWrapper>
+      <YStack>
+        {/* Header */}
+        <YStack bg="$color1" px="$4" py="$3" borderBottomWidth={1} borderColor="$borderColor">
+          <XStack>
+            <Button bg="$color2" borderColor="$borderColor" borderWidth={1} onPress={() => router.back()} px="$3" py="$2">
+              <Text color="$color">← Back</Text>
+            </Button>
+          </XStack>
+          <Text style={{ fontSize: 18, fontWeight: 'bold' }} color="$color" mt="$2">Event Attendance</Text>
+        </YStack>
 
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        {/* Event Info */}
-        <View style={styles.eventCard}>
-          <Text style={styles.eventTitle}>{eventData?.Title}</Text>
-          <Text style={styles.eventDate}>
-            {eventData?.EventDate ? 
-              (eventData.EventDate.toDate ? eventData.EventDate.toDate().toLocaleString() : new Date(eventData.EventDate).toLocaleString())
-              : 'Date not set'
-            }
-          </Text>
-          <Text style={styles.eventLocation}>
-            {typeof eventData?.Location === 'string' ? eventData.Location : 'Location not specified'}
-          </Text>
-        </View>
+        <ScrollView showsVerticalScrollIndicator={false} style={{ padding: 16 }}>
+          {/* Event Info */}
+          <Card bg="$color1" borderColor="$borderColor" borderWidth={1} p="$3" mb="$3" style={{ borderRadius: 12 }}>
+            <Text style={{ fontSize: 20, fontWeight: 'bold' }} color="$color">{eventData?.Title}</Text>
+            <Text style={{ fontSize: 16 }} color="$color10" mt="$1">
+              {eventData?.EventDate ? 
+                (eventData.EventDate.toDate ? eventData.EventDate.toDate().toLocaleString() : new Date(eventData.EventDate).toLocaleString())
+                : 'Date not set'}
+            </Text>
+            <Text style={{ fontSize: 16 }} color="$color10">
+              {typeof eventData?.Location === 'string' ? eventData.Location : 'Location not specified'}
+            </Text>
+          </Card>
 
-        {/* Attendance Summary */}
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryTitle}>Attendance Summary</Text>
-          <View style={styles.summaryStats}>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{getArrivedCount()}</Text>
-              <Text style={styles.statLabel}>Arrived</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{getTotalExpected() - getArrivedCount()}</Text>
-              <Text style={styles.statLabel}>Not Arrived</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{getTotalExpected()}</Text>
-              <Text style={styles.statLabel}>Total Expected</Text>
-            </View>
-          </View>
-        </View>
+          {/* Attendance Summary */}
+          <Card bg="$color1" borderColor="$borderColor" borderWidth={1} p="$3" mb="$3" style={{ borderRadius: 12 }}>
+            <Text style={{ fontSize: 18, fontWeight: 'bold' }} color="$color" mb="$2">Attendance Summary</Text>
+            <XStack justify="space-around">
+              <YStack style={{ alignItems: 'center' }}>
+                <Text style={{ fontSize: 24, fontWeight: 'bold' }} color="$color9">{getArrivedCount()}</Text>
+                <Text style={{ fontSize: 14 }} color="$color10">Arrived</Text>
+              </YStack>
+              <YStack style={{ alignItems: 'center' }}>
+                <Text style={{ fontSize: 24, fontWeight: 'bold' }} color="$color9">{getTotalExpected() - getArrivedCount()}</Text>
+                <Text style={{ fontSize: 14 }} color="$color10">Not Arrived</Text>
+              </YStack>
+              <YStack style={{ alignItems: 'center' }}>
+                <Text style={{ fontSize: 24, fontWeight: 'bold' }} color="$color9">{getTotalExpected()}</Text>
+                <Text style={{ fontSize: 14 }} color="$color10">Total Expected</Text>
+              </YStack>
+            </XStack>
+          </Card>
 
-        {/* Attendance List */}
-        <View style={styles.attendanceCard}>
-          <Text style={styles.attendanceTitle}>Mark Attendance</Text>
-          {attendanceList.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyStateText}>No attendees found</Text>
-              <Text style={styles.emptyStateSubtext}>Users who voted 'going' or 'maybe' will appear here</Text>
-            </View>
-          ) : (
-            attendanceList.map((record) => (
-              <TouchableOpacity
-                key={record.userId}
-                style={[styles.attendeeItem, record.hasArrived && styles.attendeeItemArrived]}
-                onPress={() => toggleAttendance(record.userId)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.attendeeInfo}>
-                  <Text style={styles.attendeeName}>{record.userName}</Text>
-                  <Text style={styles.attendeeEmail}>{record.userEmail}</Text>
-                  <View style={styles.voteStatus}>
-                    <Text style={styles.voteStatusText}>
-                      Voted: {record.votedStatus === 'going' ? 'Going' : 'Maybe'}
-                    </Text>
-                  </View>
-                </View>
-                <View style={styles.attendanceStatus}>
-                  <View style={[
-                    styles.statusIndicator,
-                    record.hasArrived ? styles.statusArrived : styles.statusNotArrived
-                  ]}>
-                    <Text style={styles.statusText}>
-                      {record.hasArrived ? '✓' : '○'}
-                    </Text>
-                  </View>
-                  {record.hasArrived && record.arrivalTime && (
-                    <Text style={styles.arrivalTime}>
-                      {record.arrivalTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </Text>
-                  )}
-                </View>
-              </TouchableOpacity>
-            ))
-          )}
-        </View>
+          {/* Attendance List */}
+          <Card bg="$color1" borderColor="$borderColor" borderWidth={1} p="$3" mb="$3" style={{ borderRadius: 12 }}>
+            <Text style={{ fontSize: 18, fontWeight: 'bold' }} color="$color" mb="$2">Mark Attendance</Text>
+            {attendanceList.length === 0 ? (
+              <YStack style={{ alignItems: 'center' }} py="$4">
+                <Text style={{ fontSize: 16, fontWeight: '600' }} color="$color10" mb="$1">No attendees found</Text>
+                <Text style={{ fontSize: 14 }} color="$color10">Users who voted 'going' or 'maybe' will appear here</Text>
+              </YStack>
+            ) : (
+              attendanceList.map((record) => (
+                <Button
+                  key={record.userId}
+                  onPress={() => toggleAttendance(record.userId)}
+                  bg={record.hasArrived ? ('$success' as any) : ('$color2' as any)}
+                  borderWidth={0}
+                  p="$4"
+                  mb="$3"
+                  style={{ borderRadius: 10 }}
+                >
+                  <XStack justify="space-between" verticalAlign="center">
+                    <YStack>
+                      <Text style={{ fontSize: 18, fontWeight: '600' }} color={record.hasArrived ? ('$color1' as any) : ('$color' as any)}>{record.userName}</Text>
+                      {/* <Text style={{ fontSize: 14 }} color={record.hasArrived ? ('$color1' as any) : ('$color10' as any)}>{record.userEmail}</Text> */}
+                      <YStack>
+                        <Text style={{ fontSize: 13 }} color={record.hasArrived ? ('$color1' as any) : ('$color9' as any)}>Voted: {record.votedStatus === 'going' ? 'Going' : 'Maybe'}</Text>
+                      </YStack>
+                    </YStack>
+                    <YStack style={{ alignItems: 'center' }}>
+                      <YStack width={40} height={40} style={{ borderRadius: 20, justifyContent: 'center', alignItems: 'center' }} bg={record.hasArrived ? ('$success' as any) : ('$color2' as any)}>
+                        <Text style={{ fontSize: 18, fontWeight: 'bold' }} color={record.hasArrived ? ('$color1' as any) : ('$color' as any)}>
+                          {record.hasArrived ? '✓' : '○'}
+                        </Text>
+                      </YStack>
+                      {record.hasArrived && record.arrivalTime && (
+                        <Text style={{ fontSize: 12 }} color={record.hasArrived ? ('$color1' as any) : ('$color10' as any)} mt="$1">
+                          {record.arrivalTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </Text>
+                      )}
+                    </YStack>
+                  </XStack>
+                </Button>
+              ))
+            )}
+          </Card>
 
-        {/* Save Button */}
-        <TouchableOpacity
-          style={[styles.saveButton, saving && styles.saveButtonDisabled]}
-          onPress={saveAttendance}
-          disabled={saving}
-        >
-          <Text style={styles.saveButtonText}>
-            {saving ? 'Saving...' : 'Save Attendance'}
-          </Text>
-        </TouchableOpacity>
-      </ScrollView>
-    </SafeAreaView>
+          {/* Save Button */}
+          <Button
+            onPress={saveAttendance}
+            disabled={saving}
+            bg={saving ? ('$color2' as any) : ('$color9' as any)}
+            color="$color1"
+            p="$3"
+            style={{ borderRadius: 12 }}
+            mb="$6"
+          >
+            <Text color="$color1" style={{ fontWeight: 'bold' }}>{saving ? 'Saving...' : 'Save Attendance'}</Text>
+          </Button>
+        </ScrollView>
+      </YStack>
+    </SafeAreaWrapper>
   );
 }
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  header: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  backButton: {
-    paddingVertical: 8,
-    marginRight: 16,
-  },
-  backButtonText: {
-    fontSize: 16,
-    color: '#007bff',
-    fontWeight: '600',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  container: {
-    flex: 1,
-    padding: 16,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: 16,
-    color: '#666',
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 32,
-  },
-  errorText: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#e74c3c',
-    marginBottom: 8,
-  },
-  errorSubtext: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-  },
-  eventCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  eventTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
-  },
-  eventDate: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 4,
-  },
-  eventLocation: {
-    fontSize: 16,
-    color: '#666',
-  },
-  summaryCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  summaryTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 16,
-  },
-  summaryStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  statItem: {
-    alignItems: 'center',
-  },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#007bff',
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 14,
-    color: '#666',
-  },
-  attendanceCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  attendanceTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 16,
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 32,
-  },
-  emptyStateText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#666',
-    marginBottom: 8,
-  },
-  emptyStateSubtext: {
-    fontSize: 14,
-    color: '#999',
-    textAlign: 'center',
-  },
-  attendeeItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    borderRadius: 8,
-    marginBottom: 8,
-    backgroundColor: '#f8f9fa',
-  },
-  attendeeItemArrived: {
-    backgroundColor: '#d4edda',
-  },
-  attendeeInfo: {
-    flex: 1,
-  },
-  attendeeName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 4,
-  },
-  attendeeEmail: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 4,
-  },
-  voteStatus: {
-    alignSelf: 'flex-start',
-  },
-  voteStatusText: {
-    fontSize: 12,
-    color: '#007bff',
-    backgroundColor: '#e3f2fd',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  attendanceStatus: {
-    alignItems: 'center',
-    marginLeft: 12,
-  },
-  statusIndicator: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  statusArrived: {
-    backgroundColor: '#28a745',
-  },
-  statusNotArrived: {
-    backgroundColor: '#e9ecef',
-    borderWidth: 2,
-    borderColor: '#dee2e6',
-  },
-  statusText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  arrivalTime: {
-    fontSize: 12,
-    color: '#666',
-  },
-  saveButton: {
-    backgroundColor: '#007bff',
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginBottom: 32,
-  },
-  saveButtonDisabled: {
-    backgroundColor: '#ccc',
-  },
-  saveButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-});

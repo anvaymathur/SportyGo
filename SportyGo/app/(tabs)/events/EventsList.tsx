@@ -6,12 +6,14 @@
  */
 
 import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, SafeAreaView, TextInput } from 'react-native';
+
 import { useState, useEffect } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { listenGroupEvents, listenUserGroupEvents, listenAllEvents, getVoteCounts, getUserVote, getUserGroups, hasEventStarted } from '../../../firebase/services_firestore2';
 import { VoteStatus } from '../../../firebase/types_index';
 import { useAuth0 } from 'react-native-auth0';
+import { YStack, XStack, Text, Card, ScrollView, Button, Input, Paragraph, H2 } from 'tamagui';
+import { SafeAreaWrapper } from '../../components/SafeAreaWrapper';
 
 /**
  * Interface for mapped event data used in the UI
@@ -381,576 +383,170 @@ export default function EventsList() {
     });
   };
 
+  // UI (Tamagui)
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Upcoming Events</Text>
-        <Text style={styles.headerSubtitle}>
-          {loadingGroups ? 'Loading your groups...' : 
-           loadingEvents ? 'Loading events...' :
-           loadingVoteData ? 'Loading event details...' :
-           `${filteredEvents.length} events found`}
-        </Text>
-      </View>
+    <SafeAreaWrapper>
+      <YStack flex={1} bg="$background">
+        {/* Header */}
+        <YStack bg="$color1" px="$4" py="$4" borderBottomWidth={1} borderColor="$borderColor">
+          <H2 color="$color" mb="$2" style={{ fontSize: 28, fontWeight: 'bold' }}>
+            Upcoming Events
+          </H2>
+          <Paragraph color="$color10" style={{ fontSize: 16 }}>
+            {loadingGroups ? 'Loading your groups...' : 
+             loadingEvents ? 'Loading events...' :
+             loadingVoteData ? 'Loading event details...' :
+             `${filteredEvents.length} events found`}
+          </Paragraph>
+        </YStack>
 
-      {/* Search and Filter */}
-      <View style={styles.searchContainer}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search events..."
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholderTextColor="#999"
-        />
-        
-        <View style={styles.filterContainer}>
-          <TouchableOpacity
-            style={[styles.filterButton, selectedFilter === 'all' && styles.filterButtonActive]}
-            onPress={() => setSelectedFilter('all')}
-          >
-            <Text style={[styles.filterButtonText, selectedFilter === 'all' && styles.filterButtonTextActive]}>
-              All
-            </Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={[styles.filterButton, selectedFilter === 'my-events' && styles.filterButtonActive]}
-            onPress={() => setSelectedFilter('my-events')}
-          >
-            <Text style={[styles.filterButtonText, selectedFilter === 'my-events' && styles.filterButtonTextActive]}>
-              My Events
-            </Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={[styles.filterButton, selectedFilter === 'voting-open' && styles.filterButtonActive]}
-            onPress={() => setSelectedFilter('voting-open')}
-          >
-            <Text style={[styles.filterButtonText, selectedFilter === 'voting-open' && styles.filterButtonTextActive]}>
-              Voting Open
-            </Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={[styles.filterButton, selectedFilter === 'voting-closed' && styles.filterButtonActive]}
-            onPress={() => setSelectedFilter('voting-closed')}
-          >
-            <Text style={[styles.filterButtonText, selectedFilter === 'voting-closed' && styles.filterButtonTextActive]}>
-              Voting Closed
-            </Text>
-          </TouchableOpacity>
-
-
-        </View>
-      </View>
-
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        {filteredEvents.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyStateIcon}>📅</Text>
-            <Text style={styles.emptyStateTitle}>
-              {loadingGroups ? 'Loading groups...' :
-               loadingEvents ? 'Loading events...' :
-               loadingVoteData ? 'Loading event details...' :
-               'No events found'}
-            </Text>
-            <Text style={styles.emptyStateSubtitle}>
-              {loadingGroups || loadingEvents || loadingVoteData ? 
-               'Please wait while we load your events' : 
-               'Try adjusting your search or filters'}
-            </Text>
-          </View>
-        ) : (
-          filteredEvents.map((event: MappedEvent) => (
-            <TouchableOpacity
-              key={event.id}
-              style={[
-                styles.eventCard,
-                event.totalCost !== undefined && event.totalCost !== null && { minHeight: 240 }
-              ]}
-              onPress={() => handleEventPress(event)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.cardHeader}>
-                <View style={styles.headerLeft}>
-                  <View style={[
-                    styles.votingStatus, 
-                    !event.votingEnabled ? styles.votingDisabled :
-                    event.isVotingOpen ? styles.votingOpen : styles.votingClosed
-                  ]}>
-                    <Text style={styles.votingStatusText}>
-                      {!event.votingEnabled ? 'No Voting' :
-                       event.isVotingOpen ? 'Voting Open' : 'Voting Closed'}
-                    </Text>
-                  </View>
-                  {event.userVote === 'going' && event.votingEnabled && (
-                    <View style={styles.goingBadge}>
-                      <Text style={styles.goingBadgeText}>Going</Text>
-                    </View>
-                  )}
-                  {event.isAdmin && event.eventStarted && (
-                    <View style={styles.adminBadge}>
-                      <Text style={styles.adminBadgeText}>📋 Manage</Text>
-                    </View>
-                  )}
-                </View>
-                <View style={styles.groupBadge}>
-                  <Text style={styles.groupBadgeText}>{event.group}</Text>
-                </View>
-              </View>
-
-              <Text style={styles.eventTitle}>{event.title}</Text>
-
-              <View style={styles.eventDetails}>
-                <View style={styles.detailRow}>
-                  <View style={styles.detailLeft}>
-                    <Text style={styles.detailIcon}>📅</Text>
-                    <View style={styles.detailContent}>
-                      <Text style={styles.detailLabel}>Date & Time</Text>
-                      <Text style={styles.detailValue}>{event.date}</Text>
-                      <Text style={styles.detailSub}>{event.time}</Text>
-                    </View>
-                  </View>
-                  <View style={styles.detailRight}>
-                    <Text style={styles.detailIcon}>📍</Text>
-                    <View style={styles.detailContent}>
-                      <Text style={styles.detailLabel}>Location</Text>
-                      <Text style={styles.detailValue}>{event.location}</Text>
-                    </View>
-                  </View>
-                </View>
-                {event.totalCost !== undefined && event.totalCost !== null && (
-                  <View style={[styles.detailRow, { marginTop: 8, justifyContent: 'flex-start' }]}>
-                    <Text style={styles.detailIcon}>💰</Text>
-                    <View style={styles.detailContent}>
-                      <Text style={styles.detailLabel}>Total Cost</Text>
-                      <Text style={styles.detailValue}>${event.totalCost.toFixed(2)}</Text>
-                    </View>
-                  </View>
-                )}
-
-              </View>
-
-
-
-              <View style={styles.cardFooter}>
-                <View style={styles.attendeeInfo}>
-                  <Text style={styles.attendeeIcon}>👥</Text>
-                  <Text style={styles.attendeeCount}>
-                    {event.votingEnabled ? `${event.attendeeCount} attending` : 'No attendance tracking'}
-                  </Text>
-                </View>
-                <Text style={styles.timeUntilEvent}>{getTimeUntilEvent(event.date)}</Text>
-              </View>
-            </TouchableOpacity>
-          ))
-        )}
-      </ScrollView>
-      
-      {/* Floating Action Button */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => router.push('/events/CreateGameSession')}
-        activeOpacity={0.8}
-      >
-        <Text style={styles.fabText}>+</Text>
-      </TouchableOpacity>
-    </SafeAreaView>
-  );
-}
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  header: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingVertical: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 4,
-  },
-  headerSubtitle: {
-    fontSize: 16,
-    color: '#666',
-  },
-  searchContainer: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  searchInput: {
-    backgroundColor: '#f8f9fa',
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  filterContainer: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  filterButton: {
-    flex: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-    alignItems: 'center',
-    backgroundColor: '#f8f9fa',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  filterButtonActive: {
-    backgroundColor: '#007bff',
-    borderColor: '#007bff',
-  },
-  filterButtonText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#333',
-  },
-  filterButtonTextActive: {
-    color: '#fff',
-  },
-  container: {
-    flex: 1,
-    paddingHorizontal: 12,
-    paddingTop: 12,
-  },
-  eventCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  goingBadge: {
-    backgroundColor: '#28a745',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
-  },
-  goingBadgeText: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: '600',
-  },
-
-   adminBadge: {
-     backgroundColor: '#28a745',
-     paddingHorizontal: 6,
-     paddingVertical: 2,
-     borderRadius: 8,
-   },
-   adminBadgeText: {
-     color: '#fff',
-     fontSize: 10,
-     fontWeight: '600',
-   },
-
-  groupBadge: {
-    backgroundColor: '#007bff',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  groupBadgeText: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  votingStatus: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  votingOpen: {
-    backgroundColor: '#d4edda',
-  },
-  votingClosed: {
-    backgroundColor: '#f8d7da',
-  },
-  votingDisabled: {
-    backgroundColor: '#e0e0e0',
-  },
-  votingStatusText: {
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  eventTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
-  },
-  eventDescription: {
-    fontSize: 14,
-    color: '#666',
-    lineHeight: 20,
-    marginBottom: 16,
-  },
-  eventDetails: {
-    gap: 12,
-    marginBottom: 16,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-  },
-  detailLeft: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    flex: 1,
-  },
-  detailRight: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  detailIcon: {
-    fontSize: 16,
-    marginRight: 8,
-    marginTop: 2,
-  },
-  detailContent: {
-    flex: 1,
-  },
-  detailLabel: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 2,
-  },
-  detailValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-  },
-  detailSub: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 2,
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-  },
-  attendeeInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  attendeeIcon: {
-    fontSize: 14,
-    marginRight: 4,
-  },
-  attendeeCount: {
-    fontSize: 12,
-    color: '#666',
-  },
-  timeUntilEvent: {
-    fontSize: 12,
-    color: '#007bff',
-    fontWeight: '600',
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 60,
-  },
-  emptyStateIcon: {
-    fontSize: 48,
-    marginBottom: 16,
-  },
-  emptyStateTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
-  },
-  emptyStateSubtitle: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-  },
-  fab: {
-    position: 'absolute',
-    bottom: 24,
-    left: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#007bff',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  fabText: {
-    fontSize: 32,
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-}); 
-
- {/* const FilterButton = ({
-    label,
-    active,
-    onPress,
-  }: {
-    label: string;
-    active: boolean;
-    onPress: () => void;
-  }) => (
-    <Button
-      flex={1}
-      p={2}
-      style={{ borderRadius: 6 }}
-      borderWidth={1}
-      mx={4}
-      background={active ? ('$color9' as any) : ('$color2' as any)}
-      borderColor={active ? ('$color9' as any) : ('$borderColor' as any)}
-      onPress={onPress}
-    >
-      <Text style={{ fontSize: 12, fontWeight: '600' }} color={active ? ('$color12' as any) : ('$color' as any)}>
-        {label}
-      </Text>
-    </Button>
-  );
-
-  return (
-    <Theme name="earthy-sport-light">
-      <SafeAreaWrapper backgroundColor="#FAF7F2">
-        <YStack flex={1} background="$background">
-          {/* Header 
-          <YStack background="$color1" px={16} py={20} borderBottomWidth={1} borderColor="$borderColor">
-            <H2 style={{ fontSize: 28, fontWeight: 'bold' }} color="$color" mb={4}>
-              Upcoming Events
-            </H2>
-            <Paragraph color="$color10" style={{ fontSize: 16 }}>
-              {loadingGroups ? 'Loading your groups...' : `${filteredEvents.length} events found`}
-            </Paragraph>
-          </YStack>
-
-          {/* Search and Filter 
-          <YStack background="$color1" px={16} py={12} borderBottomWidth={1} borderColor="$borderColor">
-            <Input
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder="Search events..."
-              placeholderTextColor="#999"
-              background="$color1"
+        {/* Search and Filter */}
+        <YStack bg="$color1" px="$4" py="$3" borderBottomWidth={1} borderColor="$borderColor">
+          <Input
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Search events..."
+            placeholderTextColor="#999"
+            bg="$color1"
+            borderWidth={1}
+            borderColor="$borderColor"
+            px="$4"
+            py="$3"
+            mb="$3"
+          />
+          <XStack>
+            <Button
+              flex={1}
+              p="$2"
               borderWidth={1}
-              borderColor="$borderColor"
-              style={{ borderRadius: 8 }}
-              px={16}
-              py={12}
-              mb={12}
-            />
+              mx="$2"
+              bg={selectedFilter === 'all' ? ('$color9' as any) : ('$color2' as any)}
+              borderColor={selectedFilter === 'all' ? ('$color9' as any) : ('$borderColor' as any)}
+              onPress={() => setSelectedFilter('all')}
+            >
+              <Text style={{ fontSize: 12, fontWeight: '600' }} color={selectedFilter === 'all' ? ('$color1' as any) : ('$color' as any)}>All</Text>
+            </Button>
+            <Button
+              flex={1}
+              p="$2"
+              borderWidth={1}
+              mx="$2"
+              bg={selectedFilter === 'my-events' ? ('$color9' as any) : ('$color2' as any)}
+              borderColor={selectedFilter === 'my-events' ? ('$color9' as any) : ('$borderColor' as any)}
+              onPress={() => setSelectedFilter('my-events')}
+            >
+              <Text style={{ fontSize: 12, fontWeight: '600' }} color={selectedFilter === 'my-events' ? ('$color1' as any) : ('$color' as any)}>My Events</Text>
+            </Button>
+            <Button
+              flex={1}
+              p="$2"
+              borderWidth={1}
+              mx="$2"
+              bg={selectedFilter === 'voting-open' ? ('$color9' as any) : ('$color2' as any)}
+              borderColor={selectedFilter === 'voting-open' ? ('$color9' as any) : ('$borderColor' as any)}
+              onPress={() => setSelectedFilter('voting-open')}
+            >
+              <Text style={{ fontSize: 12, fontWeight: '600' }} color={selectedFilter === 'voting-open' ? ('$color1' as any) : ('$color' as any)}>Voting Open</Text>
+            </Button>
+            <Button
+              flex={1}
+              p="$2"
+              borderWidth={1}
+              mx="$2"
+              bg={selectedFilter === 'voting-closed' ? ('$color9' as any) : ('$color2' as any)}
+              borderColor={selectedFilter === 'voting-closed' ? ('$color9' as any) : ('$borderColor' as any)}
+              onPress={() => setSelectedFilter('voting-closed')}
+            >
+              <Text style={{ fontSize: 12, fontWeight: '600' }} color={selectedFilter === 'voting-closed' ? ('$color1' as any) : ('$color' as any)}>Voting Closed</Text>
+            </Button>
+          </XStack>
+        </YStack>
 
-            <XStack>
-              <FilterButton label="All" active={selectedFilter === 'all'} onPress={() => setSelectedFilter('all')} />
-              <FilterButton label="My Events"  active={selectedFilter === 'my-events'} onPress={() => setSelectedFilter('my-events')} />
-              <FilterButton label="Voting Open" active={selectedFilter === 'voting-open'} onPress={() => setSelectedFilter('voting-open')} />
-              <FilterButton label="Voting Closed" active={selectedFilter === 'voting-closed'} onPress={() => setSelectedFilter('voting-closed')} />
-            </XStack>
-          </YStack>
-
-          {/* Events List 
-          <ScrollView px={12} pt={12} showsVerticalScrollIndicator={false}>
-            {filteredEvents.length === 0 ? (
-              <YStack flex={1} verticalAlign="center" justify="center" py={60}>
-                <Text fontSize="$10"  style={{ textAlign: 'center' }} color="$color"mb="$3">
-                  📅
-                </Text>
-                <Text fontSize="$4" fontWeight="bold" style={{ textAlign: 'center' }} color="$color" mb="$3" >
-                  No events found
-                </Text>
-                <Paragraph color="$color10" fontSize="$4" mb="$3" style={{ textAlign: 'center' }}>
-                   {loadingGroups ? 'Please wait while we load your events' : 'Try adjusting your search or filters'}
-                </Paragraph>
-              </YStack>
-            ) : (
-              filteredEvents.map((event: any) => (
-                <Card key={event.id} background="$color2" style={{ borderRadius: 12 }} p={16} mb={12} elevation={2}>
-                  <YStack>
-                    {/* Card Header 
-                    <XStack justify="space-between" verticalAlign="start" mb={12}>
-                      <XStack verticalAlign="center">
-                        <YStack px={8} py={4} style={{ borderRadius: 12 }} background={event.isVotingOpen ? ('$color3' as any) : ('$color2' as any)}>
-                          <Text style={{ fontSize: 10, fontWeight: '600' }}>
-                            {event.isVotingOpen ? 'Voting Open' : 'Voting Closed'}
+        {/* Events List */}
+        <ScrollView showsVerticalScrollIndicator={false} style={{ paddingHorizontal: 12, paddingTop: 12 }} >
+          {filteredEvents.length === 0 ? (
+            <YStack flex={1} justify="center" py={60} style={{ alignItems: 'center' }}>
+              <Text style={{ fontSize: 48, textAlign: 'center' }} mb="$3">📅</Text>
+              <Text style={{ fontSize: 18, fontWeight: 'bold', textAlign: 'center' }} color="$color" mb="$2">
+                {loadingGroups ? 'Loading groups...' :
+                 loadingEvents ? 'Loading events...' :
+                 loadingVoteData ? 'Loading event details...' :
+                 'No events found'}
+              </Text>
+              <Paragraph color="$color10" style={{ fontSize: 14, textAlign: 'center' }}>
+                {loadingGroups || loadingEvents || loadingVoteData ? 
+                 'Please wait while we load your events' : 
+                 'Try adjusting your search or filters'}
+              </Paragraph>
+            </YStack>
+          ) : (
+            filteredEvents.map((event: MappedEvent) => (
+              <Card
+                key={event.id}
+                bg="$color2"
+                p="$4"
+                mb="$3"
+                elevation={2}
+                style={{ borderRadius: 12 }}
+                onPress={() => handleEventPress(event)}
+              >
+                <YStack>
+                  {/* Card Header */}
+                  <XStack justify="space-between" verticalAlign="start" mb="$3">
+                    <XStack verticalAlign="center" space="$2">
+                      <YStack px="$2" py="$1" style={{ borderRadius: 12 }} bg={
+                        event.votingEnabled ? (event.isVotingOpen ? ('$color3' as any) : ('$color2' as any)) : ('$color2' as any)
+                      }>
+                        <Text style={{ fontSize: 10, fontWeight: '600' }}>
+                          {!event.votingEnabled ? 'No Voting' : event.isVotingOpen ? 'Voting Open' : 'Voting Closed'}
+                        </Text>
+                      </YStack>
+                      {event.userVote === 'going' && event.votingEnabled && (
+                        <YStack ml="$2" px="$2" py="$1" style={{ borderRadius: 8 }} bg="$color9">
+                          <Text style={{ fontSize: 10, fontWeight: '600' }} color="$color1">
+                            Going
                           </Text>
                         </YStack>
-                        {event.userVote === 'going' && (
-                          <YStack ml={8} px={6} py={2} style={{ borderRadius: 8 }} background="$color9">
-                            <Text style={{ fontSize: 10, fontWeight: '600' }} color="$color12">
-                              Going
-                            </Text>
-                          </YStack>
-                        )}
-                      </XStack>
+                      )}
+                      {event.isAdmin && event.eventStarted && (
+                        <YStack ml="$2" px="$2" py="$1" style={{ borderRadius: 8 }} bg="$color9">
+                          <Text style={{ fontSize: 10, fontWeight: '600' }} color="$color1">
+                            📋 Manage
+                          </Text>
+                        </YStack>
+                      )}
                     </XStack>
-                    <Text style={{ fontSize: 10, fontWeight: 600 }} color="$color" mb={8}>{event.group}</Text>
-                    {/* Title 
-                    <Text style={{ fontSize: 18, fontWeight: 'bold' }} color="$color" mb={8}>
-                      {event.title}
-                    </Text>
+                    <YStack px="$2" py="$1" style={{ borderRadius: 12 }} bg="$color9">
+                      <Text style={{ fontSize: 10, fontWeight: '600' }} color="$color1">{event.group}</Text>
+                    </YStack>
+                  </XStack>
 
-                    {/* Details 
-                    <YStack gap={12} mb={16}>
-                      <XStack verticalAlign="start">
+                  {/* Title */}
+                  <Text style={{ fontSize: 18, fontWeight: 'bold' }} color="$color" mb="$2">
+                    {event.title}
+                  </Text>
+
+                  {/* Details */}
+                  <YStack space="$3" mb="$4">
+                    <XStack verticalAlign="start" justify="space-between">
+                      <XStack verticalAlign="start" flex={1}>
                         <Text style={{ fontSize: 16, marginRight: 8, marginTop: 2 }}>📅</Text>
                         <YStack flex={1}>
-                          <Text style={{ fontSize: 12 }} color="$color10" mb={2}>
+                          <Text style={{ fontSize: 12 }} color="$color10" mb="$1">
                             Date & Time
                           </Text>
                           <Text style={{ fontSize: 14, fontWeight: '600' }} color="$color">
                             {event.date}
                           </Text>
-                          <Text style={{ fontSize: 12 }} color="$color10" mt={2}>
+                          <Text style={{ fontSize: 12 }} color="$color10" mt="$1">
                             {event.time}
                           </Text>
                         </YStack>
                       </XStack>
-
-                      <XStack verticalAlign="start">
+                      <XStack verticalAlign="start" flex={1} justify="flex-end">
                         <Text style={{ fontSize: 16, marginRight: 8, marginTop: 2 }}>📍</Text>
                         <YStack flex={1}>
-                          <Text style={{ fontSize: 12 }} color="$color10" mb={2}>
+                          <Text style={{ fontSize: 12 }} color="$color10" mb="$1">
                             Location
                           </Text>
                           <Text style={{ fontSize: 14, fontWeight: '600' }} color="$color">
@@ -958,52 +554,66 @@ const styles = StyleSheet.create({
                           </Text>
                         </YStack>
                       </XStack>
-                    </YStack>
-
-                    {/* Footer 
-                    <XStack justify="space-between" verticalAlign="center" pt={12} borderTopWidth={1} borderColor="$borderColor">
-                      <XStack verticalAlign="center">
-                        <Text style={{ fontSize: 14, marginRight: 4 }}>👥</Text>
-                        <Text style={{ fontSize: 12 }} color="$color10">
-                          {event.attendeeCount} attending
-                        </Text>
-                      </XStack>
-                      <Text style={{ fontSize: 12, fontWeight: '600' }} color="$color9">
-                        {getTimeUntilEvent(event.date)}
-                      </Text>
                     </XStack>
 
-                    {/* Overlay button 
-                    <Button
-                      position="absolute"
-                      t={0}
-                      l={0}
-                      r={0}
-                      b={0}
-                      opacity={0}
-                      onPress={() => handleEventPress(event)}
-                    />
+                    {event.totalCost !== undefined && event.totalCost !== null && (
+                      <XStack mt="$2" justify="flex-start">
+                        <Text style={{ fontSize: 16, marginRight: 8, marginTop: 2 }}>💰</Text>
+                        <YStack>
+                          <Text style={{ fontSize: 12 }} color="$color10" mb="$1">
+                            Total Cost
+                          </Text>
+                          <Text style={{ fontSize: 14, fontWeight: '600' }} color="$color">
+                            ${event.totalCost.toFixed(2)}
+                          </Text>
+                        </YStack>
+                      </XStack>
+                    )}
                   </YStack>
-                </Card>
-                
-              ))
-            )}
-          </ScrollView>
-          {/* Floating Action Button 
-          <Button
-            position="absolute"
-            b={24}
-            l={24}
-            width={56}
-            height={56}
-            style={{ borderRadius: 28 }}
-            bg="$color9"
-            onPress={() => router.push('/events/CreateGameSession')}
-          >
-            <Text fontSize="$8" fontWeight="bold" color="$color1">+</Text>
-          </Button>
-        </YStack>
-      </SafeAreaWrapper>
-    </Theme>
+
+                  {/* Footer */}
+                  <XStack justify="space-between" verticalAlign="center" pt="$3" borderTopWidth={1} borderColor="$borderColor">
+                    <XStack verticalAlign="center">
+                      <Text style={{ fontSize: 14, marginRight: 4 }}>👥</Text>
+                      <Text style={{ fontSize: 12 }} color="$color10">
+                        {event.votingEnabled ? `${event.attendeeCount} attending` : 'No attendance tracking'}
+                      </Text>
+                    </XStack>
+                    <Text style={{ fontSize: 12, fontWeight: '600' }} color="$color9">
+                      {getTimeUntilEvent(event.date)}
+                    </Text>
+                  </XStack>
+
+                  {/* Overlay button for full-card press on web */}
+                  <Button
+                    position="absolute"
+                    t={0}
+                    l={0}
+                    r={0}
+                    b={0}
+                    opacity={0}
+                    onPress={() => handleEventPress(event)}
+                  />
+                </YStack>
+              </Card>
+            ))
+          )}
+        </ScrollView>
+
+        {/* Floating Action Button */}
+        <Button
+          position="absolute"
+          b={24}
+          l={24}
+          width={56}
+          height={56}
+          bg="$color9"
+          onPress={() => router.push('/events/CreateGameSession')}
+          style={{ borderRadius: 28 }}
+        >
+          <Text fontSize="$8" fontWeight="bold" color="$color1">+</Text>
+        </Button>
+      </YStack>
+    </SafeAreaWrapper>
   );
-} */}
+}
