@@ -252,7 +252,7 @@ export default function Dashboard() {
           </Card>
 
           {/* Upcoming Events (voted YES) */}
-          <Card p="$4" borderRadius="$4" onPress={() => router.push('/groups/displayGroups')} bg="$color2">
+          <Card p="$4" borderRadius="$4" onPress={() => router.push('/events/EventsList')} bg="$color2">
             <YStack gap="$2">
               <H3 verticalAlign="middle" color="$color9">Upcoming Events (Going)</H3>
               <Separator />
