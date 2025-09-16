@@ -44,8 +44,8 @@
       [
         "react-native-auth0",
         {
-          "domain": "dev-6oulj204w6qwe4dk.us.auth0.com",
-          "clientId": "CHYISQSTA3BStcmW4Yrz9ThiLV0PFUdv",
+          "domain": "sportygo.ca.auth0.com",
+          "clientId": "TzevmHUuWdBTRK9jmAkswj4bBAUyvovB",
           "packageName": "com.sparkpro.sportygo"
         }
       ],
@@ -54,7 +54,7 @@
         {
           "android": {
             "manifestPlaceholders": {
-              "auth0Domain": "dev-6oulj204w6qwe4dk.us.auth0.com",
+              "auth0Domain": "sportygo.ca.auth0.com",
               "auth0Scheme": "com.sparkpro.sportygo.auth0"
             },
             "gradleVersion": "8.6",

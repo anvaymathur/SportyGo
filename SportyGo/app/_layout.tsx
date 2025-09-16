@@ -11,8 +11,8 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <Auth0Provider
-        domain="dev-6oulj204w6qwe4dk.us.auth0.com"
-        clientId="CHYISQSTA3BStcmW4Yrz9ThiLV0PFUdv">
+        domain="sportygo.ca.auth0.com"
+        clientId="TzevmHUuWdBTRK9jmAkswj4bBAUyvovB">
           <UserProvider>
             <TamaguiProvider config={config}>
               <PortalProvider shouldAddRootHost>
