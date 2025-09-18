@@ -60,7 +60,7 @@ export default function ViewMembers() {
               bg="$color2"
               borderColor="$color6"
               borderWidth="$1"
-              onPress={() => router.back()}
+              onPress={() => router.replace('/groups/displayGroups')}
               px="$3"
               py="$2"
             >

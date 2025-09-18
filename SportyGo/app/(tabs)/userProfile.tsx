@@ -8,6 +8,30 @@ import { PhotoAvatar } from "../components/PhotoAvatar";
 import { Ionicons } from '@expo/vector-icons';
 import { Linking } from 'react-native';
 
+// Helper: format various date representations (Date, Firestore Timestamp, ISO string) to YYYY-MM-DD
+function formatDate(input: any): string {
+  if (!input) return '-';
+  try {
+    let date: Date | undefined;
+    if (input instanceof Date) {
+      date = input;
+    } else if (typeof input === 'string') {
+      const parsed = new Date(input);
+      if (!isNaN(parsed.getTime())) date = parsed;
+    } else if (typeof input === 'object' && typeof input.toDate === 'function') {
+      // Firestore Timestamp
+      date = input.toDate();
+    }
+    if (!date) return '-';
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  } catch {
+    return '-';
+  }
+}
+
 
 export default function UserProfileScreen() {
   const { user, isLoading: isAuthLoading, getCredentials} = useAuth0();
@@ -116,6 +140,11 @@ export default function UserProfileScreen() {
                 <YStack>
                   <Text color="$color10" fontSize="$3">Phone</Text>
                   <Text color="$color" fontSize="$5">{profile?.Phone || '-'} </Text>
+                </YStack>
+                <Separator />
+                <YStack>
+                  <Text color="$color10" fontSize="$3">Date of Birth</Text>
+                  <Text color="$color" fontSize="$5">{formatDate((profile as any)?.DateOfBirth)}</Text>
                 </YStack>
                 <Separator />
                 {/* <YStack>

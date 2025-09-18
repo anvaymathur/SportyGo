@@ -188,14 +188,8 @@ export default function ViewScore() {
           borderBottomColor="$borderColor"
           verticalAlign="center"
         >
-          <Button
-            variant="outlined"
-            size="$3"
-            onPress={() => router.replace('/dashboard')}
-            mr="$3"
-            icon={<Ionicons name="arrow-back" size={20} />}
-          />
-          <H4 flex={1}>Match History</H4>
+          
+          <H4 style={{textAlign: "center", flex: 1}}>Match History</H4>
           <Button
             variant="outlined"
             size="$3"

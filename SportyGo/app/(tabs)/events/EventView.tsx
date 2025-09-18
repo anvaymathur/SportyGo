@@ -12,6 +12,7 @@ import { castVote, listenVoteCounts, getEvent, getUserVote, hasEventStarted, get
 import { VoteStatus } from '../../../firebase/types_index';
 import { SafeAreaWrapper } from '../../components/SafeAreaWrapper';
 import { YStack, XStack, Text, Paragraph, H3, Card, Button, ScrollView, Separator, Spinner, Theme } from 'tamagui';
+import { deleteEvent } from '../../../firebase/services_firestore2';
 
 
 type VoteFilter = 'all' | 'going' | 'maybe' | 'not';
@@ -313,6 +314,46 @@ export default function EventView() {
   };
 
   /**
+   * Handles deleting the event
+   */
+  const handleDeleteEvent = async (): Promise<void> => {
+    if (!isAdmin) {
+      Alert.alert('Unauthorized', 'Only the event creator can delete this event.');
+      return;
+    }
+    if (!eventId) {
+      Alert.alert('Error', 'Event ID is missing.');
+      return;
+    }
+
+    Alert.alert(
+      'Delete Event',
+      'This will permanently delete the event and its data. Are you sure?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteEvent(eventId);
+              Alert.alert('Deleted', 'Event has been deleted.', [
+                {
+                  text: 'OK',
+                  onPress: () => router.back(),
+                }
+              ]);
+            } catch (error) {
+              console.error('Error deleting event:', error);
+              Alert.alert('Error', 'Failed to delete event. Please try again.');
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  /**
    * Gets the appropriate icon for a vote response
    * 
    * @param {string} response - The vote response ('going', 'maybe', 'not')
@@ -365,6 +406,11 @@ export default function EventView() {
             <Button size="$3" bg="$color2" color="$color" borderColor="$borderColor" borderWidth={1} onPress={() => router.back()}>
               <Text color="$color">← Back</Text>
             </Button>
+            {isAdmin && (
+              <Button size="$3" bg="$danger" color="$color1" borderWidth={0} onPress={handleDeleteEvent}>
+                <Text color="$color1">Delete</Text>
+              </Button>
+            )}
           </XStack>
 
           {/* Event Header */}

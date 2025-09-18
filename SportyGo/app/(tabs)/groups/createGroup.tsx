@@ -6,7 +6,8 @@ import {
   Text, Avatar, 
   H2, Select,
   TextArea, Sheet,
-  ScrollView, Card
+  ScrollView, Card,
+  Stack
 } from 'tamagui';
 import { Adapt } from '@tamagui/adapt'
 import * as ImagePicker from 'expo-image-picker';
@@ -17,6 +18,7 @@ import { useAuth0 } from "react-native-auth0";
 import { createGroup, uploadImage, testStorageConnection, imageToBase64 } from '../../../firebase/services_firestore2';
 import { GroupDoc } from '../../../firebase/types_index';
 import { SafeAreaWrapper } from '../../components/SafeAreaWrapper';
+import { Ionicons } from "@expo/vector-icons";
 
 
 export default function CreateGroup() {
@@ -102,6 +104,18 @@ export default function CreateGroup() {
     }
   };
 
+  const generateInitials = () => {
+    // Generate group initials if no photo is selected
+    const initials = generateGroupInitials(groupName);
+    console.log('Generated initials:', initials);
+    // Store initials as a special format that can be detected later
+    return  `INITIALS:${initials}`;
+  }
+
+  const clearPhoto = () => {
+    setSelectedPhoto(generateInitials());
+  }
+
   const handleCreateGroup = async () => {
     if (!groupName.trim()) {
       Alert.alert("Missing Information", "Please enter a group name.");
@@ -121,10 +135,7 @@ export default function CreateGroup() {
           console.log('Photo converted to Base64 successfully');
         } else {
           // Generate group initials if no photo is selected
-          const initials = generateGroupInitials(groupName);
-          console.log('Generated initials:', initials);
-          // Store initials as a special format that can be detected later
-          photoUrl = `INITIALS:${initials}`;
+          photoUrl = generateInitials();
         }
 
         const groupInfo: GroupDoc={
@@ -170,46 +181,68 @@ export default function CreateGroup() {
       <ScrollView>
         <YStack flex={1} p="$4" space="$6" z={1}>
           {/* Header */}
+          <XStack justify="flex-start" verticalAlign="center" mb="$2">
+            <Button
+              bg="$color2"
+              borderColor="$color6"
+              borderWidth="$1"
+              onPress={() => router.replace('/groups/displayGroups')}
+              px="$3"
+              py="$2"
+            >
+              <XStack verticalAlign="center" space="$2">
+                <Ionicons name="arrow-back" size={18} color="#888" />
+                <Text color="$color">Back</Text>
+              </XStack>
+            </Button>
+          </XStack>
             <H2 color="$color9" fontWeight="bold" flex={1} style={{ textAlign: 'center' }} pb="$8">
               Group Details
             </H2>
 
           {/* Group Photo Placeholder */}
           <YStack mb="$6" style={{ alignItems: 'center' }} p="$4">
-            <Button
-              onPress={pickImage}
-              bg="transparent"
-              borderWidth={0}
-              p={0}
-              disabled={uploadingPhoto}
-            >
-              <Avatar 
+            <Stack>
+              <Button
+                onPress={pickImage}
+                bg="transparent"
+                borderWidth={0}
+                p={0}
+                disabled={uploadingPhoto}
                 circular
-                size="$16" 
-                borderWidth={2} 
-                borderColor="$color9"
-                borderStyle={selectedPhoto ? "solid" : "dashed"}
-                background="transparent"
-                mb="$2"
+                size="$16"
               >
-                {selectedPhoto ? (
-                  <Avatar.Image src={selectedPhoto} />
-                ) : groupName ? (
-                  <Avatar.Fallback backgroundColor="$color9" justifyContent="center" alignItems="center">
-                    <Text fontSize="$6" color="$color1" fontWeight="bold" style={{ textAlign: 'center' }}>
-                      {generateGroupInitials(groupName)}
-                    </Text>
-                  </Avatar.Fallback>
-                ) : (
-                  <Avatar.Fallback background="transparent">
-                    <Text fontSize="$8" color="$color9">+</Text>
-                  </Avatar.Fallback>
-                )}
-              </Avatar>
-            </Button>
-            <Text color="$color10" fontSize="$3" style={{ textAlign: 'center' }}>
-              {uploadingPhoto ? 'Uploading...' : selectedPhoto ? 'Photo selected' : groupName ? `Will show: ${generateGroupInitials(groupName)}` : 'Add Group Photo'}
-            </Text>
+                <Avatar 
+                  circular
+                  size="$16" 
+                  borderWidth={2} 
+                  borderColor="$color9"
+                  borderStyle={selectedPhoto ? "solid" : "dashed"}
+                  background="transparent"
+                  mb="$2"
+                >
+                  {selectedPhoto ? (
+                    <Avatar.Image src={selectedPhoto} />
+                  ) : groupName ? (
+                    <Avatar.Fallback backgroundColor="$color9" justifyContent="center" alignItems="center">
+                      <Text fontSize="$6" color="$color1" fontWeight="bold" style={{ textAlign: 'center' }}>
+                        {generateGroupInitials(groupName)}
+                      </Text>
+                    </Avatar.Fallback>
+                  ) : (
+                    <Avatar.Fallback background="transparent">
+                      <Text fontSize="$8" color="$color9">+</Text>
+                    </Avatar.Fallback>
+                  )}
+                </Avatar> 
+
+              </Button>
+                <Text color="$color10" fontSize="$3" style={{ textAlign: 'center' }}>
+                  {uploadingPhoto ? 'Uploading...' : selectedPhoto ? '' : groupName ? `Will show: ${generateGroupInitials(groupName)}` : 'Add Group Photo'}
+                </Text>
+            </Stack>
+              <Button ml="$20" onPress={clearPhoto} bg="$color9"  borderWidth={10} p={0} disabled={uploadingPhoto}><Ionicons name="trash" size={20} color="white" /></Button>
+
           </YStack>
 
           {/* Form Fields */}

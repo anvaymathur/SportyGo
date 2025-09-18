@@ -200,30 +200,6 @@ export default function DisplayGroups() {
             Create Group
         </Button>
         </ScrollView>
-
-         {/* Floating Action Button */}
-         <Button
-          position="absolute"
-          circular
-          b={20}
-          r={20}
-          width={56}
-          height={56
-
-          }
-          bg="$color9"
-          borderWidth="$0"
-          onPress={() => router.push('/dashboard')}
-          shadowColor="$color8"
-          shadowOffset={{ width: 0, height: 2 }}
-          shadowOpacity={0.25}
-          shadowRadius={3.84}
-          elevation={5}
-          color='$color1'
-          
-        >
-          <Ionicons name="home" size={20}  />
-        </Button>
       </YStack>
   );
 }

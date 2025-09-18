@@ -43,6 +43,7 @@ export default function CreateGameSession() {
   const tomorrow = new Date(today);
   const { user } = useAuth0();
   let userId = 'default-user';
+  const NO_GROUP_VALUE = '__NO_GROUP_SELECTED__';
 
   if (user && user.sub) {
     userId = user.sub;
@@ -69,6 +70,7 @@ export default function CreateGameSession() {
   const [groupsLoaded, setGroupsLoaded] = useState(false);
   const [selectedParticipants, setSelectedParticipants] = useState<string[]>([]);
   const [userSearchQuery, setUserSearchQuery] = useState('');
+  const [excludedGroupParticipants, setExcludedGroupParticipants] = useState<string[]>([]);
 
   // State for groups and users
   const [groups, setGroups] = useState<GroupDoc[]>([]);
@@ -109,6 +111,11 @@ export default function CreateGameSession() {
 
     fetchData();
   }, []);
+
+  // Clear exclusions whenever the selected group changes
+  useEffect(() => {
+    setExcludedGroupParticipants([]);
+  }, [selectedGroup]);
 
   /**
    * Validates all form fields and sets error messages
@@ -159,9 +166,10 @@ export default function CreateGameSession() {
     }
     
     // Check minimum participants requirement
-    const selectedGroupData = selectedGroup ? groups.find(g => g.id === selectedGroup) : null;
+    const effectiveGroupId = getEffectiveSelectedGroupId();
+    const selectedGroupData = effectiveGroupId ? groups.find(g => g.id === effectiveGroupId) : null;
     const groupMemberCount = selectedGroupData ? selectedGroupData.MemberIds.length : 0;
-    const individualCount = selectedParticipants.length + (!selectedGroup && !selectedParticipants.includes(userId) ? 1 : 0);
+    const individualCount = selectedParticipants.length + (!effectiveGroupId && !selectedParticipants.includes(userId) ? 1 : 0);
     const totalParticipants = groupMemberCount + individualCount;
     
     if (totalParticipants < 2) {
@@ -225,14 +233,14 @@ export default function CreateGameSession() {
       let finalIndividualParticipants = [...selectedParticipants];
       
       // If no group is selected, creator must be in individual participants
-      if (!selectedGroup && !finalIndividualParticipants.includes(userId)) {
+      if (!getEffectiveSelectedGroupId() && !finalIndividualParticipants.includes(userId)) {
         finalIndividualParticipants.push(userId);
       }
       
       // Build EventDoc object
       const event = {
         id: '', // Firestore will generate the ID
-        GroupIDs: selectedGroup ? [selectedGroup] : [],
+        GroupIDs: (() => { const gid = getEffectiveSelectedGroupId(); return gid ? [gid] : []; })(),
         IndividualParticipantIDs: finalIndividualParticipants,
 
         Title: title.trim(),
@@ -289,6 +297,7 @@ export default function CreateGameSession() {
     setSelectedGroup(null);
     setSelectedParticipants([]);
     setUserSearchQuery('');
+    setExcludedGroupParticipants([]);
     setErrors({});
     setSuccess(false);
     setLoading(false);
@@ -313,12 +322,57 @@ export default function CreateGameSession() {
    * 
    * @param {string} userId - The user ID to toggle
    */
-  const toggleParticipant = (userId: string): void => {
-    setSelectedParticipants(prev => 
-      prev.includes(userId) 
-        ? prev.filter(id => id !== userId)
-        : [...prev, userId]
-    );
+  const toggleParticipant = (targetUserId: string): void => {
+    const effectiveGroupId = getEffectiveSelectedGroupId();
+    const selectedGroupData = effectiveGroupId ? groups.find(g => g.id === effectiveGroupId) : null;
+    const isInSelectedGroup = selectedGroupData ? selectedGroupData.MemberIds.includes(targetUserId) : false;
+    const isIndividuallySelected = selectedParticipants.includes(targetUserId);
+    const isExcluded = excludedGroupParticipants.includes(targetUserId);
+    const isSelf = targetUserId === userId;
+
+    if (isIndividuallySelected) {
+      // Remove individual selection; if highlighted via group or self, exclude to unhighlight
+      setSelectedParticipants(prev => prev.filter(id => id !== targetUserId));
+      if ((effectiveGroupId && isInSelectedGroup && !isExcluded) || (isSelf && !isExcluded)) {
+        setExcludedGroupParticipants(prev => [...prev, targetUserId]);
+      }
+      return;
+    }
+
+    if (effectiveGroupId && isInSelectedGroup) {
+      if (!isExcluded) {
+        // Exclude from group highlight
+        setExcludedGroupParticipants(prev => [...prev, targetUserId]);
+        return;
+      } else {
+        // Remove exclusion and select individually
+        setExcludedGroupParticipants(prev => prev.filter(id => id !== targetUserId));
+        setSelectedParticipants(prev => [...prev, targetUserId]);
+        return;
+      }
+    }
+
+    if (isSelf) {
+      if (!isExcluded) {
+        // Exclude from self auto-highlight
+        setExcludedGroupParticipants(prev => [...prev, targetUserId]);
+        return;
+      } else {
+        // Remove exclusion and select individually
+        setExcludedGroupParticipants(prev => prev.filter(id => id !== targetUserId));
+        setSelectedParticipants(prev => [...prev, targetUserId]);
+        return;
+      }
+    }
+
+    // Default: select individually
+    setSelectedParticipants(prev => [...prev, targetUserId]);
+  };
+
+  // Normalize group selection from Picker (coerce 'null' or '' to null)
+  const handleGroupChange = (value: any): void => {
+    const normalized = value === null || value === undefined || value === 'null' || value === '' || value === NO_GROUP_VALUE ? null : value;
+    setSelectedGroup(normalized);
   };
 
   /**
@@ -342,6 +396,25 @@ export default function CreateGameSession() {
     return users.filter(user => 
       user.Name.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
       user.Email.toLowerCase().includes(userSearchQuery.toLowerCase())
+    );
+  };
+
+  // Returns a normalized group id if a real group is selected, otherwise null
+  const getEffectiveSelectedGroupId = (): string | null => {
+    if (!selectedGroup || selectedGroup === 'null' || selectedGroup === '' || selectedGroup === NO_GROUP_VALUE) return null;
+    return selectedGroup;
+  };
+
+  // Determine if a user should be highlighted (selected or part of selected group)
+  const isUserHighlighted = (candidateId: string): boolean => {
+    const effectiveGroupId = getEffectiveSelectedGroupId();
+    const selectedGroupData = effectiveGroupId ? groups.find(g => g.id === effectiveGroupId) : null;
+    const isInSelectedGroup = selectedGroupData ? selectedGroupData.MemberIds.includes(candidateId) : false;
+    const isExcluded = excludedGroupParticipants.includes(candidateId);
+    const isSelf = candidateId === userId;
+    return (
+      selectedParticipants.includes(candidateId) ||
+      ((isInSelectedGroup || isSelf) && !isExcluded)
     );
   };
 
@@ -593,8 +666,8 @@ export default function CreateGameSession() {
                       <YStack>
                     <YStack borderWidth={1} borderColor="$borderColor" overflow="hidden" bg="$color1">
                           <Picker 
-                            selectedValue={selectedGroup} 
-                            onValueChange={setSelectedGroup} 
+                            selectedValue={selectedGroup ?? NO_GROUP_VALUE} 
+                            onValueChange={handleGroupChange} 
                             enabled={!loadingGroups && groupsLoaded}
                             style={{ 
                               backgroundColor: 'transparent',
@@ -603,7 +676,7 @@ export default function CreateGameSession() {
                           >
                             <Picker.Item 
                               label="No group selected" 
-                              value={null}
+                              value={NO_GROUP_VALUE}
                               color={Platform.OS === 'ios' ? '#666' : undefined}
                             />
                         {groups.map((g) => (
@@ -616,10 +689,10 @@ export default function CreateGameSession() {
                         ))}
                       </Picker>
                     </YStack>
-                        {selectedGroup && (
+                        {getEffectiveSelectedGroupId() && (
                           <Card mt={4} p={8} bg="$color3" borderRadius="$2">
                             <Text fontSize={12} color="$color10">
-                              Selected: {groups.find(g => g.id === selectedGroup)?.Name}
+                              Selected: {groups.find(g => g.id === getEffectiveSelectedGroupId())?.Name}
                             </Text>
                           </Card>
                         )}
@@ -632,7 +705,7 @@ export default function CreateGameSession() {
                                     {/* Individual Participants Selection */}
                   <YStack mb={12}>
                     <Label style={{ fontSize: 16, fontWeight: '500' }} mb={4}>
-                      Individual Participants (Optional)
+                      Individual Participants 
                     </Label>
                     <Input
                       placeholder="Search users by name or email..."
@@ -647,7 +720,7 @@ export default function CreateGameSession() {
                       <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="always">
                         {/* Selected users at the top */}
                         {getFilteredUsers()
-                          .filter(user => selectedParticipants.includes(user.id))
+                          .filter(user => isUserHighlighted(user.id))
                           .map((user) => (
                             <Card
                               key={user.id}
@@ -680,7 +753,7 @@ export default function CreateGameSession() {
                         
                         {/* Unselected users below */}
                         {getFilteredUsers()
-                          .filter(user => !selectedParticipants.includes(user.id))
+                          .filter(user => !isUserHighlighted(user.id))
                           .map((user) => (
                             <Card
                               key={user.id}
@@ -736,9 +809,10 @@ export default function CreateGameSession() {
                     </Label>
                     <Card p={12} bg="$color3" borderRadius="$2">
                       {(() => {
-                        const selectedGroupData = selectedGroup ? groups.find(g => g.id === selectedGroup) : null;
+                        const effectiveGroupId = getEffectiveSelectedGroupId();
+                        const selectedGroupData = effectiveGroupId ? groups.find(g => g.id === effectiveGroupId) : null;
                         const groupMemberCount = selectedGroupData ? selectedGroupData.MemberIds.length : 0;
-                        const individualCount = selectedParticipants.length + (!selectedGroup && !selectedParticipants.includes(userId) ? 1 : 0);
+                        const individualCount = selectedParticipants.length + (!effectiveGroupId && !selectedParticipants.includes(userId) ? 1 : 0);
                         const totalParticipants = groupMemberCount + individualCount;
                         
                         return (
@@ -747,8 +821,8 @@ export default function CreateGameSession() {
                               Total Participants: {totalParticipants}
                             </Text>
                             <Text fontSize={12} color="$color10">
-                              Group: {selectedGroup ? `${selectedGroupData?.Name} (${groupMemberCount} members)` : 'No'} | Individuals: {individualCount}
-                              {!selectedGroup && !selectedParticipants.includes(userId) && ' (including you)'}
+                              Group: {effectiveGroupId ? `${selectedGroupData?.Name} (${groupMemberCount} members)` : 'No'} | Individuals: {individualCount}
+                              {!effectiveGroupId && !selectedParticipants.includes(userId) && ' (including you)'}
                             </Text>
 
                             {totalParticipants < 2 && (
@@ -806,7 +880,7 @@ export default function CreateGameSession() {
               <Button flex={1} bg="$color2" color="$color" onPress={handleCreateAnother} mx={4}>
                 Create Another Session
               </Button>
-              <Button flex={1} bg="$color9" color="$color12" onPress={handleViewSessions} mx={4}>
+              <Button flex={1} minW={100} bg="$color9" color="$color12" onPress={handleViewSessions} mx={4}>
                 View All Sessions
               </Button>
             </XStack>

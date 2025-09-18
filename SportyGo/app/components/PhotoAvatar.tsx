@@ -85,32 +85,44 @@ export const PhotoAvatar: React.FC<PhotoAvatarProps> = ({
 
   // Determine what to display
   const getDisplayContent = () => {
-    // Priority: selectedPhoto > photoUrl > initials
-    const currentPhoto = selectedPhoto || photoUrl;
-    
-    if (currentPhoto && currentPhoto.startsWith('data:')) {
-      // Base64 image
-      return <Avatar.Image src={currentPhoto} />;
-    } else if (currentPhoto && currentPhoto.startsWith('INITIALS:')) {
-      // Stored initials
-      return (
-        <Avatar.Fallback backgroundColor={backgroundColor} justifyContent="center" alignItems="center">
-          <Text color={textColor} fontSize={fontSize} fontWeight="bold" style={{ textAlign: 'center' }}>
-            {currentPhoto.replace('INITIALS:', '')}
-          </Text>
-        </Avatar.Fallback>
-      );
-    } else {
-      // Generate initials from name
-      const initials = generateInitials(name);
-      return (
-        <Avatar.Fallback backgroundColor={backgroundColor} justifyContent="center" alignItems="center">
-          <Text color={textColor} fontSize={fontSize} fontWeight="bold" style={{ textAlign: 'center' }}>
-            {initials}
-          </Text>
-        </Avatar.Fallback>
-      );
+    // If user just picked a photo, always show it immediately (URI)
+    if (selectedPhoto) {
+      return <Avatar.Image src={selectedPhoto} />;
     }
+
+    // Otherwise, use photoUrl from props
+    const currentPhoto = photoUrl;
+
+    if (currentPhoto) {
+      if (
+        currentPhoto.startsWith('data:') ||
+        currentPhoto.startsWith('http') ||
+        currentPhoto.startsWith('file:')
+      ) {
+        // Base64 data URL or remote/local URI
+        return <Avatar.Image src={currentPhoto} />;
+      }
+
+      if (currentPhoto.startsWith('INITIALS:')) {
+        return (
+          <Avatar.Fallback backgroundColor={backgroundColor} justifyContent="center" alignItems="center">
+            <Text color={textColor} fontSize={fontSize} fontWeight="bold" style={{ textAlign: 'center' }}>
+              {currentPhoto.replace('INITIALS:', '')}
+            </Text>
+          </Avatar.Fallback>
+        );
+      }
+    }
+
+    // Default: generate initials from name
+    const initials = generateInitials(name);
+    return (
+      <Avatar.Fallback backgroundColor={backgroundColor} justifyContent="center" alignItems="center">
+        <Text color={textColor} fontSize={fontSize} fontWeight="bold" style={{ textAlign: 'center' }}>
+          {initials}
+        </Text>
+      </Avatar.Fallback>
+    );
   };
 
   return (

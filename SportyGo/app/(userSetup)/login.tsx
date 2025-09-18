@@ -12,21 +12,15 @@ export default function LoginScreen() {
   const {globalUser, saveUser} = useContext(UserContext);
   useEffect(() => {
     if (!isLoading && user) {
-      const fetchUserProfile = async () => {
+      (async () => {
         const userProfile = await getUserProfile(user.sub ?? "");
         if (userProfile) {
-          saveUser({
-            name: userProfile.Name,
-            email: userProfile.Email,
-          });
+          saveUser({ name: userProfile.Name, email: userProfile.Email });
+          router.replace('/dashboard');
+        } else {
+          router.replace('/setupProfile');
         }
-      }
-      fetchUserProfile();
-      if (user["https://badmintonapp.com/is_signup"]){
-        router.replace('/setupProfile');
-      } else { 
-        router.replace('/dashboard')
-      }
+      })();
     }
   }, [user, isLoading]);
   

@@ -14,6 +14,7 @@ import {
 import { db, storage} from "./index";
 import { UserDoc, GroupDoc, EventDoc, VoteShard, VoteStatus, newMatchHistory, AttendanceRecord, GroupInviteDoc } from "./types_index";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+import * as ImageManipulator from 'expo-image-manipulator'
 
 /**
  * Number of shards used for distributed vote counting to ensure scalability
@@ -24,20 +25,41 @@ const NUM_SHARDS = 10;
 // Alternative: Convert image to Base64 for Firestore storage
 export async function imageToBase64(uri: string): Promise<string> {
   try {
-    console.log('Converting image to Base64...');
-    const response = await fetch(uri);
-    const blob = await response.blob();
-    
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const base64 = reader.result as string;
-        console.log('Image converted to Base64, size:', base64.length);
-        resolve(base64);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
+    // Target: keep under ~1,048,487 bytes (Firestore field limit in this app context)
+    const MAX_BASE64_LENGTH = 1_048_000; // safe margin
+
+    // Start with moderate target size/quality
+    let width = 800; // downscale long edge
+    let quality = 0.7; // JPEG quality
+
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const actions: ImageManipulator.Action[] = [{ resize: { width } }];
+      const result = await ImageManipulator.manipulateAsync(uri, actions, {
+        compress: quality,
+        format: ImageManipulator.SaveFormat.JPEG,
+        base64: true,
+      } as any);
+
+      const dataUrl = `data:image/jpeg;base64,${result.base64 ?? ''}`;
+      if (dataUrl.length <= MAX_BASE64_LENGTH) {
+        console.log('Image converted to Base64 within limit:', dataUrl.length);
+        return dataUrl;
+      }
+
+      // tighten constraints and try again
+      width = Math.floor(width * 0.8);
+      quality = Math.max(0.4, quality - 0.1);
+    }
+
+    // Final attempt with aggressive compression
+    const finalResult = await ImageManipulator.manipulateAsync(uri, [{ resize: { width: 480 } }], {
+      compress: 0.4,
+      format: ImageManipulator.SaveFormat.JPEG,
+      base64: true,
+    } as any);
+    const finalDataUrl = `data:image/jpeg;base64,${finalResult.base64 ?? ''}`;
+    console.log('Final compressed size:', finalDataUrl.length);
+    return finalDataUrl;
   } catch (error) {
     console.error('Error converting image to Base64:', error);
     throw error;
@@ -299,7 +321,7 @@ export async function updateEvent(eventId: string, updates: Partial<EventDoc>) {
 }
 
 export async function deleteEvent(eventId: string) {
-  return setDoc(doc(db, "events", eventId), {}); // or use deleteDoc
+  await deleteDoc(doc(db, "events", eventId));
 }
 
 export async function getEvent(eventId: string) {

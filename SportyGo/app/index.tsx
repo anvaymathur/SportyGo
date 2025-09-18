@@ -18,19 +18,17 @@ export default function Index() {
         const userProfile = await getUserProfile(user.sub)
         if (userProfile) {
           saveUser({name: userProfile.Name, email: userProfile.Email})
+          router.replace('/dashboard');
+        } else {
+          router.replace('/login');
         }
-      }
-    }
-    if (!isLoading && initializing) {
-      
-      setInitializing(false);
-
-      if (user && user.sub) {
-        fetchUserProfile()
-        router.replace('/dashboard');
       } else {
         router.replace('/login');
       }
+    }
+    if (!isLoading && initializing) {
+      setInitializing(false);
+      fetchUserProfile()
     }
   }, [user, isLoading, initializing]);
   return (

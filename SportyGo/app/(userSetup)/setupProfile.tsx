@@ -1,4 +1,4 @@
-import { Alert} from "react-native";
+import { Alert, Platform} from "react-native";
 import React, { useContext, useEffect, useState } from "react";
 import { Button, Input, YStack, XStack, Text, H2, View } from 'tamagui'
 import { router } from "expo-router";
@@ -9,7 +9,7 @@ import { createUserProfile, getUserProfile, updateUserProfile } from '../../fire
 import { UserContext } from "../components/userContext";
 import { SafeAreaWrapper } from "../components/SafeAreaWrapper";
 import { PhotoAvatar } from "../components/PhotoAvatar";
-
+import DateTimePicker from '@react-native-community/datetimepicker'
 
 
 export default function SetupProfile() {
@@ -22,6 +22,7 @@ export default function SetupProfile() {
     const [address, setAddress] = useState('')
     const [photoUrl, setPhotoUrl] = useState<string>('')
     const [dob, setDob] = useState('')
+    const [showDobPicker, setShowDobPicker] = useState(false)
 
     useEffect(() => {
         if (user && user.email){
@@ -40,7 +41,7 @@ export default function SetupProfile() {
     }, [user]) 
 
    const createProfile = async () => {
-        if (user && name && email && phone.length == 10 && user.sub){
+        if (user && name && email && phone.length == 10 && user.sub && dob){
             
             const dateOfBirth = /^\d{4}-\d{2}-\d{2}$/.test(dob) ? new Date(dob + 'T00:00:00') : undefined
 
@@ -54,7 +55,12 @@ export default function SetupProfile() {
                 PhotoUrl: photoUrl || undefined,
                 DateOfBirth: dateOfBirth || undefined
             }
+            console.log('creating userProfile')
             await createUserProfile(user.sub,userProfile)
+            console.log('userProfile created')
+            try {
+                delete (user as any)["https://badmintonapp.com/is_signup"]
+            } catch {}
             await saveUser({name: name, email: email})
             router.replace('/dashboard')
         } else {
@@ -65,6 +71,16 @@ export default function SetupProfile() {
               )
         }
    }
+
+    const onChangeDob = (_event: any, selectedDate?: Date) => {
+        if (Platform.OS !== 'ios') setShowDobPicker(false)
+        if (selectedDate) {
+            const year = selectedDate.getFullYear()
+            const month = String(selectedDate.getMonth() + 1).padStart(2, '0')
+            const day = String(selectedDate.getDate()).padStart(2, '0')
+            setDob(`${year}-${month}-${day}`)
+        }
+    }
 
     return (
         <SafeAreaWrapper backgroundColor="$background">
@@ -133,34 +149,30 @@ export default function SetupProfile() {
                         style={{ borderRadius: 8 }}
                     />
                     
-                    <Input
-                        value={dob}
-                        onChangeText={(text) => {
-                            const digits = text.replace(/\D/g, '').slice(0, 8)
-                            let formatted = digits
-                            if (digits.length > 4) {
-                                formatted = `${digits.slice(0,4)}-${digits.slice(4)}`
-                            }
-                            if (digits.length > 6) {
-                                formatted = `${digits.slice(0,4)}-${digits.slice(4,6)}-${digits.slice(6)}`
-                            }
-                            setDob(formatted)
-                        }}
-                        placeholder="Date of Birth (YYYY-MM-DD)"
-                        maxLength={10}
+                    {/* Date of Birth Picker */}
+                    <Button
+                        onPress={() => setShowDobPicker(true)}
+                        unstyled
                         borderColor="$color6"
                         borderWidth={1}
-                        focusStyle={{
-                            borderWidth: 2,
-                            borderColor: '$color6'
-                        }}
-                        background="$color2"
-                        placeholderTextColor="$color10"
-                        color="$color"
-                        fontSize="$4"
+                        bg="$color2"
                         p="$3"
                         style={{ borderRadius: 8 }}
-                    />
+                    >
+                        <Text color="$color" fontSize="$4">
+                            {dob ? dob : 'Date of Birth (YYYY-MM-DD)'}
+                        </Text>
+                    </Button>
+                    {showDobPicker && (
+                        <DateTimePicker
+                            value={/^\d{4}-\d{2}-\d{2}$/.test(dob) ? new Date(dob + 'T00:00:00') : new Date()}
+                            mode="date"
+                            display={Platform.OS === 'ios' ? 'spinner' : 'spinner'}
+                            textColor="black"
+                            maximumDate={new Date()}
+                            onChange={onChangeDob}
+                        />
+                    )}
                     
                     {/* <PhoneInput/> */}
                     <Input
