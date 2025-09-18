@@ -7,6 +7,8 @@ import { UserDoc } from '../../firebase/types_index';
 import { PhotoAvatar } from "../components/PhotoAvatar";
 import { Ionicons } from '@expo/vector-icons';
 import { Linking } from 'react-native';
+import { onSnapshot, doc } from 'firebase/firestore';
+import { db } from '../../firebase/index';
 
 // Helper: format various date representations (Date, Firestore Timestamp, ISO string) to YYYY-MM-DD
 function formatDate(input: any): string {
@@ -59,35 +61,21 @@ export default function UserProfileScreen() {
   };
 
   useEffect(() => {
-    let isMounted = true;
-
-    const fetchProfile = async () => {
-      try {
-        if (!user?.sub) {
-          setErrorMessage('Not signed in.');
-          setIsLoading(false);
-          return;
-        }
-        const data = await getUserProfile(user.sub);
-        if (isMounted) {
-          setProfile(data ?? null);
-          setIsLoading(false);
-        }
-      } catch (err) {
-        if (isMounted) {
-          setErrorMessage('Failed to load profile.');
-          setIsLoading(false);
-        }
-      }
-    };
-
-    if (!isAuthLoading) {
-      fetchProfile();
+    if (isAuthLoading) return;
+    if (!user?.sub) {
+      setErrorMessage('Not signed in.');
+      setIsLoading(false);
+      return;
     }
-
-    return () => {
-      isMounted = false;
-    };
+    const userRef = doc(db, 'users', user.sub);
+    const unsubscribe = onSnapshot(userRef, (snap) => {
+      setProfile(snap.exists() ? (snap.data() as UserDoc) : null);
+      setIsLoading(false);
+    }, (err) => {
+      setErrorMessage('Failed to load profile.');
+      setIsLoading(false);
+    });
+    return () => unsubscribe();
   }, [user?.sub, isAuthLoading]);
 
   if (isLoading || isAuthLoading) {
@@ -106,68 +94,66 @@ export default function UserProfileScreen() {
       <YStack flex={1} p="$4" space="$5">
         <XStack style={{ alignItems: 'center', justifyContent: 'space-between' }}>
           <H2 color="$color9">Profile</H2>
-          <Button size="$3" bg="$color2" color="$color11" borderColor="$borderColor" borderWidth={1} icon={<Ionicons name="pencil-outline" size={24} color="black" />} onPress={() => {}}>
+          <Button
+            size="$3"
+            bg="$color2"
+            color="$color11"
+            borderColor="$borderColor"
+            borderWidth={1}
+            icon={<Ionicons name="pencil-outline" size={24} color="black" />}
+            onPress={() => {}}
+          >
             Edit
           </Button>
         </XStack>
-
         <ScrollView pt="$10">
-          <YStack space="$4" style={{ alignItems: 'center', paddingBottom: 32 }}>
-            <PhotoAvatar
-              size="$12"
-              photoUrl={profile?.PhotoUrl}
-              name={profile?.Name}
-              editable={false}
-              borderColor="$color9"
-              borderWidth={2}
-              backgroundColor="$color9"
-              textColor="$color1"
-              fontSize="$6"
-            />
+            <YStack space="$4" style={{ alignItems: 'center', paddingBottom: 32 }}>
+              <PhotoAvatar
+                size="$12"
+                photoUrl={profile?.PhotoUrl}
+                name={profile?.Name}
+                editable={false}
+                borderColor="$color9"
+                borderWidth={2}
+                backgroundColor="$color9"
+                textColor="$color1"
+                fontSize="$6"
+              />
 
-            <Card elevate bordered p="$4" borderWidth={1} borderColor="$borderColor" width="100%" style={{ maxWidth: 560 }} mt="$8">
-              <YStack space="$3">
-                <YStack>
-                  <Text color="$color10" fontSize="$3">Name</Text>
-                  <Text color="$color" fontSize="$5">{profile?.Name || '-'} </Text>
+              <Card elevate bordered p="$4" borderWidth={1} borderColor="$borderColor" width="100%" style={{ maxWidth: 560 }} mt="$8">
+                <YStack space="$3">
+                  <YStack>
+                    <Text color="$color10" fontSize="$3">Name</Text>
+                    <Text color="$color" fontSize="$5">{profile?.Name || '-' } </Text>
+                  </YStack>
+                  <Separator />
+                  <YStack>
+                    <Text color="$color10" fontSize="$3">Email</Text>
+                    <Text color="$color" fontSize="$5">{profile?.Email || '-' } </Text>
+                  </YStack>
+                  <Separator />
+                  <YStack>
+                    <Text color="$color10" fontSize="$3">Phone</Text>
+                    <Text color="$color" fontSize="$5">{profile?.Phone || '-' } </Text>
+                  </YStack>
+                  <Separator />
+                  <YStack>
+                    <Text color="$color10" fontSize="$3">Date of Birth</Text>
+                    <Text color="$color" fontSize="$5">{formatDate((profile as any)?.DateOfBirth)}</Text>
+                  </YStack>
+                  <Separator />
+                  <YStack>
+                    <Text color="$color10" fontSize="$3">Groups</Text>
+                    <Text color="$color" fontSize="$5">{Array.isArray(profile?.Groups) ? profile?.Groups.length : 0}</Text>
+                  </YStack>
+                  {errorMessage && (
+                    <Paragraph color="$color">{errorMessage}</Paragraph>
+                  )}
                 </YStack>
-                <Separator />
-                <YStack>
-                  <Text color="$color10" fontSize="$3">Email</Text>
-                  <Text color="$color" fontSize="$5">{profile?.Email || '-'} </Text>
-                </YStack>
-                <Separator />
-                <YStack>
-                  <Text color="$color10" fontSize="$3">Phone</Text>
-                  <Text color="$color" fontSize="$5">{profile?.Phone || '-'} </Text>
-                </YStack>
-                <Separator />
-                <YStack>
-                  <Text color="$color10" fontSize="$3">Date of Birth</Text>
-                  <Text color="$color" fontSize="$5">{formatDate((profile as any)?.DateOfBirth)}</Text>
-                </YStack>
-                <Separator />
-                {/* <YStack>
-                  <Text color="$color10" fontSize="$3">Address</Text>
-                  <Text color="$color" fontSize="$5">{profile?.Address || '-'} </Text>
-                </YStack> */}
-                {/* <Separator /> */}
-                <YStack>
-                  <Text color="$color10" fontSize="$3">Groups</Text>
-                  <Text color="$color" fontSize="$5">{Array.isArray(profile?.Groups) ? profile?.Groups.length : 0}</Text>
-                </YStack>
-                {errorMessage && (
-                  <Paragraph color="$color">{errorMessage}</Paragraph>
-                )}
-              </YStack>
-            </Card>
-
-            {/* <Button size="$4" bg="$color9" color="$color1" onPress={handleLinkAccount}>
-              Link another account
-            </Button> */}
-          </YStack>
-        </ScrollView>
-      </YStack>
+              </Card>
+            </YStack>
+          </ScrollView>
+        </YStack>
     </SafeAreaWrapper>
   );
 }

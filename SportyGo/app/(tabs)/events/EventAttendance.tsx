@@ -5,7 +5,7 @@
 import React, { useState, useEffect } from 'react';
 import { Alert } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { getEvent, getVoteCounts, getUserVote, getAllUserProfiles, updateAttendance, getAttendanceRecords } from '../../../firebase/services_firestore2';
+import { getEvent, getUserVote, getAllUserProfiles, updateAttendance, getAttendanceRecords, getGroupById, getUsersByIds } from '../../../firebase/services_firestore2';
 import { useAuth0 } from 'react-native-auth0';
 import { SafeAreaWrapper } from '../../components/SafeAreaWrapper';
 import { YStack, XStack, Text, Card, ScrollView, Button, Paragraph, H3 } from 'tamagui';
@@ -66,42 +66,138 @@ export default function EventAttendance() {
   }, [eventId, userId]);
 
   /**
-   * Fetches attendance data for all participants who voted 'going' or 'maybe'
-   * Loads existing attendance records and user profiles
+   * Fetches attendance data for all participants
+   * If voting is enabled, includes users who voted 'going' or 'maybe'.
+   * If voting is disabled, uses selected participants (group + individuals).
    */
   useEffect(() => {
     const fetchAttendanceData = async () => {
       if (!eventData || !isAdmin) return;
 
       try {
-        // Get all users who voted 'going' or 'maybe'
-        const [voteCounts, allUsers, existingAttendance] = await Promise.all([
-          getVoteCounts(eventId),
-          getAllUserProfiles(),
-          getAttendanceRecords(eventId).catch(() => []) // Load existing attendance records
-        ]);
+        const existingAttendance = await getAttendanceRecords(eventId).catch(() => []);
 
+        if (eventData?.VotingEnabled === false) {
+          // Build participant list from group and individuals
+          const groupIds: string[] = Array.isArray(eventData.GroupIDs) ? eventData.GroupIDs : [];
+          const individualIdsRaw: string[] = Array.isArray(eventData.IndividualParticipantIDs) ? eventData.IndividualParticipantIDs : [];
+
+          // Ensure at least creator is included if nothing else was selected
+          const individualIds = individualIdsRaw.length === 0 && groupIds.length === 0 && eventData?.CreatorID
+            ? [eventData.CreatorID]
+            : individualIdsRaw;
+
+          // Gather group member IDs by loading groups in parallel
+          let groupMemberIds: string[] = [];
+          if (groupIds.length > 0) {
+            const groups = await Promise.all(groupIds.map((gid) => getGroupById(gid).catch(() => null)));
+            groupMemberIds = groups
+              .filter((g: any) => g && Array.isArray(g.MemberIds))
+              .flatMap((g: any) => g.MemberIds as string[]);
+
+            const uniqueIds = Array.from(new Set([...individualIds, ...groupMemberIds]));
+            const users = await getUsersByIds(uniqueIds).catch(async () => {
+              // Fallback: fetch all users and filter locally
+              const allUsers = await getAllUserProfiles();
+              const setIds = new Set(uniqueIds);
+              return allUsers.filter((u: any) => setIds.has(u.id));
+            });
+
+            // Build attendance records, including placeholders for missing profiles
+            const fetchedIdSet = new Set(users.map((u: any) => u.id));
+            const missingIds = uniqueIds.filter(id => !fetchedIdSet.has(id));
+
+            const attendanceRecords: AttendanceRecord[] = [
+              ...users.map((u: any) => {
+                const existingRecord = existingAttendance.find((r: any) => r.userId === u.id);
+                return {
+                  userId: u.id,
+                  userName: u.Name,
+                  userEmail: u.Email,
+                  votedStatus: null,
+                  hasArrived: existingRecord ? existingRecord.hasArrived : false,
+                  arrivalTime: existingRecord ? existingRecord.arrivalTime : undefined,
+                };
+              }),
+              ...missingIds.map((id) => {
+                const existingRecord = existingAttendance.find((r: any) => r.userId === id);
+                return {
+                  userId: id,
+                  userName: 'Unknown User',
+                  userEmail: '',
+                  votedStatus: null,
+                  hasArrived: existingRecord ? existingRecord.hasArrived : false,
+                  arrivalTime: existingRecord ? existingRecord.arrivalTime : undefined,
+                };
+              })
+            ];
+
+            setAttendanceList(attendanceRecords);
+            return;
+          } else {
+            // No group selected; use only individuals
+            const uniqueIds = Array.from(new Set(individualIds));
+
+            // If still empty, include creator as last-resort fallback
+            const ensuredIds = uniqueIds.length === 0 && eventData?.CreatorID ? [eventData.CreatorID] : uniqueIds;
+
+            const users = ensuredIds.length > 0
+              ? await getUsersByIds(ensuredIds)
+              : [];
+
+            const fetchedIdSet = new Set(users.map((u: any) => u.id));
+            const missingIds = ensuredIds.filter(id => !fetchedIdSet.has(id));
+
+            const attendanceRecords: AttendanceRecord[] = [
+              ...users.map((u: any) => {
+                const existingRecord = existingAttendance.find((r: any) => r.userId === u.id);
+                return {
+                  userId: u.id,
+                  userName: u.Name,
+                  userEmail: u.Email,
+                  votedStatus: null,
+                  hasArrived: existingRecord ? existingRecord.hasArrived : false,
+                  arrivalTime: existingRecord ? existingRecord.arrivalTime : undefined,
+                };
+              }),
+              ...missingIds.map((id) => {
+                const existingRecord = existingAttendance.find((r: any) => r.userId === id);
+                return {
+                  userId: id,
+                  userName: 'Unknown User',
+                  userEmail: '',
+                  votedStatus: null,
+                  hasArrived: existingRecord ? existingRecord.hasArrived : false,
+                  arrivalTime: existingRecord ? existingRecord.arrivalTime : undefined,
+                };
+              })
+            ];
+
+            setAttendanceList(attendanceRecords);
+            return;
+          }
+        }
+
+        // Voting enabled: include users who voted 'going' or 'maybe'
+        const allUsers = await getAllUserProfiles();
         const attendanceRecords: AttendanceRecord[] = [];
 
-        // Get individual votes for each user
-        for (const user of allUsers) {
+        for (const u of allUsers) {
           try {
-            const userVote = await getUserVote(eventId, user.id);
+            const userVote = await getUserVote(eventId, u.id);
             if (userVote === 'going' || userVote === 'maybe') {
-              // Check if there's existing attendance data for this user
-              const existingRecord = existingAttendance.find((record: any) => record.userId === user.id);
-              
+              const existingRecord = existingAttendance.find((record: any) => record.userId === u.id);
               attendanceRecords.push({
-                userId: user.id,
-                userName: user.Name,
-                userEmail: user.Email,
+                userId: u.id,
+                userName: u.Name,
+                userEmail: u.Email,
                 votedStatus: userVote,
                 hasArrived: existingRecord ? existingRecord.hasArrived : false,
                 arrivalTime: existingRecord ? existingRecord.arrivalTime : undefined,
               });
             }
           } catch (error) {
-            console.error(`Error fetching vote for user ${user.id}:`, error);
+            console.error(`Error fetching vote for user ${u.id}:`, error);
           }
         }
 
@@ -266,7 +362,7 @@ export default function EventAttendance() {
             {attendanceList.length === 0 ? (
               <YStack style={{ alignItems: 'center' }} py="$4">
                 <Text style={{ fontSize: 16, fontWeight: '600' }} color="$color10" mb="$1">No attendees found</Text>
-                <Text style={{ fontSize: 14 }} color="$color10">Users who voted 'going' or 'maybe' will appear here</Text>
+                <Text style={{ fontSize: 14 }} color="$color10">{eventData?.VotingEnabled === false ? 'Selected participants will appear here' : "Users who voted 'going' or 'maybe' will appear here"}</Text>
               </YStack>
             ) : (
               attendanceList.map((record) => (
@@ -279,22 +375,23 @@ export default function EventAttendance() {
                   mb="$3"
                   style={{ borderRadius: 10 }}
                 >
-                  <XStack justify="space-between" verticalAlign="center">
+                  <XStack verticalAlign="center" space="$3">
+                    {/* Left-aligned, vertically centered checkmark */}
                     <YStack>
-                      <Text style={{ fontSize: 18, fontWeight: '600' }} color={record.hasArrived ? ('$color1' as any) : ('$color' as any)}>{record.userName}</Text>
-                      {/* <Text style={{ fontSize: 14 }} color={record.hasArrived ? ('$color1' as any) : ('$color10' as any)}>{record.userEmail}</Text> */}
-                      <YStack>
-                        <Text style={{ fontSize: 13 }} color={record.hasArrived ? ('$color1' as any) : ('$color9' as any)}>Voted: {record.votedStatus === 'going' ? 'Going' : 'Maybe'}</Text>
-                      </YStack>
-                    </YStack>
-                    <YStack style={{ alignItems: 'center' }}>
-                      <YStack width={40} height={40} style={{ borderRadius: 20, justifyContent: 'center', alignItems: 'center' }} bg={record.hasArrived ? ('$success' as any) : ('$color2' as any)}>
+                      <YStack width={40} height={40} style={{ borderRadius: 20, justifyContent: 'center', alignItems: 'center' }} bg={record.hasArrived ? ('$success' as any) : ('$color1' as any)}>
                         <Text style={{ fontSize: 18, fontWeight: 'bold' }} color={record.hasArrived ? ('$color1' as any) : ('$color' as any)}>
                           {record.hasArrived ? '✓' : '○'}
                         </Text>
                       </YStack>
+                    </YStack>
+                    {/* Content column */}
+                    <YStack flex={1}>
+                      <Text style={{ fontSize: 18, fontWeight: '600' }} color={record.hasArrived ? ('$color1' as any) : ('$color' as any)}>{record.userName}</Text>
+                      {eventData?.VotingEnabled !== false && record.votedStatus && (
+                        <Text style={{ fontSize: 13 }} color={'$color9' as any} mt="$1">Voted: {record.votedStatus === 'going' ? 'Going' : 'Maybe'}</Text>
+                      )}
                       {record.hasArrived && record.arrivalTime && (
-                        <Text style={{ fontSize: 12 }} color={record.hasArrived ? ('$color1' as any) : ('$color10' as any)} mt="$1">
+                        <Text style={{ fontSize: 12 }} color={'$color10' as any} mt="$1">
                           {record.arrivalTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </Text>
                       )}

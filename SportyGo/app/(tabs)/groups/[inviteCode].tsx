@@ -1,12 +1,13 @@
 import React from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { View, YStack, Card, Button, Text, Paragraph, H3, Spinner } from "tamagui";
+import { YStack, Card, Button, Text, Paragraph, H3, Spinner } from "tamagui";
 import { getGroupInvite } from "../../../firebase/services_firestore2";
 import { addGroupMember } from "../../../firebase/services_firestore2";
 import { useAuth0 } from "react-native-auth0";
 import { Alert } from "react-native";
 import { GroupInviteDoc } from "../../../firebase/types_index";
+import { SafeAreaWrapper } from "../../components/SafeAreaWrapper";
 
 export default function GroupInviteScreen() {
   const { inviteCode } = useLocalSearchParams<{ inviteCode: string }>();
@@ -55,18 +56,18 @@ export default function GroupInviteScreen() {
 
   if (status === "checking") {
     return (
-      <View flex={1} bg="$background">
+      <SafeAreaWrapper>
         <YStack flex={1} p="$4" space="$2" style={{ justifyContent: 'center', alignItems: 'center' }}>
           <Spinner color="$color9" />
           <Text color="$color10">Verifying invite code...</Text>
         </YStack>
-      </View>
+      </SafeAreaWrapper>
     );
   }
 
   if (status === "expired") {
     return (
-      <View flex={1} bg="$background">
+      <SafeAreaWrapper>
         <YStack flex={1} p="$4" style={{ justifyContent: 'center', alignItems: 'center' }}>
           <Card elevate bordered p="$5" borderWidth={1} borderColor="$borderColor" width="100%" style={{ maxWidth: 420, alignItems: 'center' }}>
             <YStack width="100%" space="$3" style={{ alignItems: 'center' }}>
@@ -77,13 +78,13 @@ export default function GroupInviteScreen() {
             </YStack>
           </Card>
         </YStack>
-      </View>
+      </SafeAreaWrapper>
     );
   }
 
   if (status === "invalid") {
     return (
-      <View flex={1} bg="$background">
+      <SafeAreaWrapper>
         <YStack flex={1} p="$4" style={{ justifyContent: 'center', alignItems: 'center' }}>
           <Card elevate bordered p="$5" borderWidth={1} borderColor="$borderColor" width="100%" style={{ maxWidth: 420, alignItems: 'center' }}>
             <YStack width="100%" space="$3" style={{ alignItems: 'center' }}>
@@ -94,12 +95,12 @@ export default function GroupInviteScreen() {
             </YStack>
           </Card>
         </YStack>
-      </View>
+      </SafeAreaWrapper>
     );
   }
 
   return (
-    <View flex={1} bg="$background">
+    <SafeAreaWrapper>
       <YStack flex={1} p="$4" style={{ justifyContent: 'center', alignItems: 'center' }}>
         <Card elevate bordered p="$5" borderWidth={1} borderColor="$borderColor" width="100%" style={{ maxWidth: 420, alignItems: 'center' }}>
           <YStack width="100%" space="$3" style={{ alignItems: 'center' }}>
@@ -115,6 +116,6 @@ export default function GroupInviteScreen() {
           </YStack>
         </Card>
       </YStack>
-    </View>
+    </SafeAreaWrapper>
   );
 }

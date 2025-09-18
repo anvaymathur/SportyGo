@@ -197,13 +197,12 @@ export default function Dashboard() {
         <YStack gap="$4">
           {/* Header: User Name */}
           <YStack p="$2">
-              <XStack justify="space-between" verticalAlign="center">
-                <Text verticalAlign="middle" fontSize={24} fontWeight="800" color="$color" onPress={() => router.push('/userProfile')}>{userName}</Text>
-                <Button onPress={onLogout}><Ionicons name="log-out-outline" size={20} color="$color1" /></Button>
-              </XStack>
-              <Paragraph verticalAlign="middle" m="$1" color="$color10">Dashboard</Paragraph>
+            <XStack justify="space-between" verticalAlign="center">
+              <Text verticalAlign="middle" fontSize={24} fontWeight="800" color="$color" onPress={() => router.push('/userProfile')}>{userName}</Text>
+              <Button onPress={onLogout}><Ionicons name="log-out-outline" size={20} color="$color1" /></Button>
+            </XStack>
+            <Paragraph verticalAlign="middle" m="$1" color="$color10">Dashboard</Paragraph>
           </YStack>
-
           {/* Win Rate Card */}
           <Card p="$4" borderRadius="$4" bg="$color2">
             <YStack gap="$2">

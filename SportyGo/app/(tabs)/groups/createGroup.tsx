@@ -113,7 +113,7 @@ export default function CreateGroup() {
   }
 
   const clearPhoto = () => {
-    setSelectedPhoto(generateInitials());
+    setSelectedPhoto(null);
   }
 
   const handleCreateGroup = async () => {
@@ -343,9 +343,10 @@ export default function CreateGroup() {
                   <Picker
                     selectedValue={skillLevel}
                     onValueChange={setSkillLevel}
+                    style={{ color: Platform.OS === 'ios' ? '#000' : undefined }}
                   >
-                    <Picker.Item label="Select skill level" value="" />
-                    {skillLevels.map(l => <Picker.Item key={l.value} label={l.label} value={l.value} />)}
+                    <Picker.Item label="Select skill level" value="" color={Platform.OS === 'ios' ? '#000' : undefined} />
+                    {skillLevels.map(l => <Picker.Item key={l.value} label={l.label} value={l.value} color={Platform.OS === 'ios' ? '#000' : undefined} />)}
                   </Picker>
                 </Card>
               )}
@@ -395,10 +396,11 @@ export default function CreateGroup() {
                   <Picker
                     selectedValue={privacy}
                     onValueChange={(val) => setPrivacy(val)}
+                    style={{ color: Platform.OS === 'ios' ? '#000' : undefined }}
                   >
-                    <Picker.Item label="Select privacy" value="" />
+                    <Picker.Item label="Select privacy" value="" color={Platform.OS === 'ios' ? '#000' : undefined} />
                     {privacyOptions.map((opt) => (
-                      <Picker.Item key={opt.value} label={opt.label} value={opt.value} />
+                      <Picker.Item key={opt.value} label={opt.label} value={opt.value} color={Platform.OS === 'ios' ? '#000' : undefined} />
                     ))}
                   </Picker>
                 </Card>
@@ -469,10 +471,11 @@ export default function CreateGroup() {
                   <Picker
                     selectedValue={meetingSchedule}
                     onValueChange={(val) => setMeetingSchedule(val)}
+                    style={{ color: Platform.OS === 'ios' ? '#000' : undefined }}
                   >
-                    <Picker.Item label="Select meeting schedule" value="" />
+                    <Picker.Item label="Select meeting schedule" value="" color={Platform.OS === 'ios' ? '#000' : undefined} />
                     {frequencyOptions.map((opt) => (
-                      <Picker.Item key={opt.value} label={opt.label} value={opt.value} />
+                      <Picker.Item key={opt.value} label={opt.label} value={opt.value} color={Platform.OS === 'ios' ? '#000' : undefined} />
                     ))}
                   </Picker>
                 </Card>

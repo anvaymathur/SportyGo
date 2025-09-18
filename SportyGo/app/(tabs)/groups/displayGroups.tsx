@@ -6,8 +6,9 @@ import {
   XStack,
   Input,
   Button,
-  H1,
+  H2,
   H4,
+  Paragraph,
   Square,
   Card,
   Theme,
@@ -18,6 +19,7 @@ import { getGroups, getUserGroups } from '../../../firebase/services_firestore2'
 import { useAuth0 } from "react-native-auth0";
 import { router } from "expo-router";
 import { GroupDoc } from '../../../firebase/types_index';
+import { SafeAreaWrapper } from "../../components/SafeAreaWrapper";
 
 
 function getGroupInitials(name: string) {
@@ -65,56 +67,55 @@ export default function DisplayGroups() {
   );
 
   return (
-      <YStack
-        flex={1}
-        p="$4"
-      >
-        {/* Header */}
-        <XStack
-          justify="space-between"
-          verticalAlign="center"
-        >
-          <H1 color="$color9" fontWeight="bold" mb={40}>
-            My Groups
-          </H1>
-        </XStack>
-
-        
-
-        {/* Search Bar */}
-        <YStack space="$4">
-          <Input
-            placeholder="Search groups..."
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            background="$color2"
-            borderColor="$color6"
-            px="$4"
-            py="$3"
-            color="$color"
-            placeholderTextColor="$color10"
-            fontSize="$4"
-          />
-        </YStack>
-
-        {/* Groups List */}
-        <ScrollView
+      <SafeAreaWrapper>
+        <YStack
           flex={1}
-          showsVerticalScrollIndicator={true}
-          contentContainerStyle={{ pb: 20 }}
+          p="$4"
         >
-          <YStack space="$3">
-            {loading ? (
-              <Text color="gray" verticalAlign="center" p="$4">
-                Loading groups...
-              </Text>
-            ) : filteredTeams.length === 0 ? (
-              <Text color="gray" verticalAlign="center" p="$4">
-                No groups found. Create your first group or join a group!
-              </Text>
-            ) : (
-              filteredTeams.map((group) => (
-                                  <Card
+          {/* Header */}
+          <YStack bg="$color1" px="$4" py="$3" borderBottomWidth={1} borderColor="$borderColor" mb="$4">
+            <H2 color="$color" fontWeight="700">
+              My Groups
+            </H2>
+            <Paragraph color="$color10" mt="$1">
+              {loading ? 'Loading your groups...' : `${filteredTeams.length} ${filteredTeams.length === 1 ? 'group' : 'groups'}`}
+            </Paragraph>
+          </YStack>
+
+          {/* Search Bar */}
+          <YStack space="$4">
+            <Input
+              placeholder="Search groups..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              background="$color2"
+              borderColor="$color6"
+              px="$4"
+              py="$3"
+              color="$color"
+              placeholderTextColor="$color10"
+              fontSize="$4"
+            />
+          </YStack>
+
+          {/* Groups List */}
+          <ScrollView
+            flex={1}
+            showsVerticalScrollIndicator={true}
+            contentContainerStyle={{ pb: 20 }}
+          >
+            <YStack space="$3">
+              {loading ? (
+                <Text color="gray" verticalAlign="center" p="$4">
+                  Loading groups...
+                </Text>
+              ) : filteredTeams.length === 0 ? (
+                <Text color="gray" verticalAlign="center" p="$4">
+                  No groups found. Create your first group or join a group!
+                </Text>
+              ) : (
+                filteredTeams.map((group) => (
+                  <Card
                     key={group.id}
                     bg="$color2"
                     borderRadius="$4"
@@ -183,23 +184,24 @@ export default function DisplayGroups() {
                   </XStack>
                 </Card>
               ))
-            )}
-          </YStack>
-          {/* Create Team Button */}
-        <Button
-          bg="$color9"
-          color="$color1"
-          borderWidth="$0" 
-          onPress={() => router.push('/groups/createGroup')}
-          p='$2'
-          flexDirection="row"
-          mt={10}
-          verticalAlign="center"
-        >
-          <Ionicons name="add" size={20} color="white" />
-            Create Group
-        </Button>
-        </ScrollView>
-      </YStack>
+              )}
+            </YStack>
+            {/* Create Team Button */}
+          <Button
+            bg="$color9"
+            color="$color1"
+            borderWidth="$0" 
+            onPress={() => router.push('/groups/createGroup')}
+            p='$2'
+            flexDirection="row"
+            mt={10}
+            verticalAlign="center"
+          >
+            <Ionicons name="add" size={20} color="white" />
+              Create Group
+          </Button>
+          </ScrollView>
+        </YStack>
+      </SafeAreaWrapper>
   );
 }
