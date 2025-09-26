@@ -12,6 +12,25 @@ import { PhotoAvatar } from "../components/PhotoAvatar";
 import DateTimePicker from '@react-native-community/datetimepicker'
 
 
+// Helper functions to calculate age from a Date or YYYY-MM-DD string
+const calculateAgeFromDate = (date: Date): number => {
+    const today = new Date();
+    let age = today.getFullYear() - date.getFullYear();
+    const hasNotHadBirthdayThisYear = (
+        today.getMonth() < date.getMonth() ||
+        (today.getMonth() === date.getMonth() && today.getDate() < date.getDate())
+    );
+    if (hasNotHadBirthdayThisYear) age -= 1;
+    return age;
+};
+
+const calculateAgeFromYmd = (ymd: string): number | null => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return null;
+    const parsed = new Date(ymd + 'T00:00:00');
+    if (isNaN(parsed.getTime())) return null;
+    return calculateAgeFromDate(parsed);
+};
+
 export default function SetupProfile() {
     const {user} = useAuth0()
     const {globalUser, saveUser } = useContext(UserContext);
@@ -41,6 +60,18 @@ export default function SetupProfile() {
     }, [user]) 
 
    const createProfile = async () => {
+        console.log('createProfile')
+        // Age restriction: disallow users under 13
+        const age = calculateAgeFromYmd(dob);
+        if (age !== null && age < 13) {
+            Alert.alert(
+                "Age Restriction",
+                "We cannot allow users under 13 on the app.",
+                [{ text: "OK" }]
+            );
+            return;
+        }
+
         if (user && name && email && phone.length == 10 && user.sub && dob){
             
             const dateOfBirth = /^\d{4}-\d{2}-\d{2}$/.test(dob) ? new Date(dob + 'T00:00:00') : undefined
@@ -52,7 +83,7 @@ export default function SetupProfile() {
                 Groups: [], 
                 Phone: phone,
                 Address: '', //address.trim(),
-                PhotoUrl: photoUrl || undefined,
+                PhotoUrl: photoUrl || "",
                 DateOfBirth: dateOfBirth || undefined
             }
             console.log('creating userProfile')
@@ -79,6 +110,16 @@ export default function SetupProfile() {
             const month = String(selectedDate.getMonth() + 1).padStart(2, '0')
             const day = String(selectedDate.getDate()).padStart(2, '0')
             setDob(`${year}-${month}-${day}`)
+
+            // Immediate age check and warning
+            const age = calculateAgeFromDate(selectedDate)
+            if (age < 13) {
+                Alert.alert(
+                    "Age Restriction",
+                    "We cannot allow users under 13 on the app.",
+                    [{ text: "OK" }]
+                )
+            }
         }
     }
 

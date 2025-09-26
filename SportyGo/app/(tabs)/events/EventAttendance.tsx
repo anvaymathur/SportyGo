@@ -374,6 +374,7 @@ export default function EventAttendance() {
                   p="$4"
                   mb="$3"
                   style={{ borderRadius: 10 }}
+                  minH="$6"
                 >
                   <XStack verticalAlign="center" space="$3">
                     {/* Left-aligned, vertically centered checkmark */}

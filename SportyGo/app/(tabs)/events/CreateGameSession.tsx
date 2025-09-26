@@ -5,7 +5,7 @@
  * participant management, voting configuration, and form validation.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, JSX } from 'react';
 import { Alert, Platform } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -671,7 +671,7 @@ export default function CreateGameSession() {
                             enabled={!loadingGroups && groupsLoaded}
                             style={{ 
                               backgroundColor: 'transparent',
-                              color: Platform.OS === 'ios' ? '#000' : undefined
+                              color: Platform.OS === 'ios' ? '#000' : '#000'
                             }}
                           >
                             <Picker.Item 
@@ -876,11 +876,11 @@ export default function CreateGameSession() {
             <Paragraph verticalAlign="center" color="$color" style={{ fontSize: 16 }} mb={24}>
               Your game session has been created and participants will be notified.
             </Paragraph>
-            <XStack justify="space-between" width="100%">
-              <Button flex={1} bg="$color2" color="$color" onPress={handleCreateAnother} mx={4}>
+            <XStack justify="center" verticalAlign="center" space="$3" width="100%" mt={8}>
+              <Button bg="$color2" color="$color" onPress={handleCreateAnother} minW={160} mx={4}>
                 Create Another Session
               </Button>
-              <Button flex={1} minW={100} bg="$color9" color="$color12" onPress={handleViewSessions} mx={4}>
+              <Button bg="$color9" color="$color1" onPress={handleViewSessions} minW={160} mx={4}>
                 View All Sessions
               </Button>
             </XStack>

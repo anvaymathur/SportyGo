@@ -170,6 +170,7 @@ export async function uploadImage(uri: string, path: string): Promise<string> {
  * @returns {Promise<void>} Promise that resolves when user is created
  */
 export async function createUserProfile(uid: string, userDoc: UserDoc): Promise<void> {
+  console.log('createUserProfile', uid, userDoc)
   return setDoc(doc(db, "users", uid), userDoc);
 }
 
