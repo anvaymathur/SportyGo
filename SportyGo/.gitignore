@@ -83,3 +83,6 @@ yarn-error.*
 
 android/
 ios/
+
+# Tamagui compiler cache (regenerated on every build)
+.tamagui/
