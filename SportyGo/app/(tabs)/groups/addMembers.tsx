@@ -252,7 +252,7 @@ export default function AddMembers() {
           {/* Loading State */}
           {loading ? (
             <Card p="$4" bg="$color2" borderColor="$color6">
-              <YStack space="$3" verticalAlign="center">
+              <YStack space="$3" items="center">
                 <Spinner size="large" color="$color9" />
                 <Text color="$color8" fontSize="$4">Loading group information...</Text>
               </YStack>
@@ -261,7 +261,7 @@ export default function AddMembers() {
             /* Current Group Info */
             <Card p="$4" bg="$color2" borderColor="$color6">
               <YStack space="$3">
-                <XStack verticalAlign="center" space="$2">
+                <XStack items="center" space="$2">
                   <Ionicons name="people" size={20} color="#666" />
                   <Text fontWeight="bold" fontSize="$5">Group: {group.Name}</Text>
                 </XStack>
@@ -278,7 +278,7 @@ export default function AddMembers() {
           ) : (
             /* Error State */
             <Card p="$4" bg="$color2" borderColor="$color6">
-              <YStack space="$3" verticalAlign="center">
+              <YStack space="$3" items="center">
                 <Ionicons name="alert-circle" size={24} color="#ef4444" />
                 <Text color="$color8" fontSize="$4">Failed to load group information</Text>
                 <Button
@@ -310,7 +310,7 @@ export default function AddMembers() {
                   borderWidth="$1"
                   onPress={generateInviteLink}
                 >
-                  <XStack verticalAlign="center" space="$2">
+                  <XStack items="center" space="$2">
                     <Ionicons name="link" size={16} color="#666" />
                     <Text color="$color">Generate Link</Text>
                   </XStack>
@@ -322,7 +322,7 @@ export default function AddMembers() {
             <Card p="$4" borderColor="$color6">
               <YStack space="$4">
                 <YStack space="$2">
-                  <XStack verticalAlign="center" space="$2">
+                  <XStack items="center" space="$2">
                     <Ionicons name="checkmark-circle" size={20} color="#22c55e" />
                     <H3 color="$color9">Invite Link Generated</H3>
                   </XStack>
@@ -356,7 +356,7 @@ export default function AddMembers() {
                     borderWidth="$1"
                     onPress={copyToClipboard}
                   >
-                    <XStack verticalAlign="center" space="$2">
+                    <XStack items="center" space="$2">
                       <Ionicons name={copied ? "checkmark-circle" : "copy-outline"} size={16} color="#666" />
                       <Text color="$color">{copied ? "Copied!" : "Copy Link"}</Text>
                     </XStack>
@@ -368,7 +368,7 @@ export default function AddMembers() {
                     borderWidth="$1"
                     onPress={shareInviteLink}
                   >
-                    <XStack verticalAlign="center" space="$2">
+                    <XStack items="center" space="$2">
                       <Ionicons name="share-outline" size={16} color="#666" />
                       <Text color="$color">Share</Text>
                     </XStack>
@@ -405,7 +405,7 @@ export default function AddMembers() {
                       borderWidth="$1"
                       onPress={() => setShowDatePicker(true)}
                     >
-                      <XStack verticalAlign="center" space="$2">
+                      <XStack items="center" space="$2">
                         <Ionicons name="calendar-outline" size={16} color="#666" />
                         <Text color="$color">Date: {expiryDate.toLocaleDateString()}</Text>
                       </XStack>
@@ -416,7 +416,7 @@ export default function AddMembers() {
                       borderWidth="$1"
                       onPress={() => setShowTimePicker(true)}
                     >
-                      <XStack verticalAlign="center" space="$2">
+                      <XStack items="center" space="$2">
                         <Ionicons name="time-outline" size={16} color="#666" />
                         <Text color="$color">Time: {expiryDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
                       </XStack>
@@ -464,7 +464,7 @@ export default function AddMembers() {
                       borderWidth="$1"
                       onPress={() => setShowMaxUsesPicker(true)}
                     >
-                      <XStack verticalAlign="center" space="$2">
+                      <XStack items="center" space="$2">
                         <Ionicons name="list-outline" size={16} color="#666" />
                         <Text color="$color">
                           {maxUses === 'unlimited' ? 'Unlimited' : `${maxUses} uses`}
@@ -500,13 +500,13 @@ export default function AddMembers() {
                 <H3 color="$color9">Recent Invites</H3>
                 
                 {loadingInvites ? (
-                  <YStack space="$3" verticalAlign="center">
+                  <YStack space="$3" items="center">
                     <Spinner size="small" color="$color9" />
                     <Text color="$color8" fontSize="$4">Loading invites...</Text>
                   </YStack>
                 ) : invites.length === 0 ? (
                   <Card p="$3" bg="$color2">
-                    <YStack space="$2" verticalAlign="center">
+                    <YStack space="$2" items="center">
                       <Ionicons name="link-outline" size={24} color="#666" />
                       <Text color="$color8" fontSize="$4" style={{ textAlign: 'center' }}>
                         No invite links created yet
@@ -526,7 +526,7 @@ export default function AddMembers() {
                       return (
                         <Card key={invite.id || index} p="$3" bg="$color2">
                           <YStack space="$2">
-                            <XStack justify="space-between" verticalAlign="center">
+                            <XStack justify="space-between" items="center">
                               <Text color="$color9" fontWeight="bold" fontSize="$3" numberOfLines={1}>
                                 {invite.inviteLink}
                               </Text>

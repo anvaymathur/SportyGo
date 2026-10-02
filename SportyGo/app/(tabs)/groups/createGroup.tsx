@@ -181,7 +181,7 @@ export default function CreateGroup() {
       <ScrollView>
         <YStack flex={1} p="$4" space="$6" z={1}>
           {/* Header */}
-          <XStack justify="flex-start" verticalAlign="center" mb="$2">
+          <XStack justify="flex-start" items="center" mb="$2">
             <Button
               bg="$color2"
               borderColor="$color6"
@@ -190,7 +190,7 @@ export default function CreateGroup() {
               px="$3"
               py="$2"
             >
-              <XStack verticalAlign="center" space="$2">
+              <XStack items="center" space="$2">
                 <Ionicons name="arrow-back" size={18} color="#888" />
                 <Text color="$color">Back</Text>
               </XStack>

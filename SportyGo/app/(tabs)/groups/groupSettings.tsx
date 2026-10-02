@@ -220,7 +220,7 @@ export default function GroupSettings() {
       <ScrollView>
         <YStack flex={1} p="$4" space="$6" z={1}>
           {/* Header */}
-          <XStack justify="space-between" verticalAlign="center" mb="$2">
+          <XStack justify="space-between" items="center" mb="$2">
             <Button
               bg="$color2"
               borderColor="$color6"
@@ -229,7 +229,7 @@ export default function GroupSettings() {
               px="$3"
               py="$2"
             >
-              <XStack verticalAlign="center" space="$2">
+              <XStack items="center" space="$2">
                 <Ionicons name="arrow-back" size={18} color="#888" />
                 <Text color="$color">Back</Text>
               </XStack>

@@ -482,7 +482,7 @@ export default function CreateGameSession() {
       rounded="$3"
       p={10}
       bg="$color1"
-      verticalAlign="flex-start"
+      justify="flex-start"
     >
       <Text style={{ fontSize: 16 }} color="$color">
         {children}
@@ -509,10 +509,10 @@ export default function CreateGameSession() {
           <Text onPress={() => router.back()} color="$color9" fontWeight="600" style={{ fontSize: 16 }} mb={12}>
             ← Back
           </Text>
-          <H2 verticalAlign="center" mb={2}>
+          <H2 mb={2}>
             Create New Game Session
           </H2>
-          <Paragraph verticalAlign="center" color="$color10" style={{ fontSize: 16 }} mb={16}>
+          <Paragraph color="$color10" style={{ fontSize: 16 }} mb={16}>
             Set up a new game session for your group
           </Paragraph>
         </YStack>
@@ -630,7 +630,7 @@ export default function CreateGameSession() {
                     <Label style={{ fontSize: 16, fontWeight: '500' }} mb={4}>
                       Enable Voting
                     </Label>
-                    <XStack verticalAlign="center" space={12}>
+                    <XStack items="center" space={12}>
                       <Button
                         size="$3"
                         bg={votingEnabled ? '$color9' : '$color3'}
@@ -680,7 +680,7 @@ export default function CreateGameSession() {
                       Group (Optional)
                     </Label>
                     {loadingGroups ? (
-                      <YStack p={12} bg="$color3" verticalAlign="center">
+                      <YStack p={12} bg="$color3" items="center">
                         <Text fontSize={14} color="$color10">
                           Loading your groups...
                         </Text>
@@ -899,17 +899,17 @@ export default function CreateGameSession() {
             </YStack>
           </ScrollView>
         ) : (
-          <YStack verticalAlign="center" justify="center" p={32}>
+          <YStack items="center" justify="center" p={32}>
             <Text style={{ fontSize: 48 }} color="$color9" mb={12}>
               ✓
             </Text>
-            <H2 verticalAlign="center" mb={8}>
+            <H2 mb={8}>
               Game Session Created Successfully!
             </H2>
-            <Paragraph verticalAlign="center" color="$color" style={{ fontSize: 16 }} mb={24}>
+            <Paragraph color="$color" style={{ fontSize: 16 }} mb={24}>
               Your game session has been created and participants will be notified.
             </Paragraph>
-            <XStack justify="center" verticalAlign="center" space="$3" width="100%" mt={8}>
+            <XStack justify="center" items="center" space="$3" width="100%" mt={8}>
               <Button bg="$color2" color="$color" onPress={handleCreateAnother} minW={160} mx={4}>
                 Create Another Session
               </Button>

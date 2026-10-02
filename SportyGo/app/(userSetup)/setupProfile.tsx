@@ -144,7 +144,7 @@ export default function SetupProfile() {
                             return false
                         }}
                     >
-                        <YStack gap="$6" verticalAlign="center" flex={1}>
+                        <YStack gap="$6" items="center" flex={1}>
                             <YStack gap="$5" style={{ alignItems: 'center', paddingTop: 8 }}>
                                 <H2 color="$color9" fontWeight="bold" mb="$8">
                                     Create Profile

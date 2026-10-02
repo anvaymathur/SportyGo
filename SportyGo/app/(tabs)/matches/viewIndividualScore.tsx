@@ -367,7 +367,7 @@ export default function ViewIndividualScore() {
   // If the match was deleted or missing, show a friendly message with a back action.
   if (!match) {
     return (
-      <YStack flex={1} bg="$background" justify="center" verticalAlign="center" space="$4" p="$4">
+      <YStack flex={1} bg="$background" justify="center" items="center" space="$4" p="$4">
         <H4 color="$color">Match not found</H4>
         <Paragraph color="$color10">We couldn't load this match. Try again from your history.</Paragraph>
         <Button variant="outlined" onPress={() => router.push("/(tabs)/matches/viewScore")} mt="$2" icon={<Ionicons name="arrow-back" size={18} />}>Go Back</Button>
@@ -416,7 +416,7 @@ export default function ViewIndividualScore() {
           bg="$color2"
           borderBottomWidth={1}
           borderBottomColor="$borderColor"
-          verticalAlign="center"
+          items="center"
         >
           <Button
             variant="outlined"

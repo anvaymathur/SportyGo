@@ -529,7 +529,7 @@ export default function AddScore() {
           >
             <Ionicons name="arrow-back" size={24} color="$color1" />
           </Button>
-          <H4 flex={1} verticalAlign="center">Add Match Scores</H4>
+          <H4 flex={1}>Add Match Scores</H4>
         </XStack>
 
         <ScrollView flex={1} p="$4" showsVerticalScrollIndicator={false}>
@@ -564,7 +564,7 @@ export default function AddScore() {
                     borderColor="$borderColor"
                   >
                     <YStack gap="$3">
-                      <XStack verticalAlign="center" gap="$2">
+                      <XStack items="center" gap="$2">
                         <Ionicons name="people" size={16} color="#065F46" />
                         <Text fontSize="$4" fontWeight="700" color="$color">
                           {yourTeamLabel}
@@ -573,7 +573,7 @@ export default function AddScore() {
 
                       <Separator borderColor="$borderColor" />
 
-                      <XStack verticalAlign="center" justify="space-between">
+                      <XStack items="center" justify="space-between">
                         <Circle
                           size="$5"
                           bg="$color3"
@@ -640,7 +640,7 @@ export default function AddScore() {
                   </Card>
 
                   {/* --- VS Badge --- */}
-                  <XStack justify="center" verticalAlign="center">
+                  <XStack justify="center" items="center">
                     <Card
                       paddingHorizontal="$4"
                       paddingVertical="$2"
@@ -664,7 +664,7 @@ export default function AddScore() {
                     borderColor="$borderColor"
                   >
                     <YStack gap="$3">
-                      <XStack verticalAlign="center" gap="$2">
+                      <XStack items="center" gap="$2">
                         <Ionicons name="people-outline" size={16} color="#065F46" />
                         <Text fontSize="$4" fontWeight="700" color="$color">
                           {opponentTeamLabel}
@@ -673,7 +673,7 @@ export default function AddScore() {
 
                       <Separator borderColor="$borderColor" />
 
-                      <XStack verticalAlign="center" justify="space-between">
+                      <XStack items="center" justify="space-between">
                         <Circle
                           size="$5"
                           bg="$color3"
@@ -1183,7 +1183,7 @@ export default function AddScore() {
         <XStack
           px="$4"
           py="$3"
-          verticalAlign="center"
+          items="center"
           justify="space-between"
           borderTopWidth={1}
           borderTopColor="$borderColor"
@@ -1197,7 +1197,7 @@ export default function AddScore() {
             <View width={88} />
           )}
 
-          <XStack gap="$3" verticalAlign="center">
+          <XStack gap="$3" items="center">
             {currentStep === 1 && (
               <Button
                 size="$3"

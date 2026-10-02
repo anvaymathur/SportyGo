@@ -133,24 +133,24 @@ export default function ClaimTempUsers() {
                 borderColor={item.claimed ? "$color9" : "$borderColor"}
                 bg={item.claimed ? "$color2" : "$color1"}
               >
-                <XStack verticalAlign="center" justify="space-between">
+                <XStack items="center" justify="space-between">
                   <YStack flex={1} gap="$1">
                     <Text color="$color" fontSize="$5" fontWeight="600">
                       {item.doc.Name}
                     </Text>
                     {item.doc.Email ? (
-                      <XStack verticalAlign="center" gap="$2">
+                      <XStack items="center" gap="$2">
                         <Ionicons name="mail-outline" size={14} color="#888" />
                         <Text color="$color10" fontSize="$3">{item.doc.Email}</Text>
                       </XStack>
                     ) : null}
                     {item.doc.Phone ? (
-                      <XStack verticalAlign="center" gap="$2">
+                      <XStack items="center" gap="$2">
                         <Ionicons name="call-outline" size={14} color="#888" />
                         <Text color="$color10" fontSize="$3">{item.doc.Phone}</Text>
                       </XStack>
                     ) : null}
-                    <XStack verticalAlign="center" gap="$2" mt="$1">
+                    <XStack items="center" gap="$2" mt="$1">
                       <Ionicons name="trophy-outline" size={14} color="#888" />
                       <Text color="$color10" fontSize="$3">
                         {item.matchCount} {item.matchCount === 1 ? "match" : "matches"} played

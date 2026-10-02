@@ -557,19 +557,19 @@ export default function ViewScore() {
         >
           <YStack gap="$2">
             {/* Meta row: calendar info on the left and "view details" affordance on the right */}
-            <XStack justify="space-between" verticalAlign="center">
+            <XStack justify="space-between" items="center">
               <YStack>
                 <Text fontSize="$3" fontWeight="600" color="$color">
                   {formatMatchDate(item.date)}
                 </Text>
-                <XStack gap="$1" verticalAlign="center">
+                <XStack gap="$1" items="center">
                   <Ionicons name="ellipse" size={10} color={accent} />
                   <Text fontSize="$2" fontWeight="600" color={accent}>
                     {label}
                   </Text>
                 </XStack>
               </YStack>
-              <XStack verticalAlign="center" gap="$1.5">
+              <XStack items="center" gap="$1.5">
                 <Text fontSize="$2" color="$color10">
                   View Details
                 </Text>
@@ -582,13 +582,13 @@ export default function ViewScore() {
             {/* Body: stacked layout showing Team 1 / VS / Team 2 with avatars and scores */}
             <YStack gap="$2">
               {/* Team 1 row */}
-              <XStack justify="space-between" verticalAlign="center" gap="$3">
+              <XStack justify="space-between" items="center" gap="$3">
                 <YStack flex={1} gap="$1.5">
                   <Text fontSize="$4" fontWeight="700" color="$color">
                     {getPlayerName(item.team1[0])}
                     {item.team1[1] ? ` & ${getPlayerName(item.team1[1])}` : ""}
                   </Text>
-                  <XStack gap="$2" verticalAlign="center">
+                  <XStack gap="$2" items="center">
                     {renderPlayerAvatars(item.team1[0], item.team1[1])}
                     <Text fontSize="$3" color="$color10">
                       Team 1
@@ -597,7 +597,7 @@ export default function ViewScore() {
                 </YStack>
                 <XStack
                   gap="$2"
-                  verticalAlign="center"
+                  items="center"
                   justify="flex-end"
                   style={{ minWidth: 56 }}
                 >
@@ -611,7 +611,7 @@ export default function ViewScore() {
               </XStack>
 
               {/* VS badge separating the two sides */}
-              <XStack justify="center" verticalAlign="center">
+              <XStack justify="center" items="center">
                 <Card
                   padding="$1"
                   bg="$color9"
@@ -626,13 +626,13 @@ export default function ViewScore() {
               </XStack>
 
               {/* Team 2 row */}
-              <XStack justify="space-between" verticalAlign="center" gap="$3">
+              <XStack justify="space-between" items="center" gap="$3">
                 <YStack flex={1} gap="$1.5">
                   <Text fontSize="$4" fontWeight="700" color="$color">
                     {getPlayerName(item.team2[0])}
                     {item.team2[1] ? ` & ${getPlayerName(item.team2[1])}` : ""}
                   </Text>
-                  <XStack gap="$2" verticalAlign="center">
+                  <XStack gap="$2" items="center">
                     {renderPlayerAvatars(item.team2[0], item.team2[1])}
                     <Text fontSize="$3" color="$color10">
                       Team 2
@@ -641,7 +641,7 @@ export default function ViewScore() {
                 </YStack>
                 <XStack
                   gap="$2"
-                  verticalAlign="center"
+                  items="center"
                   justify="flex-end"
                   style={{ minWidth: 56 }}
                 >
@@ -820,7 +820,7 @@ export default function ViewScore() {
   // Full-screen spinner shown during initial data fetch or when user auth is pending.
   if (loading || !userID || profilesLoading) {
     return (
-      <YStack flex={1} bg="$background" justify="center" verticalAlign="center" gap="$4">
+      <YStack flex={1} bg="$background" justify="center" items="center" gap="$4">
         <Spinner size="large" color="$color9" />
         <Text color="$color10">Fetching match history…</Text>
       </YStack>
@@ -875,10 +875,10 @@ export default function ViewScore() {
           bg="$color2"
           borderBottomWidth={1}
           borderBottomColor="$borderColor"
-          verticalAlign="center"
+          items="center"
         >
 
-          <H4 verticalAlign="center" flex={1}>My Matches</H4>
+          <H4 flex={1}>My Matches</H4>
           <Button
             variant="outlined"
             size="$3"
@@ -1031,7 +1031,7 @@ export default function ViewScore() {
                 aria-label="No matches yet. Tap to add your first match."
                 onPress={() => router.push('/matches/addScore')}
               >
-                <YStack gap="$3" verticalAlign="center">
+                <YStack gap="$3" items="center">
                   <Ionicons name="trophy-outline" size={48} color="#666" />
                   <H5 color="$color">No matches yet</H5>
                   <Paragraph color="$color10" style={{ textAlign: "center" }}>
@@ -1078,7 +1078,7 @@ export default function ViewScore() {
           <ScrollView>
             <YStack gap="$4">
               {/* Sheet header with quick clear/apply actions */}
-              <XStack justify="space-between" verticalAlign="center">
+              <XStack justify="space-between" items="center">
                 <Text fontSize="$5" fontWeight="700">
                   Filters
                 </Text>

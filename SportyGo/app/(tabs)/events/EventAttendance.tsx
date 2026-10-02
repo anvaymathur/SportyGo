@@ -380,7 +380,7 @@ export default function EventAttendance() {
                   style={{ borderRadius: 10 }}
                   minH="$6"
                 >
-                  <XStack verticalAlign="center" space="$3">
+                  <XStack items="center" space="$3">
                     {/* Left-aligned, vertically centered checkmark */}
                     <YStack>
                       <YStack width={40} height={40} style={{ borderRadius: 20, justifyContent: 'center', alignItems: 'center' }} bg={record.hasArrived ? ('$success' as any) : ('$color1' as any)}>

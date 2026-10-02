@@ -492,8 +492,8 @@ export default function EventsList() {
               >
                 <YStack>
                   {/* Card Header */}
-                  <XStack justify="space-between" verticalAlign="start" mb="$3">
-                    <XStack verticalAlign="center" space="$2">
+                  <XStack justify="space-between" items="flex-start" mb="$3">
+                    <XStack items="center" space="$2">
                       <YStack px="$2" py="$1" style={{ borderRadius: 12 }} bg={
                         event.votingEnabled ? (event.isVotingOpen ? ('$color3' as any) : ('$color2' as any)) : ('$color2' as any)
                       }>
@@ -528,8 +528,8 @@ export default function EventsList() {
 
                   {/* Details */}
                   <YStack space="$3" mb="$4">
-                    <XStack verticalAlign="start" justify="space-between">
-                      <XStack verticalAlign="start" flex={1}>
+                    <XStack items="flex-start" justify="space-between">
+                      <XStack items="flex-start" flex={1}>
                         <Text style={{ fontSize: 16, marginRight: 8, marginTop: 2 }}>📅</Text>
                         <YStack flex={1}>
                           <Text style={{ fontSize: 12 }} color="$color10" mb="$1">
@@ -543,7 +543,7 @@ export default function EventsList() {
                           </Text>
                         </YStack>
                       </XStack>
-                      <XStack verticalAlign="start" flex={1} justify="flex-end">
+                      <XStack items="flex-start" flex={1} justify="flex-end">
                         <Text style={{ fontSize: 16, marginRight: 8, marginTop: 2 }}>📍</Text>
                         <YStack flex={1}>
                           <Text style={{ fontSize: 12 }} color="$color10" mb="$1">
@@ -572,8 +572,8 @@ export default function EventsList() {
                   </YStack>
 
                   {/* Footer */}
-                  <XStack justify="space-between" verticalAlign="center" pt="$3" borderTopWidth={1} borderColor="$borderColor">
-                    <XStack verticalAlign="center">
+                  <XStack justify="space-between" items="center" pt="$3" borderTopWidth={1} borderColor="$borderColor">
+                    <XStack items="center">
                       <Text style={{ fontSize: 14, marginRight: 4 }}>👥</Text>
                       <Text style={{ fontSize: 12 }} color="$color10">
                         {event.votingEnabled ? `${event.attendeeCount} attending` : 'No attendance tracking'}

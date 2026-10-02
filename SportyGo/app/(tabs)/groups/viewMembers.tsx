@@ -142,7 +142,7 @@ export default function ViewMembers() {
     <SafeAreaWrapper>
       <YStack flex={1} p="$4" bg="$background">
         <YStack mb={20}>
-          <XStack justify="space-between" verticalAlign="center" mb={10}>
+          <XStack justify="space-between" items="center" mb={10}>
             <Button
               bg="$color2"
               borderColor="$color6"
@@ -151,7 +151,7 @@ export default function ViewMembers() {
               px="$3"
               py="$2"
             >
-              <XStack verticalAlign="center" space="$2">
+              <XStack items="center" space="$2">
                 <Ionicons name="arrow-back" size={18} color="#888" />
                 <Text color="$color">Back</Text>
               </XStack>
@@ -170,7 +170,7 @@ export default function ViewMembers() {
                 px="$3"
                 py="$2"
               >
-                <XStack verticalAlign="center" space="$2">
+                <XStack items="center" space="$2">
                   <Ionicons name="settings-outline" size={18} color="#888" />
                   <Text color="$color">Settings</Text>
                 </XStack>
@@ -221,7 +221,7 @@ export default function ViewMembers() {
                   borderWidth="$1"
                   borderColor="$color6"
                 >
-                  <XStack verticalAlign="center" space="$3">
+                  <XStack items="center" space="$3">
                     <Avatar circular size="$6" borderWidth={1} borderColor="$color6" backgroundColor="$color2">
                       <Avatar.Image src={require("../../../assets/images/defaultUserProfileImage.png")} />
                       <Avatar.Fallback backgroundColor="$color2">
@@ -229,7 +229,7 @@ export default function ViewMembers() {
                       </Avatar.Fallback>
                     </Avatar>
                     <YStack flex={1}>
-                      <XStack verticalAlign="center">
+                      <XStack items="center">
                         <H4 color="$color" fontWeight="600">{u.Name}</H4>
                         {roleBadge(u.id)}
                       </XStack>
@@ -276,7 +276,7 @@ export default function ViewMembers() {
           mt="$4"
           style={{ borderRadius: 8 }}
         >
-          <XStack verticalAlign="center" space="$2">
+          <XStack items="center" space="$2">
             <Ionicons name="person-add-outline" size={20} color="white" />
             <Text color="$color1" fontWeight="600">Add Members</Text>
           </XStack>
