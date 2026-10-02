@@ -157,7 +157,7 @@ export default function ViewMembers() {
               px="$3"
               py="$2"
             >
-              <XStack items="center" space="$2">
+              <XStack items="center" gap="$2">
                 <Ionicons name="arrow-back" size={18} color="#888" />
                 <Text color="$color">Back</Text>
               </XStack>
@@ -176,7 +176,7 @@ export default function ViewMembers() {
                 px="$3"
                 py="$2"
               >
-                <XStack items="center" space="$2">
+                <XStack items="center" gap="$2">
                   <Ionicons name="settings-outline" size={18} color="#888" />
                   <Text color="$color">Settings</Text>
                 </XStack>
@@ -214,7 +214,7 @@ export default function ViewMembers() {
         </Text>
 
         <ScrollView flex={1} showsVerticalScrollIndicator>
-          <YStack space="$3" pb="$4">
+          <YStack gap="$3" pb="$4">
             {!loading && filtered.length === 0 ? (
               <Text color="$color10">No members found.</Text>
             ) : (
@@ -227,7 +227,7 @@ export default function ViewMembers() {
                   borderWidth="$1"
                   borderColor="$color6"
                 >
-                  <XStack items="center" space="$3">
+                  <XStack items="center" gap="$3">
                     <Avatar circular size="$6" borderWidth={1} borderColor="$color6" backgroundColor="$color2">
                       <Avatar.Image src={require("../../../assets/images/defaultUserProfileImage.png")} />
                       <Avatar.Fallback backgroundColor="$color2">
@@ -282,7 +282,7 @@ export default function ViewMembers() {
           mt="$4"
           style={{ borderRadius: 8 }}
         >
-          <XStack items="center" space="$2">
+          <XStack items="center" gap="$2">
             <Ionicons name="person-add-outline" size={20} color="white" />
             <Text color="$color1" fontWeight="600">Add Members</Text>
           </XStack>

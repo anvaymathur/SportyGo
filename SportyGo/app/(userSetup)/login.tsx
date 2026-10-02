@@ -71,7 +71,7 @@ export default function LoginScreen() {
   if (isLoading || navigating) {
       return (
         <SafeAreaWrapper backgroundColor="$background">
-          <YStack flex={1} p="$4" space="$2" style={{ justifyContent: 'center', alignItems: 'center' }}>
+          <YStack flex={1} p="$4" gap="$2" style={{ justifyContent: 'center', alignItems: 'center' }}>
             <Spinner size="large" color="$color9" />
             <Text color="$color10">{user ? 'Signing you in…' : 'Loading…'}</Text>
           </YStack>
@@ -83,7 +83,7 @@ export default function LoginScreen() {
     <SafeAreaWrapper backgroundColor="$background">
       <YStack flex={1} p="$4" style={{ justifyContent: 'center', alignItems: 'center' }}>
         <Card elevate bordered p="$5" borderWidth={1} borderColor="$borderColor" width="100%" style={{ maxWidth: 420, alignItems: 'center' }}>
-          <YStack width="100%" space="$3" style={{ alignItems: 'center' }}>
+          <YStack width="100%" gap="$3" style={{ alignItems: 'center' }}>
             {/* <Image
               source={require('../../assets/images/icon.png')}
               width={96}
@@ -95,7 +95,7 @@ export default function LoginScreen() {
               Track matches, manage groups, and compete with ease.
             </Paragraph>
 
-            <YStack width="100%" space="$3">
+            <YStack width="100%" gap="$3">
               <Button size="$5" bg="$color9" color="$color1" onPress={onLogin}>
                 Log In
               </Button>

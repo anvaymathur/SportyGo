@@ -184,7 +184,7 @@ export default function GroupInviteScreen() {
       <YStack flex={1} p="$4" style={{ justifyContent: 'center', alignItems: 'center' }}>
         <Card elevate bordered p="$5" width="100%" style={{ maxWidth: 420, alignItems: 'center' }}>
           <H3>Join Group</H3>
-          <Paragraph>You've been invited to join this group!</Paragraph>
+          <Paragraph>You&apos;ve been invited to join this group!</Paragraph>
           <Button 
             bg="$color9"
             color="$color1"

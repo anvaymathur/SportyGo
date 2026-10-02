@@ -113,7 +113,7 @@ export default function GroupSettings() {
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
@@ -224,7 +224,7 @@ export default function GroupSettings() {
   return (
     <SafeAreaWrapper>
       <ScrollView>
-        <YStack flex={1} p="$4" space="$6" z={1}>
+        <YStack flex={1} p="$4" gap="$6" z={1}>
           {/* Header */}
           <XStack justify="space-between" items="center" mb="$2">
             <Button
@@ -235,7 +235,7 @@ export default function GroupSettings() {
               px="$3"
               py="$2"
             >
-              <XStack items="center" space="$2">
+              <XStack items="center" gap="$2">
                 <Ionicons name="arrow-back" size={18} color="#888" />
                 <Text color="$color">Back</Text>
               </XStack>
@@ -293,9 +293,9 @@ export default function GroupSettings() {
           </YStack>
 
           {/* Form Fields */}
-          <YStack space="$5" flex={1}>
+          <YStack gap="$5" flex={1}>
             {/* Group Name */}
-            <YStack space="$2">
+            <YStack gap="$2">
               <Text color="$color" fontSize="$4" fontWeight="600">Group Name *</Text>
               <Input
                 value={groupName}
@@ -312,7 +312,7 @@ export default function GroupSettings() {
             </YStack>
 
             {/* Description */}
-            <YStack space="$2">
+            <YStack gap="$2">
               <Text color="$color" fontSize="$4" fontWeight="600">Description</Text>
               <TextArea
                 value={description}
@@ -339,7 +339,7 @@ export default function GroupSettings() {
             </YStack>
 
             {/* Skill Level */}
-            <YStack space="$2" p="$1">
+            <YStack gap="$2" p="$1">
               <Text color="$color" fontSize="$4" fontWeight="600">Group Skill Level</Text>
               {Platform.OS === 'web' ? (
                 <Select value={skillLevel} onValueChange={setSkillLevel} defaultValue="">
@@ -375,7 +375,7 @@ export default function GroupSettings() {
             </YStack>
 
             {/* Privacy */}
-            <YStack space="$2" p="$1">
+            <YStack gap="$2" p="$1">
               <Text color="$color" fontSize="$4" fontWeight="600">Privacy</Text>
               {Platform.OS === 'web' ? (
                 <Select value={privacy} onValueChange={setPrivacy} defaultValue="">
@@ -413,7 +413,7 @@ export default function GroupSettings() {
             </YStack>
 
             {/* Home Court */}
-            <YStack space="$2">
+            <YStack gap="$2">
               <Text color="$color" fontSize="$4" fontWeight="600">Home Court</Text>
               <Input
                 value={homeCourt}
@@ -430,7 +430,7 @@ export default function GroupSettings() {
             </YStack>
 
             {/* Meeting Schedule */}
-            <YStack space="$2" p="$1">
+            <YStack gap="$2" p="$1">
               <Text color="$color" fontSize="$4" fontWeight="600">Meeting Schedule</Text>
               {Platform.OS === 'web' ? (
                 <Select value={meetingSchedule} onValueChange={setMeetingSchedule} defaultValue="">

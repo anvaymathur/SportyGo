@@ -630,7 +630,7 @@ export default function CreateGameSession() {
                     <Label style={{ fontSize: 16, fontWeight: '500' }} mb={4}>
                       Enable Voting
                     </Label>
-                    <XStack items="center" space={12}>
+                    <XStack items="center" gap={12}>
                       <Button
                         size="$3"
                         bg={votingEnabled ? '$color9' : '$color3'}
@@ -747,7 +747,7 @@ export default function CreateGameSession() {
                           borderColor="$borderColor"
                           blurOnSubmit={false}
                         />
-                        <YStack space="$2" height={200}>
+                        <YStack gap="$2" height={200}>
                           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="always">
                             {/* Selected users at the top */}
                             {getFilteredUsers()
@@ -909,7 +909,7 @@ export default function CreateGameSession() {
             <Paragraph color="$color" style={{ fontSize: 16 }} mb={24}>
               Your game session has been created and participants will be notified.
             </Paragraph>
-            <XStack justify="center" items="center" space="$3" width="100%" mt={8}>
+            <XStack justify="center" items="center" gap="$3" width="100%" mt={8}>
               <Button bg="$color2" color="$color" onPress={handleCreateAnother} minW={160} mx={4}>
                 Create Another Session
               </Button>

@@ -493,7 +493,7 @@ export default function EventsList() {
                 <YStack>
                   {/* Card Header */}
                   <XStack justify="space-between" items="flex-start" mb="$3">
-                    <XStack items="center" space="$2">
+                    <XStack items="center" gap="$2">
                       <YStack px="$2" py="$1" style={{ borderRadius: 12 }} bg={
                         event.votingEnabled ? (event.isVotingOpen ? ('$color3' as any) : ('$color2' as any)) : ('$color2' as any)
                       }>
@@ -527,7 +527,7 @@ export default function EventsList() {
                   </Text>
 
                   {/* Details */}
-                  <YStack space="$3" mb="$4">
+                  <YStack gap="$3" mb="$4">
                     <XStack items="flex-start" justify="space-between">
                       <XStack items="flex-start" flex={1}>
                         <Text style={{ fontSize: 16, marginRight: 8, marginTop: 2 }}>📅</Text>

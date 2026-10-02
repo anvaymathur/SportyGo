@@ -148,9 +148,9 @@ function TeamCard({ nameString, profiles, fallbackIds, score, winner, tied = fal
       borderColor={winner ? WINNER_ACCENT_COLOR : "$borderColor"}
       
     >
-      <YStack space="$4" items="center">
+      <YStack gap="$4" items="center">
         {/* Player Avatars */}
-        <XStack space="$4" items="center" justify="center">
+        <XStack gap="$4" items="center" justify="center">
           {slots.map((index) => {
             const profile = profiles[index];
             const fallbackName = nameParts[index];
@@ -160,7 +160,7 @@ function TeamCard({ nameString, profiles, fallbackIds, score, winner, tied = fal
             return (
               <YStack
                 key={`player-${index}-${fallbackId ?? displayName}`}
-                space="$3"
+                gap="$3"
                 items="center"
               >
                 <Avatar size="$4" circular borderWidth={1} borderColor="$borderColor">
@@ -187,7 +187,7 @@ function TeamCard({ nameString, profiles, fallbackIds, score, winner, tied = fal
         </XStack>
 
         {/* Team Name and Status */}
-        <YStack space="$3" items="center" width="100%">
+        <YStack gap="$3" items="center" width="100%">
           <Text
             fontSize="$5"
             fontWeight="700"
@@ -349,7 +349,7 @@ export default function ViewIndividualScore() {
           borderColor="$borderColor"
           p="$4"
         >
-          <YStack space="$3" items="center">
+          <YStack gap="$3" items="center">
             <Spinner
               size="large"
               color="$color9"
@@ -367,9 +367,9 @@ export default function ViewIndividualScore() {
   // If the match was deleted or missing, show a friendly message with a back action.
   if (!match) {
     return (
-      <YStack flex={1} bg="$background" justify="center" items="center" space="$4" p="$4">
+      <YStack flex={1} bg="$background" justify="center" items="center" gap="$4" p="$4">
         <H4 color="$color">Match not found</H4>
-        <Paragraph color="$color10">We couldn't load this match. Try again from your history.</Paragraph>
+        <Paragraph color="$color10">We couldn&apos;t load this match. Try again from your history.</Paragraph>
         <Button variant="outlined" onPress={() => router.push("/(tabs)/matches/viewScore")} mt="$2" icon={<Ionicons name="arrow-back" size={18} />}>Go Back</Button>
       </YStack>
     );
@@ -439,10 +439,10 @@ export default function ViewIndividualScore() {
 
         {/* Content */}
         <ScrollView flex={1}>
-          <YStack p="$4" space="$4">
+          <YStack p="$4" gap="$4">
             {/* Outcome banner */}
             <Card backgroundColor={outcomeColor} borderRadius="$4" p="$4">
-              <YStack space="$3">
+              <YStack gap="$3">
                 <Text
                   color="#F9FAFB"
                   fontSize="$2"
@@ -463,7 +463,7 @@ export default function ViewIndividualScore() {
 
             {/* Match meta */}
             <Card p="$4" bg="$color2" borderWidth={1} borderColor="$borderColor" borderRadius="$4">
-              <YStack space="$3">
+              <YStack gap="$3">
                 <Text
                   color="$color10"
                   fontSize="$2"
@@ -484,7 +484,7 @@ export default function ViewIndividualScore() {
 
             {/* Final score */}
             <Card p="$4" bg="$color2" borderWidth={1} borderColor="$borderColor" borderRadius="$4">
-              <YStack space="$4" items="center">
+              <YStack gap="$4" items="center">
                 <Text
                   color="$color10"
                   fontSize="$2"
@@ -494,7 +494,7 @@ export default function ViewIndividualScore() {
                 >
                   Final Score
                 </Text>
-                <XStack space="$6" items="center">
+                <XStack gap="$6" items="center">
                   <Text fontSize="$7" fontWeight="900" color="$color">
                     {team1Score}
                   </Text>
@@ -507,7 +507,7 @@ export default function ViewIndividualScore() {
                 </XStack>
                 {!isTie ? (
                   <Card px="$4" py="$3" bg="$color9" borderRadius="$3">
-                    <XStack space="$3" items="center">
+                    <XStack gap="$3" items="center">
                       <Ionicons
                         name={isTeam1Winner ? "arrow-up" : "arrow-down"}
                         size={18}
@@ -527,7 +527,7 @@ export default function ViewIndividualScore() {
             </Card>
 
             {/* Team cards */}
-            <XStack space="$4" flexWrap="wrap" items="stretch">
+            <XStack gap="$4" flexWrap="wrap" items="stretch">
               <TeamCard
                 nameString={team1Label}
                 profiles={team1Profiles}
