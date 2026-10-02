@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { YStack, XStack, Text, H2, H4, Input, Button, Card, ScrollView, Avatar } from "tamagui";
 import { Ionicons } from "@expo/vector-icons";
+import { Alert } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
+import { useAuth0 } from "react-native-auth0";
 import { GroupDoc, UserDoc } from "../../../firebase/types_index";
-import { getGroupById, getUsersByIds } from "../../../firebase/services_firestore2";
+import { getGroupById, getUsersByIds, addGroupAdmin, removeGroupAdmin } from "../../../firebase/services_firestore2";
 import { SafeAreaWrapper } from "@/components/SafeAreaWrapper";
 
 function getInitials(name: string) {
@@ -19,6 +21,12 @@ export default function ViewMembers() {
   const [members, setMembers] = useState<UserDoc[]>([]);
   const [query, setQuery] = useState("");
   const { groupId } = useLocalSearchParams<{ groupId?: string }>();
+  const { user } = useAuth0();
+
+  const userId = user?.sub || '';
+  const isOwner = group?.OwnerId === userId;
+  const isAdmin = group?.AdminIds?.includes(userId) ?? false;
+  const canAccessSettings = isOwner || isAdmin;
 
   useEffect(() => {
     const load = async () => {
@@ -51,6 +59,85 @@ export default function ViewMembers() {
     );
   }, [members, query]);
 
+  const getMemberRole = (memberId: string): 'owner' | 'admin' | 'member' => {
+    if (group?.OwnerId === memberId) return 'owner';
+    if (group?.AdminIds?.includes(memberId)) return 'admin';
+    return 'member';
+  };
+
+  const handleToggleAdmin = (member: UserDoc) => {
+    const memberRole = getMemberRole(member.id);
+    if (memberRole === 'owner') return; // Can't change owner role
+
+    if (memberRole === 'admin') {
+      Alert.alert(
+        "Remove Admin",
+        `Remove ${member.Name} as admin?`,
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Remove",
+            style: "destructive",
+            onPress: async () => {
+              try {
+                await removeGroupAdmin(group!.id, member.id);
+                setGroup(prev => prev ? {
+                  ...prev,
+                  AdminIds: (prev.AdminIds || []).filter(id => id !== member.id)
+                } : prev);
+              } catch (error) {
+                console.error('Error removing admin:', error);
+                Alert.alert("Error", "Failed to remove admin.");
+              }
+            }
+          }
+        ]
+      );
+    } else {
+      Alert.alert(
+        "Make Admin",
+        `Make ${member.Name} an admin? Admins can edit group settings.`,
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Make Admin",
+            onPress: async () => {
+              try {
+                await addGroupAdmin(group!.id, member.id);
+                setGroup(prev => prev ? {
+                  ...prev,
+                  AdminIds: [...(prev.AdminIds || []), member.id]
+                } : prev);
+              } catch (error) {
+                console.error('Error adding admin:', error);
+                Alert.alert("Error", "Failed to make admin.");
+              }
+            }
+          }
+        ]
+      );
+    }
+  };
+
+  const roleBadge = (memberId: string) => {
+    const role = getMemberRole(memberId);
+    if (role === 'owner') {
+      return (
+        <XStack bg="#4A90D9" rounded="$2" px="$2" py="$1" ml="$2">
+          <Text color="white" fontSize="$1" fontWeight="600">Owner</Text>
+        </XStack>
+      );
+    }
+    if (role === 'admin') {
+      return (
+        <XStack bg="#E8A838" rounded="$2" px="$2" py="$1" ml="$2">
+          <Text color="white" fontSize="$1" fontWeight="600">Admin</Text>
+        </XStack>
+      );
+    }
+    return null;
+  };
+
   return (
     <SafeAreaWrapper>
       <YStack flex={1} p="$4" bg="$background">
@@ -69,26 +156,30 @@ export default function ViewMembers() {
                 <Text color="$color">Back</Text>
               </XStack>
             </Button>
-            <Button
-              bg="$color2"
-              borderColor="$color6"
-              borderWidth="$1"
-              onPress={() => {
-                // TODO: Navigate to group settings
-                console.log("Settings pressed for group:", group?.id);
-              }}
-              px="$3"
-              py="$2"
-            >
-              <XStack verticalAlign="center" space="$2">
-                <Ionicons name="settings-outline" size={18} color="#888" />
-                <Text color="$color">Settings</Text>
-              </XStack>
-            </Button>
+            {canAccessSettings && (
+              <Button
+                bg="$color2"
+                borderColor="$color6"
+                borderWidth="$1"
+                onPress={() => {
+                  router.push({
+                    pathname: '/groups/groupSettings',
+                    params: { groupId: group?.id }
+                  });
+                }}
+                px="$3"
+                py="$2"
+              >
+                <XStack verticalAlign="center" space="$2">
+                  <Ionicons name="settings-outline" size={18} color="#888" />
+                  <Text color="$color">Settings</Text>
+                </XStack>
+              </Button>
+            )}
           </XStack>
-          <Text 
-            color="$color9" 
-            fontWeight="bold" 
+          <Text
+            color="$color9"
+            fontWeight="bold"
             fontSize="$10"
             numberOfLines={2}
             ellipsizeMode="tail"
@@ -138,19 +229,38 @@ export default function ViewMembers() {
                       </Avatar.Fallback>
                     </Avatar>
                     <YStack flex={1}>
-                      <H4 color="$color" fontWeight="600">{u.Name}</H4>
+                      <XStack verticalAlign="center">
+                        <H4 color="$color" fontWeight="600">{u.Name}</H4>
+                        {roleBadge(u.id)}
+                      </XStack>
                       <Text color="$color10" fontSize="$2">{u.Email}</Text>
                       {!!u.Phone && (
                         <Text color="$color10" fontSize="$2">{u.Phone}</Text>
                       )}
                     </YStack>
+                    {/* Admin toggle button - only visible to owner, not on the owner's own card */}
+                    {isOwner && u.id !== group?.OwnerId && (
+                      <Button
+                        bg="transparent"
+                        borderWidth={0}
+                        p="$2"
+                        onPress={() => handleToggleAdmin(u)}
+                        aria-label={getMemberRole(u.id) === 'admin' ? `Remove ${u.Name} as admin` : `Make ${u.Name} an admin`}
+                      >
+                        <Ionicons
+                          name={getMemberRole(u.id) === 'admin' ? "shield" : "shield-outline"}
+                          size={22}
+                          color={getMemberRole(u.id) === 'admin' ? "#E8A838" : "#888"}
+                        />
+                      </Button>
+                    )}
                   </XStack>
                 </Card>
               ))
             )}
           </YStack>
         </ScrollView>
-        
+
         {/* Add Members Button */}
         <Button
           bg="$color9"

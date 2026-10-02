@@ -8,7 +8,7 @@
 // services/firestore.ts
 import {
   getFirestore, collection, doc, setDoc, getDoc, updateDoc, writeBatch, onSnapshot,
-  increment, arrayUnion, CollectionReference, QueryDocumentSnapshot, DocumentData, getDocs, query, where,
+  increment, arrayUnion, arrayRemove, CollectionReference, QueryDocumentSnapshot, DocumentData, getDocs, query, where,
   Timestamp, deleteDoc, documentId, or, addDoc
 } from "firebase/firestore";
 import { db, storage} from "./index";
@@ -184,8 +184,10 @@ export async function getUserProfile(uid: string): Promise<UserDoc | undefined> 
   return snap.exists() ? { id: snap.id, ...snap.data() } as UserDoc : undefined;
 }
 
-export async function updateUserProfile(uid: string, data: Partial<UserDoc>): Promise<void> {
-  return updateDoc(doc(db, "users", uid), data);
+// Email comes from the Auth0 account and is never editable from the app
+export async function updateUserProfile(uid: string, data: Omit<Partial<UserDoc>, 'Email'>): Promise<void> {
+  const { Email: _ignored, ...updates } = data as Partial<UserDoc>;
+  return updateDoc(doc(db, "users", uid), updates);
 }
 
 export async function getAllUserProfiles(): Promise<UserDoc[]> {
@@ -832,6 +834,20 @@ export async function addGroupMember(userId: string, groupId: string){
   
   await batch.commit();
   return true;
+}
+
+// --- GROUP MANAGEMENT ---
+
+export async function updateGroup(groupId: string, updates: Partial<GroupDoc>): Promise<void> {
+  return updateDoc(doc(db, "groups", groupId), updates);
+}
+
+export async function addGroupAdmin(groupId: string, userId: string): Promise<void> {
+  return updateDoc(doc(db, "groups", groupId), { AdminIds: arrayUnion(userId) });
+}
+
+export async function removeGroupAdmin(groupId: string, userId: string): Promise<void> {
+  return updateDoc(doc(db, "groups", groupId), { AdminIds: arrayRemove(userId) });
 }
 
 // --- TEMPORARY USER OPERATIONS ---

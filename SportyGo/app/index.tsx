@@ -39,7 +39,7 @@ export default function Index() {
   }, [user, isLoading, initializing]);
   return (
     <SafeAreaWrapper backgroundColor="$background">
-      <YStack flex={1} p="$4" gap="$2" justifyContent="center" alignItems="center">
+      <YStack flex={1} p="$4" gap="$2" justify="center" items="center">
         <Spinner size="large" color="$color9" />
         <Text color="$color10">Loading…</Text>
       </YStack>

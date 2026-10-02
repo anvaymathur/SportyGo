@@ -9,7 +9,8 @@ export default function GroupLayout() {
     const shouldHide =
       pathname?.endsWith('/viewMembers') ||
       pathname?.endsWith('/createGroup') ||
-      pathname?.includes('/addMembers');
+      pathname?.includes('/addMembers') ||
+      pathname?.endsWith('/groupSettings');
 
     const parent = navigation.getParent();
     parent?.setOptions({ tabBarStyle: shouldHide ? { display: 'none' } : undefined });
@@ -22,6 +23,7 @@ export default function GroupLayout() {
       <Stack.Screen name="viewMembers" />
       <Stack.Screen name="[inviteCode]" />
       <Stack.Screen name="addMembers" />
+      <Stack.Screen name="groupSettings" />
     </Stack>
   );
 }

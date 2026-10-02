@@ -72,6 +72,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useMatchHistory } from "@/hooks/useMatchHistory";
 import { usePlayerProfiles } from "@/hooks/usePlayerProfiles";
 import { useMatchFilters } from "@/hooks/useMatchFilters";
+import { useProfileChangeListener } from "@/hooks/useProfileChangeListener";
 
 /**
  * Maps each match outcome to its accent color and display label.
@@ -347,7 +348,7 @@ export default function ViewScore() {
     return Array.from(ids);
   }, [matchHistory]);
 
-  const { playerNames, visiblePlayers, onViewableItemsChanged, profilesLoading } =
+  const { playerNames, visiblePlayers, onViewableItemsChanged, profilesLoading, refreshProfiles } =
     usePlayerProfiles(allPlayerIds);
 
   const {
@@ -391,6 +392,17 @@ export default function ViewScore() {
     pickerMinimumDate,
     setPendingValue,
   } = useMatchFilters();
+
+  // ── Profile Change Listener ─────────────────────────────────────────
+  // Listen for changes to any player profile that appears in match history.
+  // When a profile changes (name, photo, etc.), clear the cached profile
+  // data so the UI re-fetches and shows the updated information.
+  useProfileChangeListener(allPlayerIds, refreshProfiles);
+
+  // Combined refresh: pull-to-refresh also re-fetches player profiles.
+  const handleFullRefresh = useCallback(async () => {
+    await Promise.all([handleRefresh(), refreshProfiles()]);
+  }, [handleRefresh, refreshProfiles]);
 
   // ── Player Display Helpers ──────────────────────────────────────────
   // Resolve display name: prefer fetched profile → cached name → raw player ID.
@@ -978,7 +990,7 @@ export default function ViewScore() {
           onViewableItemsChanged={onViewableItemsChanged}
           viewabilityConfig={{ itemVisiblePercentThreshold: 25 }}
           refreshing={refreshing}
-          onRefresh={handleRefresh}
+          onRefresh={handleFullRefresh}
           ListEmptyComponent={() =>
             hasMatches ? (
               // Empty state when filters hide all results

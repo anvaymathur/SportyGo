@@ -36,6 +36,7 @@ export default function SetupProfile() {
     const {globalUser, saveUser } = useContext(UserContext);
 
     const [name, setName] = useState('')
+    const [isPhotoProcessing, setIsPhotoProcessing] = useState(false)
     const [email, setEmail] = useState('')
     const [phone, setPhone] = useState('')
     const [address, setAddress] = useState('')
@@ -153,6 +154,7 @@ export default function SetupProfile() {
                                     photoUrl={photoUrl}
                                     name={name}
                                     onPhotoChange={setPhotoUrl}
+                                    onProcessingChange={setIsPhotoProcessing}
                                     editable={true}
                                     borderColor="$color9"
                                     borderWidth={0}
@@ -262,8 +264,9 @@ export default function SetupProfile() {
                                 bg="$color9"
                                 color="$color1"
                                 onPress={createProfile}
+                                disabled={isPhotoProcessing}
                             >
-                                Create Profile
+                                {isPhotoProcessing ? 'Processing photo...' : 'Create Profile'}
                             </Button>
                         </YStack>
                     </ScrollView>
