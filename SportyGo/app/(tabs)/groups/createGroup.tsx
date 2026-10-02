@@ -32,8 +32,8 @@ export default function CreateGroup() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const {user} = useAuth0();
 
-  // Count only non-space characters (spaces don't count toward the limit)
-  const countNonSpaceChars = (val: string) => val.replace(/ /g, '').length;
+  // Count only non-whitespace characters (spaces/newlines don't count toward the limit)
+  const countNonSpaceChars = (val: string) => val.replace(/\s/g, '').length;
   const DESCRIPTION_LIMIT = 150;
 
   // Function to generate group initials
@@ -287,7 +287,6 @@ export default function CreateGroup() {
                 placeholderTextColor="$color10"
                 p="$3"
                 numberOfLines={5}
-                maxLength={150}
                 style={{ borderRadius: 8, textAlignVertical: 'top', minHeight: 120, fontSize: 16 }}
               />
               <XStack style={{ justifyContent: 'flex-end' }}>

@@ -36,7 +36,8 @@ export default function GroupSettings() {
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const [photoChanged, setPhotoChanged] = useState(false);
 
-  const countNonSpaceChars = (val: string) => val.replace(/ /g, '').length;
+  // Count only non-whitespace characters (spaces/newlines don't count toward the limit)
+  const countNonSpaceChars = (val: string) => val.replace(/\s/g, '').length;
   const DESCRIPTION_LIMIT = 150;
 
   const generateGroupInitials = (name: string): string => {
@@ -322,7 +323,6 @@ export default function GroupSettings() {
                 placeholderTextColor="$color10"
                 p="$3"
                 numberOfLines={5}
-                maxLength={150}
                 style={{ borderRadius: 8, textAlignVertical: 'top', minHeight: 120, fontSize: 16 }}
               />
               <XStack style={{ justifyContent: 'flex-end' }}>
