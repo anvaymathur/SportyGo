@@ -68,6 +68,8 @@ interface PhotoAvatarProps {
   photoUrl?: string;
   name?: string;
   onPhotoChange?: (photoUrl: string) => void;
+  /** Called with true while a picked photo is being converted, so parents can hold off saving. */
+  onProcessingChange?: (processing: boolean) => void;
   editable?: boolean;
   borderColor?: any;
   borderWidth?: number;
@@ -90,6 +92,7 @@ export const PhotoAvatar: React.FC<PhotoAvatarProps> = ({
   photoUrl,
   name = '',
   onPhotoChange,
+  onProcessingChange,
   editable = false,
   borderColor = '$color9',
   borderWidth = 2,
@@ -170,6 +173,7 @@ export const PhotoAvatar: React.FC<PhotoAvatarProps> = ({
       if (!onPhotoChange) return;
 
       setIsUploading(true);
+      onProcessingChange?.(true);
       try {
         const base64Photo = await imageToBase64(uri);
         onPhotoChange(base64Photo);
@@ -178,6 +182,7 @@ export const PhotoAvatar: React.FC<PhotoAvatarProps> = ({
         Alert.alert('Error', 'Failed to process image. Please try again.');
       } finally {
         setIsUploading(false);
+        onProcessingChange?.(false);
       }
     } catch (error) {
       console.error('Error picking image:', error);
@@ -234,6 +239,7 @@ export const PhotoAvatar: React.FC<PhotoAvatarProps> = ({
       <View style={{ position: 'relative' }}>
         <Button
           onPress={handlePickImage}
+          aria-label="Change photo"
           bg="transparent"
           borderWidth={0}
           p={0}
@@ -257,6 +263,7 @@ export const PhotoAvatar: React.FC<PhotoAvatarProps> = ({
         {editable && hasRealImage && (
           <Button
             onPress={handleRemoveImage}
+            aria-label="Remove photo"
             size="$2"
             bg="$color9"
             borderWidth={0}

@@ -72,6 +72,8 @@ export default function UserProfileScreen() {
   const [editDob, setEditDob] = useState('');
   const [editPhotoUrl, setEditPhotoUrl] = useState('');
   const [showDobPicker, setShowDobPicker] = useState(false);
+  // True while a newly picked photo is still being converted; saving then would drop it
+  const [isPhotoProcessing, setIsPhotoProcessing] = useState(false);
 
   const startEditing = () => {
     setEditName(profile?.Name || '');
@@ -99,6 +101,7 @@ export default function UserProfileScreen() {
   };
 
   const handleSave = async () => {
+    if (isPhotoProcessing) return;
     const trimmedName = editName.trim();
     if (!trimmedName) {
       Alert.alert('Missing Information', 'Name cannot be empty.', [{ text: 'OK' }]);
@@ -225,8 +228,8 @@ export default function UserProfileScreen() {
                 bg="$color9"
                 color="$color1"
                 onPress={handleSave}
-                disabled={isSaving}
-                icon={isSaving ? <Spinner size="small" color="$color1" /> : undefined}
+                disabled={isSaving || isPhotoProcessing}
+                icon={isSaving || isPhotoProcessing ? <Spinner size="small" color="$color1" /> : undefined}
               >
                 Save
               </Button>
@@ -253,6 +256,7 @@ export default function UserProfileScreen() {
                 name={isEditing ? editName : profile?.Name}
                 editable={isEditing}
                 onPhotoChange={isEditing ? setEditPhotoUrl : undefined}
+                onProcessingChange={setIsPhotoProcessing}
                 borderColor="$color9"
                 borderWidth={1}
                 backgroundColor="$color9"

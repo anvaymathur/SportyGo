@@ -1,11 +1,12 @@
 import React from 'react';
 import { Alert } from 'react-native';
-import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { mockFirestore } from './setup';
 import { renderWithTheme } from './test-utils';
 import UserProfileScreen from '../app/(tabs)/userProfile';
 import { UserContext } from '../components/userContext';
-import { getUserGroups, updateUserProfile } from '../firebase/services_firestore2';
+import { getUserGroups, imageToBase64, updateUserProfile } from '../firebase/services_firestore2';
+import * as ImagePicker from 'expo-image-picker';
 
 jest.mock('../firebase/services_firestore2', () => ({
   updateUserProfile: jest.fn(async () => undefined),
@@ -102,5 +103,27 @@ describe('UserProfile', () => {
     fireEvent.press(screen.getByText('Cancel'));
     expect(screen.getByText('Olivia Owner')).toBeTruthy();
     expect(updateUserProfile).not.toHaveBeenCalled();
+  });
+  it('waits for a newly picked photo to finish processing before saving', async () => {
+    (ImagePicker.launchImageLibraryAsync as jest.Mock).mockResolvedValueOnce({
+      canceled: false,
+      assets: [{ uri: 'file:///new.jpg' }],
+    });
+    let finishConversion!: (value: string) => void;
+    (imageToBase64 as jest.Mock).mockReturnValueOnce(new Promise((resolve) => { finishConversion = resolve; }));
+
+    await renderProfile();
+    fireEvent.press(screen.getByText('Edit'));
+    fireEvent.press(screen.getByLabelText('Change photo'));
+    await waitFor(() => expect(imageToBase64).toHaveBeenCalledWith('file:///new.jpg'));
+
+    // Still converting: Save does nothing
+    fireEvent.press(screen.getByText('Save'));
+    expect(updateUserProfile).not.toHaveBeenCalled();
+
+    await act(async () => finishConversion('data:image/jpeg;base64,NEW'));
+    fireEvent.press(screen.getByText('Save'));
+    await waitFor(() => expect(updateUserProfile).toHaveBeenCalled());
+    expect((updateUserProfile as jest.Mock).mock.calls[0][1].PhotoUrl).toBe('data:image/jpeg;base64,NEW');
   });
 });
