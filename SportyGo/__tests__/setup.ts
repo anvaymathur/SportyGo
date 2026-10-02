@@ -47,6 +47,7 @@ export const mockFirestore = {
   increment: jest.fn((n: number) => ({ op: 'increment', n })),
   getDoc: jest.fn(),
   writeBatch: jest.fn(() => ({ set: jest.fn(), update: jest.fn(), commit: jest.fn(async () => undefined) })),
+  runTransaction: jest.fn(),
 };
 jest.mock('firebase/firestore', () => ({
   ...mockFirestore,

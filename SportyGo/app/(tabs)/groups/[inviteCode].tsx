@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import { Linking, Alert } from "react-native";
 import { YStack, Card, Button, Text, Paragraph, H3, Spinner } from "tamagui";
-import { getGroupInvite, addGroupMember, getGroupById } from "../../../firebase/services_firestore2";
+import { getGroupInvite, addGroupMember, getGroupById, isInviteUsable } from "../../../firebase/services_firestore2";
 
 import { useAuth0 } from "react-native-auth0";
 import { GroupInviteDoc } from "../../../firebase/types_index";
@@ -68,9 +68,7 @@ export default function GroupInviteScreen() {
         setStatus("invalid");
       } else if (invite.expired) {
         setStatus("expired");
-      } else if (invite.maxUses && invite.used && invite.maxUses <= invite.used) {
-        setStatus("invalid");
-      } else if (invite.validUntil && invite.validUntil < new Date()) {
+      } else if (!isInviteUsable(invite, invite.groupId)) {
         setStatus("invalid");
       } else {
         // Check if user is already a member of the group
@@ -92,16 +90,18 @@ export default function GroupInviteScreen() {
     setJoining(true);
     try {
       const result = await addGroupMember(userId, invite.groupId, invite.inviteCode);
-      if (result) {
+      if (result === 'joined') {
         router.push({
           pathname: '/groups/viewMembers',
           params: { groupId: invite.groupId }
         })
-      }
-      else if (result === false) {
+      } else if (result === 'already_member') {
         Alert.alert("Error", "You are already a member of this group")
-      }
-      else {
+      } else if (result === 'invite_unavailable') {
+        // Someone else may have used the last spot since the invite was checked
+        setStatus("invalid");
+        Alert.alert("Invite unavailable", "This invite link has expired or reached its maximum number of uses.")
+      } else {
         Alert.alert("Error", "Failed to add group member")
       }
     } catch (error) {
