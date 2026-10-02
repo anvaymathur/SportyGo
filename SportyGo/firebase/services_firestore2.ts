@@ -8,7 +8,7 @@
 // services/firestore.ts
 import {
   getFirestore, collection, doc, setDoc, getDoc, updateDoc, writeBatch, onSnapshot,
-  increment, arrayUnion, CollectionReference, QueryDocumentSnapshot, DocumentData, getDocs, query, where,
+  increment, arrayUnion, arrayRemove, CollectionReference, QueryDocumentSnapshot, DocumentData, getDocs, query, where,
   Timestamp, deleteDoc, documentId, or, addDoc
 } from "firebase/firestore";
 import { db, storage} from "./index";
@@ -832,6 +832,20 @@ export async function addGroupMember(userId: string, groupId: string){
   
   await batch.commit();
   return true;
+}
+
+// --- GROUP MANAGEMENT ---
+
+export async function updateGroup(groupId: string, updates: Partial<GroupDoc>): Promise<void> {
+  return updateDoc(doc(db, "groups", groupId), updates);
+}
+
+export async function addGroupAdmin(groupId: string, userId: string): Promise<void> {
+  return updateDoc(doc(db, "groups", groupId), { AdminIds: arrayUnion(userId) });
+}
+
+export async function removeGroupAdmin(groupId: string, userId: string): Promise<void> {
+  return updateDoc(doc(db, "groups", groupId), { AdminIds: arrayRemove(userId) });
 }
 
 // --- TEMPORARY USER OPERATIONS ---
