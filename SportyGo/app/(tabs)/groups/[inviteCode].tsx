@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import { Linking, Alert } from "react-native";
 import { YStack, Card, Button, Text, Paragraph, H3, Spinner } from "tamagui";
@@ -11,6 +11,8 @@ import { SafeAreaWrapper } from "@/components/SafeAreaWrapper";
 export default function GroupInviteScreen() {
   const localParams = useLocalSearchParams<{ inviteCode?: string }>();
   const [invite, setInvite] = useState<GroupInviteDoc | null>(null);
+  const joiningRef = useRef(false);
+  const [joining, setJoining] = useState(false);
   const [status, setStatus] = useState<"checking" | "valid" | "invalid" | "expired" | "already_member">("checking");
   const [inviteCode, setInviteCode] = useState<string | undefined>(localParams.inviteCode);
 
@@ -85,13 +87,16 @@ export default function GroupInviteScreen() {
   }, [inviteCode, userId]);
 
   const handleAddGroupMember = async () => {
-    if (invite && userId) {
-      const result = await addGroupMember(userId, invite.groupId);
+    if (!invite || !userId || joiningRef.current) return;
+    joiningRef.current = true;
+    setJoining(true);
+    try {
+      const result = await addGroupMember(userId, invite.groupId, invite.inviteCode);
       if (result) {
         router.push({
           pathname: '/groups/viewMembers',
           params: { groupId: invite.groupId }
-       })
+        })
       }
       else if (result === false) {
         Alert.alert("Error", "You are already a member of this group")
@@ -99,6 +104,12 @@ export default function GroupInviteScreen() {
       else {
         Alert.alert("Error", "Failed to add group member")
       }
+    } catch (error) {
+      console.error('Error joining group:', error);
+      Alert.alert("Error", "Failed to join the group. Please try again.");
+    } finally {
+      joiningRef.current = false;
+      setJoining(false);
     }
   };
 
@@ -179,9 +190,10 @@ export default function GroupInviteScreen() {
             color="$color1"
             borderWidth="$0"
             onPress={handleAddGroupMember}
+            disabled={joining}
             mt="$3"
           >
-            Join Group
+            {joining ? "Joining..." : "Join Group"}
           </Button>
         </Card>
       </YStack>

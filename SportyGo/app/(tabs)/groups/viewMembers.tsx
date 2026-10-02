@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { YStack, XStack, Text, H2, H4, Input, Button, Card, ScrollView, Avatar } from "tamagui";
+import { YStack, XStack, Text, H4, Input, Button, Card, ScrollView, Avatar } from "tamagui";
 import { Ionicons } from "@expo/vector-icons";
 import { Alert } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
@@ -36,15 +36,21 @@ export default function ViewMembers() {
         return;
       }
       setLoading(true);
-      const group = await getGroupById(gid);
-      setGroup(group);
-      if (group && Array.isArray(group.MemberIds) && group.MemberIds.length > 0) {
-        const profiles = await getUsersByIds(group.MemberIds);
-        setMembers(profiles);
-      } else {
-        setMembers([]);
+      try {
+        const group = await getGroupById(gid);
+        setGroup(group);
+        if (group && Array.isArray(group.MemberIds) && group.MemberIds.length > 0) {
+          const profiles = await getUsersByIds(group.MemberIds);
+          setMembers(profiles);
+        } else {
+          setMembers([]);
+        }
+      } catch (error) {
+        console.error('Error loading members:', error);
+        Alert.alert("Error", "Failed to load group members. Please try again.");
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
     load();
   }, [groupId]);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { View, Alert, ScrollView, Share, Platform, Clipboard } from "react-native";
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { 
@@ -34,6 +34,8 @@ export default function AddMembers() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [maxUses, setMaxUses] = useState('10');
+  const generatingRef = useRef(false);
+  const [generating, setGenerating] = useState(false);
   const [maxUsesInput, setMaxUsesInput] = useState('10');
   const [showMaxUsesPicker, setShowMaxUsesPicker] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -142,16 +144,35 @@ export default function AddMembers() {
         return;
     }
 
+    // 999 is the app's "unlimited" value (parseInt('unlimited') would store NaN)
+    const parsedMaxUses = maxUses === 'unlimited' ? 999 : parseInt(maxUses, 10);
+    if (!Number.isInteger(parsedMaxUses) || parsedMaxUses < 1) {
+        Alert.alert("Error", "Max uses must be a number from 1 to 999");
+        return;
+    }
+
     const invite: GroupInviteDoc = {
         groupId: group?.id || '',
         inviteCode: inviteCode,
         inviteLink: inviteLink,
         validUntil: expiryDate,
-        maxUses: parseInt(maxUses),
+        maxUses: parsedMaxUses,
         expired: false,
         used: 0
     };
-    await createGroupInvite(invite);
+    if (generatingRef.current) return;
+    generatingRef.current = true;
+    setGenerating(true);
+    try {
+      await createGroupInvite(invite);
+    } catch (error) {
+      console.error('Error creating invite:', error);
+      Alert.alert("Error", "Failed to generate the invite link. Please try again.");
+      return;
+    } finally {
+      generatingRef.current = false;
+      setGenerating(false);
+    }
     setInviteLink(inviteLink);
     setIsLinkGenerated(true);
     
@@ -166,7 +187,7 @@ export default function AddMembers() {
     }
     
     const expiryText = expiryDate.toLocaleString();
-    const maxUsesText = maxUses === 'unlimited' ? 'Unlimited uses' : `${maxUsesOptions.find(opt => opt.value === maxUses)?.label}`;
+    const maxUsesText = parsedMaxUses === 999 ? 'Unlimited uses' : `${parsedMaxUses} uses`;
     
     Alert.alert(
       "Success", 
@@ -309,6 +330,7 @@ export default function AddMembers() {
                   borderColor="$color6"
                   borderWidth="$1"
                   onPress={generateInviteLink}
+                  disabled={generating}
                 >
                   <XStack items="center" space="$2">
                     <Ionicons name="link" size={16} color="#666" />

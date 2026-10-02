@@ -44,6 +44,9 @@ export const mockFirestore = {
   onSnapshot: jest.fn(() => () => undefined),
   arrayUnion: jest.fn((v: string) => ({ op: 'arrayUnion', v })),
   arrayRemove: jest.fn((v: string) => ({ op: 'arrayRemove', v })),
+  increment: jest.fn((n: number) => ({ op: 'increment', n })),
+  getDoc: jest.fn(),
+  writeBatch: jest.fn(() => ({ set: jest.fn(), update: jest.fn(), commit: jest.fn(async () => undefined) })),
 };
 jest.mock('firebase/firestore', () => ({
   ...mockFirestore,

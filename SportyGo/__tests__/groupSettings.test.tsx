@@ -145,4 +145,11 @@ describe('GroupSettings', () => {
     buttons[0].onPress();
     expect(mockRouter.back).toHaveBeenCalled();
   });
+  it('stops loading and reports an error when the group fails to load', async () => {
+    (getGroupById as jest.Mock).mockRejectedValue(new Error('offline'));
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    await renderScreen();
+    expect(alertSpy).toHaveBeenCalledWith('Error', 'Failed to load group settings. Please try again.');
+    expect(screen.getByText('Group not found.')).toBeTruthy();
+  });
 });

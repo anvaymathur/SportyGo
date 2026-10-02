@@ -1,6 +1,6 @@
 // Multi-step wizard for logging a new match result.
 // Handles player selection, score entry, match metadata, validation, and persists data to Firestore.
-import React, { useContext, useEffect, useState } from "react";
+import React, { useContext, useEffect, useRef, useState } from "react";
 import {
   ScrollView,
   View,
@@ -281,6 +281,9 @@ export default function AddScore() {
   const [qaEmail, setQaEmail] = useState('');
   const [qaPhone, setQaPhone] = useState('');
   const [qaSubmitting, setQaSubmitting] = useState(false);
+  // Ref guards against a double tap firing two saves before the re-render disables the button
+  const savingRef = useRef(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [qaKeyboardOpen, setQaKeyboardOpen] = useState(false);
 
   useEffect(() => {
@@ -486,8 +489,19 @@ export default function AddScore() {
       };
 
       // Save to Firestore
-      await createMatchHistory(matchData);
-      router.replace('/(tabs)/matches/viewScore')
+      if (savingRef.current) return;
+      savingRef.current = true;
+      setIsSaving(true);
+      try {
+        await createMatchHistory(matchData);
+        router.replace('/(tabs)/matches/viewScore')
+      } catch (error) {
+        console.error('Error saving match:', error);
+        Alert.alert("Error", "Failed to save the match. Please try again.");
+      } finally {
+        savingRef.current = false;
+        setIsSaving(false);
+      }
     } else {
       Alert.alert(
         "Missing Information",
@@ -1217,8 +1231,9 @@ export default function AddScore() {
               bg="$color9"
               color="$color1"
               onPress={handlePrimaryAction}
+              disabled={isSaving}
             >
-              {currentStep === totalSteps - 1 ? "Save match scores" : "Next"}
+              {currentStep === totalSteps - 1 ? (isSaving ? "Saving..." : "Save match scores") : "Next"}
             </Button>
           </XStack>
         </XStack>

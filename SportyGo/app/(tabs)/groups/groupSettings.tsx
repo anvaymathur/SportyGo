@@ -80,21 +80,27 @@ export default function GroupSettings() {
         return;
       }
       setLoading(true);
-      const g = await getGroupById(gid);
-      setGroup(g);
-      if (g) {
-        setGroupName(g.Name || '');
-        setDescription(g.Description || '');
-        setSkillLevel(g.SkillLevel || '');
-        setPrivacy(g.Privacy || '');
-        setHomeCourt(g.HomeCourt || '');
-        setMeetingSchedule(g.MeetingSchedule || '');
-        // Set photo: if it's a real image (base64 or URL), show it
-        if (g.PhotoUrl && !g.PhotoUrl.startsWith('INITIALS:')) {
-          setSelectedPhoto(g.PhotoUrl);
+      try {
+        const g = await getGroupById(gid);
+        setGroup(g);
+        if (g) {
+          setGroupName(g.Name || '');
+          setDescription(g.Description || '');
+          setSkillLevel(g.SkillLevel || '');
+          setPrivacy(g.Privacy || '');
+          setHomeCourt(g.HomeCourt || '');
+          setMeetingSchedule(g.MeetingSchedule || '');
+          // Set photo: if it's a real image (base64 or URL), show it
+          if (g.PhotoUrl && !g.PhotoUrl.startsWith('INITIALS:')) {
+            setSelectedPhoto(g.PhotoUrl);
+          }
         }
+      } catch (error) {
+        console.error('Error loading group:', error);
+        Alert.alert("Error", "Failed to load group settings. Please try again.");
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
     load();
   }, [groupId]);
@@ -206,7 +212,7 @@ export default function GroupSettings() {
       <SafeAreaWrapper>
         <YStack flex={1} p="$4" justify="center" items="center">
           <Ionicons name="lock-closed-outline" size={48} color="#888" />
-          <Text color="$color10" mt="$4" fontSize="$5">You don't have permission to edit group settings.</Text>
+          <Text color="$color10" mt="$4" fontSize="$5">You don&apos;t have permission to edit group settings.</Text>
           <Button mt="$4" bg="$color2" borderColor="$color6" borderWidth="$1" onPress={() => router.back()}>
             <Text color="$color">Go Back</Text>
           </Button>

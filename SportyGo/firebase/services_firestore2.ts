@@ -810,7 +810,11 @@ export async function getGroupInvites(groupId: string): Promise<GroupInviteDoc[]
 }
 
 
-export async function addGroupMember(userId: string, groupId: string){
+/**
+ * Adds a user to a group. When joining through an invite link, pass its code so
+ * the invite's `used` count goes up (that's what enforces maxUses).
+ */
+export async function addGroupMember(userId: string, groupId: string, inviteCode?: string){
   const groupRef = doc(db, "groups", groupId);
   const groupSnap = await getDoc(groupRef);
   if (!groupSnap.exists()) {
@@ -831,8 +835,17 @@ export async function addGroupMember(userId: string, groupId: string){
   // Add groupId to user's Groups array (deduped)
   const userRef = doc(db, "users", userId);
   batch.set(userRef, { Groups: arrayUnion(groupId) }, { merge: true });
-  
+
   await batch.commit();
+
+  // Separate write so joining still succeeds if security rules don't let members update invites
+  if (inviteCode) {
+    try {
+      await updateDoc(doc(db, "groupInvites", inviteCode), { used: increment(1) });
+    } catch (error) {
+      console.error('Failed to record invite use:', error);
+    }
+  }
   return true;
 }
 
