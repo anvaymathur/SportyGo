@@ -184,8 +184,10 @@ export async function getUserProfile(uid: string): Promise<UserDoc | undefined> 
   return snap.exists() ? { id: snap.id, ...snap.data() } as UserDoc : undefined;
 }
 
-export async function updateUserProfile(uid: string, data: Partial<UserDoc>): Promise<void> {
-  return updateDoc(doc(db, "users", uid), data);
+// Email comes from the Auth0 account and is never editable from the app
+export async function updateUserProfile(uid: string, data: Omit<Partial<UserDoc>, 'Email'>): Promise<void> {
+  const { Email: _ignored, ...updates } = data as Partial<UserDoc>;
+  return updateDoc(doc(db, "users", uid), updates);
 }
 
 export async function getAllUserProfiles(): Promise<UserDoc[]> {

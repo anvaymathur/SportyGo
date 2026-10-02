@@ -280,7 +280,7 @@ export default function GroupSettings() {
               </Text>
             </Stack>
             {selectedPhoto && (
-              <Button ml="$20" onPress={clearPhoto} bg="$color9" borderWidth={10} p={0} disabled={saving}>
+              <Button ml="$20" onPress={clearPhoto} bg="$color9" borderWidth={10} p={0} disabled={saving} aria-label="Remove group photo">
                 <Ionicons name="trash" size={20} color="white" />
               </Button>
             )}

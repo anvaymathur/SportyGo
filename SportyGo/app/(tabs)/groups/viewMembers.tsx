@@ -245,6 +245,7 @@ export default function ViewMembers() {
                         borderWidth={0}
                         p="$2"
                         onPress={() => handleToggleAdmin(u)}
+                        aria-label={getMemberRole(u.id) === 'admin' ? `Remove ${u.Name} as admin` : `Make ${u.Name} an admin`}
                       >
                         <Ionicons
                           name={getMemberRole(u.id) === 'admin' ? "shield" : "shield-outline"}

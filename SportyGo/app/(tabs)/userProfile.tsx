@@ -270,7 +270,7 @@ export default function UserProfileScreen() {
                     {isEditing ? (
                       <Input
                         value={editName}
-                        onChangeText={setEditName}
+                        onChangeText={(text: any) => setEditName(text)}
                         onFocus={() => setShowDobPicker(false)}
                         placeholder="Name"
                         borderColor="$color6"
