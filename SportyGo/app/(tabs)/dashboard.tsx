@@ -273,7 +273,7 @@ export default function Dashboard() {
         <YStack gap="$4">
           {/* Header: User name (tappable → /userProfile) + logout button */}
           <YStack p="$2">
-            <XStack justify="space-between" verticalAlign="center">
+            <XStack justify="space-between" items="center">
               <Text verticalAlign="middle" fontSize={24} fontWeight="800" color="$color" onPress={() => router.push('/userProfile')}>{userName}</Text>
               <Button onPress={onLogout}><Ionicons name="log-out-outline" size={20} color="$color1" /></Button>
             </XStack>

@@ -107,4 +107,12 @@ describe('ViewMembers', () => {
     expect(alertSpy).toHaveBeenLastCalledWith('Error', 'Failed to make admin.');
     expect(screen.getAllByText('Admin')).toHaveLength(1);
   });
+  it('stops loading and reports an error when members fail to load', async () => {
+    mockSearchParams.groupId = 'g1';
+    (getGroupById as jest.Mock).mockRejectedValue(new Error('offline'));
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    renderWithTheme(<ViewMembers />);
+    await waitFor(() => expect(screen.getByText('No members found.')).toBeTruthy());
+    expect(alertSpy).toHaveBeenCalledWith('Error', 'Failed to load group members. Please try again.');
+  });
 });

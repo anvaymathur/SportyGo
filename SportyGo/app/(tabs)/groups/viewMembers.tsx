@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { YStack, XStack, Text, H2, H4, Input, Button, Card, ScrollView, Avatar } from "tamagui";
+import { YStack, XStack, Text, H4, Input, Button, Card, ScrollView, Avatar } from "tamagui";
 import { Ionicons } from "@expo/vector-icons";
 import { Alert } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
@@ -36,15 +36,21 @@ export default function ViewMembers() {
         return;
       }
       setLoading(true);
-      const group = await getGroupById(gid);
-      setGroup(group);
-      if (group && Array.isArray(group.MemberIds) && group.MemberIds.length > 0) {
-        const profiles = await getUsersByIds(group.MemberIds);
-        setMembers(profiles);
-      } else {
-        setMembers([]);
+      try {
+        const group = await getGroupById(gid);
+        setGroup(group);
+        if (group && Array.isArray(group.MemberIds) && group.MemberIds.length > 0) {
+          const profiles = await getUsersByIds(group.MemberIds);
+          setMembers(profiles);
+        } else {
+          setMembers([]);
+        }
+      } catch (error) {
+        console.error('Error loading members:', error);
+        Alert.alert("Error", "Failed to load group members. Please try again.");
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
     load();
   }, [groupId]);
@@ -142,7 +148,7 @@ export default function ViewMembers() {
     <SafeAreaWrapper>
       <YStack flex={1} p="$4" bg="$background">
         <YStack mb={20}>
-          <XStack justify="space-between" verticalAlign="center" mb={10}>
+          <XStack justify="space-between" items="center" mb={10}>
             <Button
               bg="$color2"
               borderColor="$color6"
@@ -151,7 +157,7 @@ export default function ViewMembers() {
               px="$3"
               py="$2"
             >
-              <XStack verticalAlign="center" space="$2">
+              <XStack items="center" gap="$2">
                 <Ionicons name="arrow-back" size={18} color="#888" />
                 <Text color="$color">Back</Text>
               </XStack>
@@ -170,7 +176,7 @@ export default function ViewMembers() {
                 px="$3"
                 py="$2"
               >
-                <XStack verticalAlign="center" space="$2">
+                <XStack items="center" gap="$2">
                   <Ionicons name="settings-outline" size={18} color="#888" />
                   <Text color="$color">Settings</Text>
                 </XStack>
@@ -208,7 +214,7 @@ export default function ViewMembers() {
         </Text>
 
         <ScrollView flex={1} showsVerticalScrollIndicator>
-          <YStack space="$3" pb="$4">
+          <YStack gap="$3" pb="$4">
             {!loading && filtered.length === 0 ? (
               <Text color="$color10">No members found.</Text>
             ) : (
@@ -221,7 +227,7 @@ export default function ViewMembers() {
                   borderWidth="$1"
                   borderColor="$color6"
                 >
-                  <XStack verticalAlign="center" space="$3">
+                  <XStack items="center" gap="$3">
                     <Avatar circular size="$6" borderWidth={1} borderColor="$color6" backgroundColor="$color2">
                       <Avatar.Image src={require("../../../assets/images/defaultUserProfileImage.png")} />
                       <Avatar.Fallback backgroundColor="$color2">
@@ -229,7 +235,7 @@ export default function ViewMembers() {
                       </Avatar.Fallback>
                     </Avatar>
                     <YStack flex={1}>
-                      <XStack verticalAlign="center">
+                      <XStack items="center">
                         <H4 color="$color" fontWeight="600">{u.Name}</H4>
                         {roleBadge(u.id)}
                       </XStack>
@@ -276,7 +282,7 @@ export default function ViewMembers() {
           mt="$4"
           style={{ borderRadius: 8 }}
         >
-          <XStack verticalAlign="center" space="$2">
+          <XStack items="center" gap="$2">
             <Ionicons name="person-add-outline" size={20} color="white" />
             <Text color="$color1" fontWeight="600">Add Members</Text>
           </XStack>

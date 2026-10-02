@@ -1,5 +1,5 @@
 import { Alert, Platform, Keyboard, KeyboardAvoidingView, ScrollView, TouchableWithoutFeedback } from "react-native";
-import React, { useContext, useEffect, useState } from "react";
+import React, { useContext, useEffect, useRef, useState } from "react";
 import { Button, Input, YStack, XStack, Text, H2, View } from 'tamagui'
 import { router } from "expo-router";
 import { useAuth0 } from "react-native-auth0";
@@ -37,6 +37,8 @@ export default function SetupProfile() {
 
     const [name, setName] = useState('')
     const [isPhotoProcessing, setIsPhotoProcessing] = useState(false)
+    const creatingRef = useRef(false)
+    const [creating, setCreating] = useState(false)
     const [email, setEmail] = useState('')
     const [phone, setPhone] = useState('')
     const [address, setAddress] = useState('')
@@ -78,33 +80,43 @@ export default function SetupProfile() {
             return;
         }
 
-        if (user && name && email && phone.length == 10 && user.sub && dob){
-            
-            const dateOfBirth = /^\d{4}-\d{2}-\d{2}$/.test(dob) ? new Date(dob + 'T00:00:00') : undefined
-
-            const userProfile = {
-                id: user.sub, 
-                Name: name,
-                Email: email,
-                Groups: [], 
-                Phone: phone,
-                Address: '', //address.trim(),
-                PhotoUrl: photoUrl || "",
-                DateOfBirth: dateOfBirth || undefined
-            }
-            console.log('creating userProfile')
-            await createUserProfile(user.sub,userProfile)
-            console.log('userProfile created')
+        if (user && name && email && phone.length === 10 && user.sub && dob){
+            if (creatingRef.current) return
+            creatingRef.current = true
+            setCreating(true)
             try {
-                delete (user as any)["https://badmintonapp.com/is_signup"]
-            } catch {}
-            await saveUser({name: name, email: email})
-            // Detect claimable temp users before routing to dashboard
-            const claimable = await checkForClaimableTemps(email, phone);
-            if (claimable.length > 0) {
-                router.replace({ pathname: '/claimTempUsers' as any, params: { ids: JSON.stringify(claimable.map(t => t.id)) } });
-            } else {
-                router.replace('/dashboard')
+                const dateOfBirth = /^\d{4}-\d{2}-\d{2}$/.test(dob) ? new Date(dob + 'T00:00:00') : undefined
+
+                const userProfile = {
+                    id: user.sub, 
+                    Name: name,
+                    Email: email,
+                    Groups: [], 
+                    Phone: phone,
+                    Address: '', //address.trim(),
+                    PhotoUrl: photoUrl || "",
+                    DateOfBirth: dateOfBirth || undefined
+                }
+                console.log('creating userProfile')
+                await createUserProfile(user.sub,userProfile)
+                console.log('userProfile created')
+                try {
+                    delete (user as any)["https://badmintonapp.com/is_signup"]
+                } catch {}
+                await saveUser({name: name, email: email})
+                // Detect claimable temp users before routing to dashboard
+                const claimable = await checkForClaimableTemps(email, phone);
+                if (claimable.length > 0) {
+                    router.replace({ pathname: '/claimTempUsers' as any, params: { ids: JSON.stringify(claimable.map(t => t.id)) } });
+                } else {
+                    router.replace('/dashboard')
+                }
+            } catch (error) {
+                console.error('Error creating profile:', error)
+                Alert.alert("Error", "Failed to create your profile. Please try again.")
+            } finally {
+                creatingRef.current = false
+                setCreating(false)
             }
         } else {
             Alert.alert(
@@ -144,7 +156,7 @@ export default function SetupProfile() {
                             return false
                         }}
                     >
-                        <YStack gap="$6" verticalAlign="center" flex={1}>
+                        <YStack gap="$6" items="center" flex={1}>
                             <YStack gap="$5" style={{ alignItems: 'center', paddingTop: 8 }}>
                                 <H2 color="$color9" fontWeight="bold" mb="$8">
                                     Create Profile
@@ -264,9 +276,9 @@ export default function SetupProfile() {
                                 bg="$color9"
                                 color="$color1"
                                 onPress={createProfile}
-                                disabled={isPhotoProcessing}
+                                disabled={creating || isPhotoProcessing}
                             >
-                                {isPhotoProcessing ? 'Processing photo...' : 'Create Profile'}
+                                {creating ? 'Creating Profile...' : isPhotoProcessing ? 'Processing photo...' : 'Create Profile'}
                             </Button>
                         </YStack>
                     </ScrollView>

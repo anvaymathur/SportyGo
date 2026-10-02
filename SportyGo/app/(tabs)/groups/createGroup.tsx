@@ -89,7 +89,7 @@ export default function CreateGroup() {
 
       // Launch image picker
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
@@ -179,9 +179,9 @@ export default function CreateGroup() {
   return (
     <SafeAreaWrapper backgroundColor="white">
       <ScrollView>
-        <YStack flex={1} p="$4" space="$6" z={1}>
+        <YStack flex={1} p="$4" gap="$6" z={1}>
           {/* Header */}
-          <XStack justify="flex-start" verticalAlign="center" mb="$2">
+          <XStack justify="flex-start" items="center" mb="$2">
             <Button
               bg="$color2"
               borderColor="$color6"
@@ -190,7 +190,7 @@ export default function CreateGroup() {
               px="$3"
               py="$2"
             >
-              <XStack verticalAlign="center" space="$2">
+              <XStack items="center" gap="$2">
                 <Ionicons name="arrow-back" size={18} color="#888" />
                 <Text color="$color">Back</Text>
               </XStack>
@@ -246,9 +246,9 @@ export default function CreateGroup() {
           </YStack>
 
           {/* Form Fields */}
-          <YStack space="$5" flex={1}>
+          <YStack gap="$5" flex={1}>
             {/* Group Name */}
-            <YStack space="$2">
+            <YStack gap="$2">
               <Text color="$color" fontSize="$4" fontWeight="600">
                 Group Name *
               </Text>
@@ -267,7 +267,7 @@ export default function CreateGroup() {
             </YStack>
 
             {/* Description */}
-            <YStack space="$2">
+            <YStack gap="$2">
               <Text color="$color" fontSize="$4" fontWeight="600">
                 Description
               </Text>
@@ -297,7 +297,7 @@ export default function CreateGroup() {
             </YStack>
 
             {/* Group Skill Level */}
-            <YStack space="$2" p="$1">
+            <YStack gap="$2" p="$1">
               <Text color="$color" fontSize="$4" fontWeight="600">
                 Group Skill Level
               </Text>
@@ -350,7 +350,7 @@ export default function CreateGroup() {
             </YStack>
 
             {/* Privacy */}
-            <YStack space="$2" p="$1">
+            <YStack gap="$2" p="$1">
               <Text color="$color" fontSize="$4" fontWeight="600">
                 Privacy
               </Text>
@@ -405,7 +405,7 @@ export default function CreateGroup() {
             </YStack>
 
             {/* Home Court */}
-            <YStack space="$2">
+            <YStack gap="$2">
               <Text color="$color" fontSize="$4" fontWeight="600">
                 Home Court
               </Text>
@@ -424,7 +424,7 @@ export default function CreateGroup() {
             </YStack>
 
             {/* Meeting Schedule */}
-            <YStack space="$2" p="$1">
+            <YStack gap="$2" p="$1">
               <Text color="$color" fontSize="$4" fontWeight="600">
                 Meeting Schedule
               </Text>

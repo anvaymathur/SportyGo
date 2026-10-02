@@ -20,8 +20,8 @@ export const ScreenHeader: React.FC<ScreenHeaderProps> = ({
 }) => {
   return (
     <YStack bg={backgroundColor} px="$4" py="$3" borderBottomWidth={1} borderColor="$borderColor">
-      <XStack verticalAlign="center" justify="space-between">
-        <XStack verticalAlign="center" minW={64} >
+      <XStack items="center" justify="space-between">
+        <XStack items="center" minW={64} >
           {onBack ? (
             <Button
               bg="$color2"
@@ -45,7 +45,7 @@ export const ScreenHeader: React.FC<ScreenHeaderProps> = ({
           ) : null}
         </YStack>
 
-        <XStack verticalAlign="center" justify="flex-end" minW={64}>
+        <XStack items="center" justify="flex-end" minW={64}>
           {right}
         </XStack>
       </XStack>

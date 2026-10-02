@@ -393,7 +393,7 @@ export default function EventView() {
   if (isLoading) {
     return (
       <SafeAreaWrapper>
-        <YStack flex={1} bg="$background" p="$4" space="$4" justify="center" verticalAlign="center">
+        <YStack flex={1} bg="$background" p="$4" gap="$4" justify="center" items="center">
           <Spinner size="large" color="$color9" />
           <Text color="$color10">Loading event...</Text>
         </YStack>
@@ -404,9 +404,9 @@ export default function EventView() {
   return (
     <SafeAreaWrapper>
       <ScrollView flex={1} bg="$background" showsVerticalScrollIndicator={false}>
-        <YStack p="$4" space="$4">
+        <YStack p="$4" gap="$4">
           {/* Header */}
-          <XStack justify="space-between" verticalAlign="center">
+          <XStack justify="space-between" items="center">
             <Button size="$3" bg="$color2" color="$color" borderColor="$borderColor" borderWidth={1} onPress={() => router.back()}>
               <Text color="$color">← Back</Text>
             </Button>
@@ -419,10 +419,10 @@ export default function EventView() {
 
           {/* Event Header */}
           <Card p="$4" bg="$color1" borderColor="$borderColor" borderWidth={1} borderRadius="$4">
-            <YStack space="$3">
+            <YStack gap="$3">
               <H3 color="$color">{eventData?.Title || 'Event'}</H3>
 
-              <XStack space="$3" verticalAlign="start">
+              <XStack gap="$3" items="flex-start">
                 <Text>📅</Text>
                 <YStack flex={1}>
                   <Text color="$color10">Date & Time</Text>
@@ -445,7 +445,7 @@ export default function EventView() {
                 </YStack>
               </XStack>
 
-              <XStack space="$3" verticalAlign="start">
+              <XStack gap="$3" items="flex-start">
                 <Text>📍</Text>
                 <YStack flex={1}>
                   <Text color="$color10">Location</Text>
@@ -460,7 +460,7 @@ export default function EventView() {
               </XStack>
 
               {typeof eventData?.TotalCost === 'number' && Number.isFinite(eventData.TotalCost) && (
-                <XStack space="$3" verticalAlign="start">
+                <XStack gap="$3" items="flex-start">
                   <Text>💰</Text>
                   <YStack flex={1}>
                     <Text color="$color10">Total Cost</Text>
@@ -472,7 +472,7 @@ export default function EventView() {
                 </XStack>
               )}
 
-              <XStack space="$3" verticalAlign="start">
+              <XStack gap="$3" items="flex-start">
                 <Text>⏰</Text>
                 <YStack flex={1}>
                   <Text color="$color10">
@@ -497,11 +497,11 @@ export default function EventView() {
 
           {/* Voting Section */}
           <Card p="$4" bg="$color1" borderColor="$borderColor" borderWidth={1} borderRadius="$4">
-            <YStack space="$3">
+            <YStack gap="$3">
               <Text color="$color" fontWeight="800" fontSize={20}>Will you be attending?</Text>
 
               {eventData?.VotingEnabled === false ? (
-                <YStack space="$2">
+                <YStack gap="$2">
                   <Card p="$3" bg="$color2" borderColor="$borderColor" borderWidth={1}>
                     <Text color="$color" fontWeight="700">Voting Disabled</Text>
                     <Text color="$color10" mt="$2">
@@ -510,8 +510,8 @@ export default function EventView() {
                   </Card>
                 </YStack>
               ) : (
-                <YStack space="$3">
-                  <XStack verticalAlign="center" space="$2">
+                <YStack gap="$3">
+                  <XStack items="center" gap="$2">
                     <Card p="$2" bg={isVotingOpen ? ('$color3' as any) : ('$color2' as any)} borderColor="$borderColor" borderWidth={1}>
                       <Text color="$color">{isVotingOpen ? 'Voting Open' : 'Voting Closed'}</Text>
                     </Card>
@@ -520,7 +520,7 @@ export default function EventView() {
                     )}
                   </XStack>
 
-                  <XStack space="$2">
+                  <XStack gap="$2">
                     <Button
                       flex={1}
                       bg="$success"
@@ -532,7 +532,7 @@ export default function EventView() {
                       onPress={() => handleVote('going')}
                       style={{ borderRadius: 10 }}
                     >
-                      <YStack width="100%" verticalAlign="center" space="$1">
+                      <YStack width="100%" items="center" gap="$1">
                         <Text color="$color1">✓</Text>
                         <Text color="$color1" fontWeight="700" fontSize="$5">Going</Text>
                         <Text color="$color1">{voteCounts.going}</Text>
@@ -549,7 +549,7 @@ export default function EventView() {
                       onPress={() => handleVote('maybe')}
                       style={{ borderRadius: 10 }}
                     >
-                      <YStack width="100%" verticalAlign="center" space="$1">
+                      <YStack width="100%" items="center" gap="$1">
                         <Text color="$color1">?</Text>
                         <Text color="$color1" fontWeight="700" fontSize="$5">Maybe</Text>
                         <Text color="$color1">{voteCounts.maybe}</Text>
@@ -566,7 +566,7 @@ export default function EventView() {
                       onPress={() => handleVote('not')}
                       style={{ borderRadius: 10 }}
                     >
-                      <YStack width="100%" verticalAlign="center" space="$1">
+                      <YStack width="100%" items="center" gap="$1">
                         <Text color="$color1">✗</Text>
                         <Text color="$color1" fontWeight="700" fontSize="$5">Not Going</Text>
                         <Text color="$color1">{voteCounts.not}</Text>
@@ -584,37 +584,37 @@ export default function EventView() {
           {/* Vote Summary Section - Only show if voting is enabled */}
           {eventData?.VotingEnabled !== false && (
             <Card p="$4" bg="$color1" borderColor="$borderColor" borderWidth={1} borderRadius="$4">
-              <YStack space="$3">
-                <XStack justify="space-between" verticalAlign="center">
+              <YStack gap="$3">
+                <XStack justify="space-between" items="center">
                   <Text color="$color" fontWeight="800" fontSize={20}>Vote Summary</Text>
                   <Text color="$color10">{getTotalResponses()} total responses</Text>
                 </XStack>
 
-                <XStack space="$2">
+                <XStack gap="$2">
                   <Button style={{ flex: 1 }} minH="$6" minW="$5" bg={currentFilter === 'all' ? ('$color9') : ('$color2')} color={currentFilter === 'all' ? ('$color1') : ('$color')} onPress={() => setCurrentFilter('all')}>
-                    <YStack width="100%" verticalAlign="center">
+                    <YStack width="100%" items="center">
                       <Text color={currentFilter === 'all' ? '$color1' : '$color'}>All</Text>
                       <Text color={currentFilter === 'all' ? '$color1' : '$color10'}>{getTotalResponses()}</Text>
                     </YStack>
                   </Button>
 
                   <Button flex={1} minH="$6" minW="$5" bg={currentFilter === 'going' ? ('$color9' as any) : ('$color2' as any)} color={currentFilter === 'going' ? ('$color1' as any) : ('$color' as any)} onPress={() => setCurrentFilter('going')}>
-                    <YStack width="100%" verticalAlign="center">
+                    <YStack width="100%" items="center">
                       <Text color={currentFilter === 'going' ? '$color1' : '$color'}>Going</Text>
                       <Text color={currentFilter === 'going' ? '$color1' : '$color10'}>{voteCounts.going}</Text>
                     </YStack>
                   </Button>
                 </XStack>
-                <XStack space="$2">
+                <XStack gap="$2">
                   <Button flex={1} minH="$6" minW="$7" bg={currentFilter === 'maybe' ? ('$color9' as any) : ('$color2' as any)} color={currentFilter === 'maybe' ? ('$color1' as any) : ('$color' as any)} onPress={() => setCurrentFilter('maybe')}>
-                    <YStack width="100%" verticalAlign="center">
+                    <YStack width="100%" items="center">
                       <Text color={currentFilter === 'maybe' ? '$color1' : '$color'}>Maybe</Text>
                       <Text color={currentFilter === 'maybe' ? '$color1' : '$color10'}>{voteCounts.maybe}</Text>
                     </YStack>
                   </Button>
 
                   <Button flex={1} minH="$6" minW="$7" bg={currentFilter === 'not' ? ('$color9' as any) : ('$color2' as any)} color={currentFilter === 'not' ? ('$color1' as any) : ('$color' as any)} onPress={() => setCurrentFilter('not')}>
-                    <YStack width="100%" verticalAlign="center">
+                    <YStack width="100%" items="center">
                       <Text color={currentFilter === 'not' ? '$color1' : '$color'}>Not Going</Text>
                       <Text color={currentFilter === 'not' ? '$color1' : '$color10'}>{voteCounts.not}</Text>
                     </YStack>
@@ -631,12 +631,12 @@ export default function EventView() {
 
                 {/* Names list by current filter */}
                 {votersLoading ? (
-                  <XStack verticalAlign="center" p="$2">
+                  <XStack items="center" p="$2">
                     <Spinner size="small" color="$color9" />
                     <Text m="$2" color="$color10">Loading names...</Text>
                   </XStack>
                 ) : (
-                  <YStack space="$2">
+                  <YStack gap="$2">
                     {currentFilter === 'all' ? (
                       allVotersWithStatus.length === 0 ? (
                         <Text color="$color10">No voters yet.</Text>
@@ -689,7 +689,7 @@ export default function EventView() {
                 borderWidth={1}
                 borderColor="$borderColor"
               >
-                <YStack space="$3">
+                <YStack gap="$3">
                   <H3 color="$color" fontWeight="600">
                     Event Management
                   </H3>

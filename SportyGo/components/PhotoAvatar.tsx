@@ -235,7 +235,7 @@ export const PhotoAvatar: React.FC<PhotoAvatarProps> = ({
   };
 
   return (
-    <YStack style={{ alignItems: 'center' }} space="$3">
+    <YStack style={{ alignItems: 'center' }} gap="$3">
       <View style={{ position: 'relative' }}>
         <Button
           onPress={handlePickImage}

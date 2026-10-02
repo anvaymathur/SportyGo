@@ -188,7 +188,7 @@ export default function UserProfileScreen() {
   if (isLoading || isAuthLoading) {
     return (
       <SafeAreaWrapper backgroundColor="$background">
-        <YStack flex={1} p="$4" space="$2" style={{ justifyContent: 'center', alignItems: 'center' }}>
+        <YStack flex={1} p="$4" gap="$2" style={{ justifyContent: 'center', alignItems: 'center' }}>
           <Spinner color="$color9" />
           <Text color="$color10">Loading profile...</Text>
         </YStack>
@@ -207,11 +207,11 @@ export default function UserProfileScreen() {
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
         >
-      <YStack flex={1} pt="$4" space="$5">
+      <YStack flex={1} pt="$4" gap="$5">
         <XStack style={{ alignItems: 'center', justifyContent: 'space-between' }}>
           <H2 color="$color9">Profile</H2>
           {isEditing ? (
-            <XStack space="$2">
+            <XStack gap="$2">
               <Button
                 size="$3"
                 bg="$color2"
@@ -249,7 +249,7 @@ export default function UserProfileScreen() {
           )}
         </XStack>
         <YStack pt="$10">
-            <YStack space="$4" style={{ alignItems: 'center' }}>
+            <YStack gap="$4" style={{ alignItems: 'center' }}>
               <PhotoAvatar
                 size="$12"
                 photoUrl={isEditing ? editPhotoUrl : profile?.PhotoUrl}
@@ -267,7 +267,7 @@ export default function UserProfileScreen() {
               />
 
               <Card elevate bordered p="$4" borderWidth={1} borderColor="$borderColor" width="100%" style={{ maxWidth: 560 }} mt="$8">
-                <YStack space="$3">
+                <YStack gap="$3">
                   {/* Name - editable */}
                   <YStack>
                     <Text color="$color10" fontSize="$3">Name</Text>

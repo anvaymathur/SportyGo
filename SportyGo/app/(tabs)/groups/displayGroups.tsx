@@ -83,7 +83,7 @@ export default function DisplayGroups() {
           </YStack>
 
           {/* Search Bar */}
-          <YStack space="$4">
+          <YStack gap="$4">
             <Input
               placeholder="Search groups..."
               value={searchQuery}
@@ -105,13 +105,13 @@ export default function DisplayGroups() {
             showsVerticalScrollIndicator={true}
             contentContainerStyle={{ pb: 20 }}
           >
-            <YStack space="$3">
+            <YStack gap="$3">
               {loading ? (
-                <Text color="gray" verticalAlign="center" p="$4">
+                <Text color="gray" p="$4">
                   Loading groups...
                 </Text>
               ) : filteredTeams.length === 0 ? (
-                <Text color="gray" verticalAlign="center" p="$4">
+                <Text color="gray" p="$4">
                   No groups found. Create your first group or join a group!
                 </Text>
               ) : (
@@ -132,7 +132,7 @@ export default function DisplayGroups() {
                     }}
                     mt={20}
                   >
-                  <XStack verticalAlign="center" space="$3">
+                  <XStack items="center" gap="$3">
                     {/* Group Avatar */}
                     <Avatar 
                       circular 
@@ -160,11 +160,11 @@ export default function DisplayGroups() {
                     </Avatar>
                     
                     {/* Team Details */}
-                    <YStack flex={1} space="$1">
+                    <YStack flex={1} gap="$1">
                       <H4 color="$color" fontWeight="600">
                         {group.Name || "Unnamed Group"}
                       </H4>
-                      <XStack verticalAlign="center" space="$2">
+                      <XStack items="center" gap="$2">
                         <Ionicons name="people" size={16} color="gray" />
                         <Text color="$color10" fontSize="$3">
                           {(group.MemberIds?.length || 0)} members
@@ -196,7 +196,7 @@ export default function DisplayGroups() {
             p='$2'
             flexDirection="row"
             mt={10}
-            verticalAlign="center"
+            items="center"
           >
             <Ionicons name="add" size={20} color="white" />
               Create Group

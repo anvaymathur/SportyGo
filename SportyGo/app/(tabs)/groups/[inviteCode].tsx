@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import { Linking, Alert } from "react-native";
 import { YStack, Card, Button, Text, Paragraph, H3, Spinner } from "tamagui";
-import { getGroupInvite, addGroupMember, getGroupById } from "../../../firebase/services_firestore2";
+import { getGroupInvite, addGroupMember, getGroupById, isInviteUsable } from "../../../firebase/services_firestore2";
 
 import { useAuth0 } from "react-native-auth0";
 import { GroupInviteDoc } from "../../../firebase/types_index";
@@ -11,6 +11,8 @@ import { SafeAreaWrapper } from "@/components/SafeAreaWrapper";
 export default function GroupInviteScreen() {
   const localParams = useLocalSearchParams<{ inviteCode?: string }>();
   const [invite, setInvite] = useState<GroupInviteDoc | null>(null);
+  const joiningRef = useRef(false);
+  const [joining, setJoining] = useState(false);
   const [status, setStatus] = useState<"checking" | "valid" | "invalid" | "expired" | "already_member">("checking");
   const [inviteCode, setInviteCode] = useState<string | undefined>(localParams.inviteCode);
 
@@ -66,9 +68,7 @@ export default function GroupInviteScreen() {
         setStatus("invalid");
       } else if (invite.expired) {
         setStatus("expired");
-      } else if (invite.maxUses && invite.used && invite.maxUses <= invite.used) {
-        setStatus("invalid");
-      } else if (invite.validUntil && invite.validUntil < new Date()) {
+      } else if (!isInviteUsable(invite, invite.groupId)) {
         setStatus("invalid");
       } else {
         // Check if user is already a member of the group
@@ -85,20 +85,31 @@ export default function GroupInviteScreen() {
   }, [inviteCode, userId]);
 
   const handleAddGroupMember = async () => {
-    if (invite && userId) {
-      const result = await addGroupMember(userId, invite.groupId);
-      if (result) {
+    if (!invite || !userId || joiningRef.current) return;
+    joiningRef.current = true;
+    setJoining(true);
+    try {
+      const result = await addGroupMember(userId, invite.groupId, invite.inviteCode);
+      if (result === 'joined') {
         router.push({
           pathname: '/groups/viewMembers',
           params: { groupId: invite.groupId }
-       })
-      }
-      else if (result === false) {
+        })
+      } else if (result === 'already_member') {
         Alert.alert("Error", "You are already a member of this group")
-      }
-      else {
+      } else if (result === 'invite_unavailable') {
+        // Someone else may have used the last spot since the invite was checked
+        setStatus("invalid");
+        Alert.alert("Invite unavailable", "This invite link has expired or reached its maximum number of uses.")
+      } else {
         Alert.alert("Error", "Failed to add group member")
       }
+    } catch (error) {
+      console.error('Error joining group:', error);
+      Alert.alert("Error", "Failed to join the group. Please try again.");
+    } finally {
+      joiningRef.current = false;
+      setJoining(false);
     }
   };
 
@@ -173,15 +184,16 @@ export default function GroupInviteScreen() {
       <YStack flex={1} p="$4" style={{ justifyContent: 'center', alignItems: 'center' }}>
         <Card elevate bordered p="$5" width="100%" style={{ maxWidth: 420, alignItems: 'center' }}>
           <H3>Join Group</H3>
-          <Paragraph>You've been invited to join this group!</Paragraph>
+          <Paragraph>You&apos;ve been invited to join this group!</Paragraph>
           <Button 
             bg="$color9"
             color="$color1"
             borderWidth="$0"
             onPress={handleAddGroupMember}
+            disabled={joining}
             mt="$3"
           >
-            Join Group
+            {joining ? "Joining..." : "Join Group"}
           </Button>
         </Card>
       </YStack>

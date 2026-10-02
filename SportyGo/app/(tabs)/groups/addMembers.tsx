@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { View, Alert, ScrollView, Share, Platform, Clipboard } from "react-native";
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { 
@@ -34,6 +34,8 @@ export default function AddMembers() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [maxUses, setMaxUses] = useState('10');
+  const generatingRef = useRef(false);
+  const [generating, setGenerating] = useState(false);
   const [maxUsesInput, setMaxUsesInput] = useState('10');
   const [showMaxUsesPicker, setShowMaxUsesPicker] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -142,16 +144,35 @@ export default function AddMembers() {
         return;
     }
 
+    // 999 is the app's "unlimited" value (parseInt('unlimited') would store NaN)
+    const parsedMaxUses = maxUses === 'unlimited' ? 999 : parseInt(maxUses, 10);
+    if (!Number.isInteger(parsedMaxUses) || parsedMaxUses < 1) {
+        Alert.alert("Error", "Max uses must be a number from 1 to 999");
+        return;
+    }
+
     const invite: GroupInviteDoc = {
         groupId: group?.id || '',
         inviteCode: inviteCode,
         inviteLink: inviteLink,
         validUntil: expiryDate,
-        maxUses: parseInt(maxUses),
+        maxUses: parsedMaxUses,
         expired: false,
         used: 0
     };
-    await createGroupInvite(invite);
+    if (generatingRef.current) return;
+    generatingRef.current = true;
+    setGenerating(true);
+    try {
+      await createGroupInvite(invite);
+    } catch (error) {
+      console.error('Error creating invite:', error);
+      Alert.alert("Error", "Failed to generate the invite link. Please try again.");
+      return;
+    } finally {
+      generatingRef.current = false;
+      setGenerating(false);
+    }
     setInviteLink(inviteLink);
     setIsLinkGenerated(true);
     
@@ -166,7 +187,7 @@ export default function AddMembers() {
     }
     
     const expiryText = expiryDate.toLocaleString();
-    const maxUsesText = maxUses === 'unlimited' ? 'Unlimited uses' : `${maxUsesOptions.find(opt => opt.value === maxUses)?.label}`;
+    const maxUsesText = parsedMaxUses === 999 ? 'Unlimited uses' : `${parsedMaxUses} uses`;
     
     Alert.alert(
       "Success", 
@@ -238,9 +259,9 @@ export default function AddMembers() {
   return (
     <SafeAreaWrapper backgroundColor="white">
       <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
-        <YStack flex={1} p="$4" space="$6">
+        <YStack flex={1} p="$4" gap="$6">
           {/* Header */}
-          <YStack space="$2">
+          <YStack gap="$2">
             <H2 color="$color9" fontWeight="bold" style={{ textAlign: 'center' }}>
               Invite Members
             </H2>
@@ -252,7 +273,7 @@ export default function AddMembers() {
           {/* Loading State */}
           {loading ? (
             <Card p="$4" bg="$color2" borderColor="$color6">
-              <YStack space="$3" verticalAlign="center">
+              <YStack gap="$3" items="center">
                 <Spinner size="large" color="$color9" />
                 <Text color="$color8" fontSize="$4">Loading group information...</Text>
               </YStack>
@@ -260,8 +281,8 @@ export default function AddMembers() {
           ) : group ? (
             /* Current Group Info */
             <Card p="$4" bg="$color2" borderColor="$color6">
-              <YStack space="$3">
-                <XStack verticalAlign="center" space="$2">
+              <YStack gap="$3">
+                <XStack items="center" gap="$2">
                   <Ionicons name="people" size={20} color="#666" />
                   <Text fontWeight="bold" fontSize="$5">Group: {group.Name}</Text>
                 </XStack>
@@ -278,7 +299,7 @@ export default function AddMembers() {
           ) : (
             /* Error State */
             <Card p="$4" bg="$color2" borderColor="$color6">
-              <YStack space="$3" verticalAlign="center">
+              <YStack gap="$3" items="center">
                 <Ionicons name="alert-circle" size={24} color="#ef4444" />
                 <Text color="$color8" fontSize="$4">Failed to load group information</Text>
                 <Button
@@ -296,8 +317,8 @@ export default function AddMembers() {
                     {/* Generate Link Section */}
           {group && !isLinkGenerated ? (
             <Card p="$4" borderColor="$color6">
-              <YStack space="$4">
-                <YStack space="$2">
+              <YStack gap="$4">
+                <YStack gap="$2">
                   <H3 color="$color9">Generate Invite Link</H3>
                   <Text color="$color8" fontSize="$4">
                     Create a new invite link for your group members
@@ -309,8 +330,9 @@ export default function AddMembers() {
                   borderColor="$color6"
                   borderWidth="$1"
                   onPress={generateInviteLink}
+                  disabled={generating}
                 >
-                  <XStack verticalAlign="center" space="$2">
+                  <XStack items="center" gap="$2">
                     <Ionicons name="link" size={16} color="#666" />
                     <Text color="$color">Generate Link</Text>
                   </XStack>
@@ -320,9 +342,9 @@ export default function AddMembers() {
           ) : group && isLinkGenerated ? (
             /* Generated Link Display */
             <Card p="$4" borderColor="$color6">
-              <YStack space="$4">
-                <YStack space="$2">
-                  <XStack verticalAlign="center" space="$2">
+              <YStack gap="$4">
+                <YStack gap="$2">
+                  <XStack items="center" gap="$2">
                     <Ionicons name="checkmark-circle" size={20} color="#22c55e" />
                     <H3 color="$color9">Invite Link Generated</H3>
                   </XStack>
@@ -333,7 +355,7 @@ export default function AddMembers() {
 
                 {/* Link Display */}
                 <Card p="$3" bg="$color2" borderColor="$color5">
-                  <YStack space="$2">
+                  <YStack gap="$2">
                     <Text color="$color8" fontSize="$3" fontWeight="bold">
                       Invite Link:
                     </Text>
@@ -349,14 +371,14 @@ export default function AddMembers() {
                 </Card>
 
                 {/* Action Buttons */}
-                <YStack space="$3">
+                <YStack gap="$3">
                   <Button
                     bg="$color2"
                     borderColor="$color6"
                     borderWidth="$1"
                     onPress={copyToClipboard}
                   >
-                    <XStack verticalAlign="center" space="$2">
+                    <XStack items="center" gap="$2">
                       <Ionicons name={copied ? "checkmark-circle" : "copy-outline"} size={16} color="#666" />
                       <Text color="$color">{copied ? "Copied!" : "Copy Link"}</Text>
                     </XStack>
@@ -368,7 +390,7 @@ export default function AddMembers() {
                     borderWidth="$1"
                     onPress={shareInviteLink}
                   >
-                    <XStack verticalAlign="center" space="$2">
+                    <XStack items="center" gap="$2">
                       <Ionicons name="share-outline" size={16} color="#666" />
                       <Text color="$color">Share</Text>
                     </XStack>
@@ -390,22 +412,22 @@ export default function AddMembers() {
           {/* Link Settings */}
           {group && (
             <Card p="$4" borderColor="$color6">
-              <YStack space="$4">
+              <YStack gap="$4">
                 <H3 color="$color9">Link Settings</H3>
                 
-                <YStack space="$3">
-                                  <YStack space="$2">
+                <YStack gap="$3">
+                                  <YStack gap="$2">
                   <Text color="$color8" fontSize="$4" fontWeight="bold">
                     Expires at:
                   </Text>
-                  <YStack space="$2">
+                  <YStack gap="$2">
                     <Button
                       bg="$color2"
                       borderColor="$color6"
                       borderWidth="$1"
                       onPress={() => setShowDatePicker(true)}
                     >
-                      <XStack verticalAlign="center" space="$2">
+                      <XStack items="center" gap="$2">
                         <Ionicons name="calendar-outline" size={16} color="#666" />
                         <Text color="$color">Date: {expiryDate.toLocaleDateString()}</Text>
                       </XStack>
@@ -416,7 +438,7 @@ export default function AddMembers() {
                       borderWidth="$1"
                       onPress={() => setShowTimePicker(true)}
                     >
-                      <XStack verticalAlign="center" space="$2">
+                      <XStack items="center" gap="$2">
                         <Ionicons name="time-outline" size={16} color="#666" />
                         <Text color="$color">Time: {expiryDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
                       </XStack>
@@ -441,11 +463,11 @@ export default function AddMembers() {
                   )}
                 </YStack>
 
-                                  <YStack space="$2">
+                                  <YStack gap="$2">
                   <Text color="$color8" fontSize="$4" fontWeight="bold">
                     Maximum uses:
                   </Text>
-                  <YStack space="$2">
+                  <YStack gap="$2">
                     <Input
                       bg="$color2"
                       borderColor="$color6"
@@ -464,7 +486,7 @@ export default function AddMembers() {
                       borderWidth="$1"
                       onPress={() => setShowMaxUsesPicker(true)}
                     >
-                      <XStack verticalAlign="center" space="$2">
+                      <XStack items="center" gap="$2">
                         <Ionicons name="list-outline" size={16} color="#666" />
                         <Text color="$color">
                           {maxUses === 'unlimited' ? 'Unlimited' : `${maxUses} uses`}
@@ -496,17 +518,17 @@ export default function AddMembers() {
           {/* Recent Invites */}
           {group && (
             <Card p="$4" borderColor="$color6">
-              <YStack space="$4">
+              <YStack gap="$4">
                 <H3 color="$color9">Recent Invites</H3>
                 
                 {loadingInvites ? (
-                  <YStack space="$3" verticalAlign="center">
+                  <YStack gap="$3" items="center">
                     <Spinner size="small" color="$color9" />
                     <Text color="$color8" fontSize="$4">Loading invites...</Text>
                   </YStack>
                 ) : invites.length === 0 ? (
                   <Card p="$3" bg="$color2">
-                    <YStack space="$2" verticalAlign="center">
+                    <YStack gap="$2" items="center">
                       <Ionicons name="link-outline" size={24} color="#666" />
                       <Text color="$color8" fontSize="$4" style={{ textAlign: 'center' }}>
                         No invite links created yet
@@ -517,7 +539,7 @@ export default function AddMembers() {
                     </YStack>
                   </Card>
                 ) : (
-                  <YStack space="$3">
+                  <YStack gap="$3">
                     {invites.slice(0, 2).map((invite, index) => {
                       const status = getInviteStatus(invite);
                       const timeAgo = formatTimeAgo(invite.validUntil);
@@ -525,8 +547,8 @@ export default function AddMembers() {
                       
                       return (
                         <Card key={invite.id || index} p="$3" bg="$color2">
-                          <YStack space="$2">
-                            <XStack justify="space-between" verticalAlign="center">
+                          <YStack gap="$2">
+                            <XStack justify="space-between" items="center">
                               <Text color="$color9" fontWeight="bold" fontSize="$3" numberOfLines={1}>
                                 {invite.inviteLink}
                               </Text>
@@ -551,7 +573,7 @@ export default function AddMembers() {
           )}
 
           {/* Navigation */}
-          <YStack space="$3">
+          <YStack gap="$3">
             <Button
               bg="$color4"
               color="$color9"

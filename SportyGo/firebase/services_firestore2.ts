@@ -9,7 +9,7 @@
 import {
   getFirestore, collection, doc, setDoc, getDoc, updateDoc, writeBatch, onSnapshot,
   increment, arrayUnion, arrayRemove, CollectionReference, QueryDocumentSnapshot, DocumentData, getDocs, query, where,
-  Timestamp, deleteDoc, documentId, or, addDoc
+  Timestamp, deleteDoc, documentId, or, addDoc, runTransaction
 } from "firebase/firestore";
 import { db, storage} from "./index";
 import { UserDoc, GroupDoc, EventDoc, VoteShard, VoteStatus, newMatchHistory, AttendanceRecord, GroupInviteDoc } from "./types_index";
@@ -810,30 +810,59 @@ export async function getGroupInvites(groupId: string): Promise<GroupInviteDoc[]
 }
 
 
-export async function addGroupMember(userId: string, groupId: string){
-  const groupRef = doc(db, "groups", groupId);
-  const groupSnap = await getDoc(groupRef);
-  if (!groupSnap.exists()) {
-    return;
+/**
+ * Whether an invite can still be used to join `groupId`: not marked expired, not past
+ * validUntil, and not out of uses. A non-numeric maxUses (older "unlimited" invites were
+ * saved as NaN) means no limit.
+ */
+export function isInviteUsable(invite: GroupInviteDoc, groupId: string, now: Date = new Date()): boolean {
+  if (invite.groupId !== groupId || invite.expired) return false;
+  const rawValidUntil = invite.validUntil as unknown as { toDate?: () => Date } | Date | string | undefined;
+  if (rawValidUntil) {
+    const validUntil = typeof (rawValidUntil as any).toDate === 'function'
+      ? (rawValidUntil as { toDate: () => Date }).toDate()
+      : new Date(rawValidUntil as Date | string);
+    if (validUntil < now) return false;
   }
-  const groupData = groupSnap.data() as GroupDoc;
-  
-  // Check if user is already a member
-  if (groupData.MemberIds && groupData.MemberIds.includes(userId)) {
-    return false; // User is already a member
+  if (Number.isFinite(invite.maxUses) && invite.maxUses > 0 && (invite.used ?? 0) >= invite.maxUses) {
+    return false;
   }
-  
-  const batch = writeBatch(db);
-  
-  // Add userId to group's MemberIds array (deduped)
-  batch.set(groupRef, { MemberIds: arrayUnion(userId) }, { merge: true });
-  
-  // Add groupId to user's Groups array (deduped)
-  const userRef = doc(db, "users", userId);
-  batch.set(userRef, { Groups: arrayUnion(groupId) }, { merge: true });
-  
-  await batch.commit();
   return true;
+}
+
+export type JoinGroupResult = 'joined' | 'already_member' | 'group_not_found' | 'invite_unavailable';
+
+/**
+ * Adds a user to a group. When joining through an invite link, pass its code: the invite is
+ * re-validated and its `used` count incremented in the same transaction as the membership
+ * writes, so concurrent joins can't exceed maxUses.
+ */
+export async function addGroupMember(userId: string, groupId: string, inviteCode?: string): Promise<JoinGroupResult> {
+  const groupRef = doc(db, "groups", groupId);
+  const userRef = doc(db, "users", userId);
+  const inviteRef = inviteCode ? doc(db, "groupInvites", inviteCode) : null;
+
+  return runTransaction(db, async (transaction) => {
+    // All reads must happen before any writes in a transaction
+    const groupSnap = await transaction.get(groupRef);
+    const inviteSnap = inviteRef ? await transaction.get(inviteRef) : null;
+
+    if (!groupSnap.exists()) return 'group_not_found';
+    const groupData = groupSnap.data() as GroupDoc;
+    if (groupData.MemberIds?.includes(userId)) return 'already_member';
+
+    if (inviteRef) {
+      if (!inviteSnap?.exists() || !isInviteUsable(inviteSnap.data() as GroupInviteDoc, groupId)) {
+        return 'invite_unavailable';
+      }
+      transaction.update(inviteRef, { used: increment(1) });
+    }
+
+    // Add userId to group's MemberIds array and groupId to user's Groups array (deduped)
+    transaction.set(groupRef, { MemberIds: arrayUnion(userId) }, { merge: true });
+    transaction.set(userRef, { Groups: arrayUnion(groupId) }, { merge: true });
+    return 'joined';
+  });
 }
 
 // --- GROUP MANAGEMENT ---

@@ -1,6 +1,6 @@
 // Multi-step wizard for logging a new match result.
 // Handles player selection, score entry, match metadata, validation, and persists data to Firestore.
-import React, { useContext, useEffect, useState } from "react";
+import React, { useContext, useEffect, useRef, useState } from "react";
 import {
   ScrollView,
   View,
@@ -281,6 +281,9 @@ export default function AddScore() {
   const [qaEmail, setQaEmail] = useState('');
   const [qaPhone, setQaPhone] = useState('');
   const [qaSubmitting, setQaSubmitting] = useState(false);
+  // Ref guards against a double tap firing two saves before the re-render disables the button
+  const savingRef = useRef(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [qaKeyboardOpen, setQaKeyboardOpen] = useState(false);
 
   useEffect(() => {
@@ -486,8 +489,19 @@ export default function AddScore() {
       };
 
       // Save to Firestore
-      await createMatchHistory(matchData);
-      router.replace('/(tabs)/matches/viewScore')
+      if (savingRef.current) return;
+      savingRef.current = true;
+      setIsSaving(true);
+      try {
+        await createMatchHistory(matchData);
+        router.replace('/(tabs)/matches/viewScore')
+      } catch (error) {
+        console.error('Error saving match:', error);
+        Alert.alert("Error", "Failed to save the match. Please try again.");
+      } finally {
+        savingRef.current = false;
+        setIsSaving(false);
+      }
     } else {
       Alert.alert(
         "Missing Information",
@@ -529,7 +543,7 @@ export default function AddScore() {
           >
             <Ionicons name="arrow-back" size={24} color="$color1" />
           </Button>
-          <H4 flex={1} verticalAlign="center">Add Match Scores</H4>
+          <H4 flex={1}>Add Match Scores</H4>
         </XStack>
 
         <ScrollView flex={1} p="$4" showsVerticalScrollIndicator={false}>
@@ -564,7 +578,7 @@ export default function AddScore() {
                     borderColor="$borderColor"
                   >
                     <YStack gap="$3">
-                      <XStack verticalAlign="center" gap="$2">
+                      <XStack items="center" gap="$2">
                         <Ionicons name="people" size={16} color="#065F46" />
                         <Text fontSize="$4" fontWeight="700" color="$color">
                           {yourTeamLabel}
@@ -573,7 +587,7 @@ export default function AddScore() {
 
                       <Separator borderColor="$borderColor" />
 
-                      <XStack verticalAlign="center" justify="space-between">
+                      <XStack items="center" justify="space-between">
                         <Circle
                           size="$5"
                           bg="$color3"
@@ -640,7 +654,7 @@ export default function AddScore() {
                   </Card>
 
                   {/* --- VS Badge --- */}
-                  <XStack justify="center" verticalAlign="center">
+                  <XStack justify="center" items="center">
                     <Card
                       paddingHorizontal="$4"
                       paddingVertical="$2"
@@ -664,7 +678,7 @@ export default function AddScore() {
                     borderColor="$borderColor"
                   >
                     <YStack gap="$3">
-                      <XStack verticalAlign="center" gap="$2">
+                      <XStack items="center" gap="$2">
                         <Ionicons name="people-outline" size={16} color="#065F46" />
                         <Text fontSize="$4" fontWeight="700" color="$color">
                           {opponentTeamLabel}
@@ -673,7 +687,7 @@ export default function AddScore() {
 
                       <Separator borderColor="$borderColor" />
 
-                      <XStack verticalAlign="center" justify="space-between">
+                      <XStack items="center" justify="space-between">
                         <Circle
                           size="$5"
                           bg="$color3"
@@ -1183,7 +1197,7 @@ export default function AddScore() {
         <XStack
           px="$4"
           py="$3"
-          verticalAlign="center"
+          items="center"
           justify="space-between"
           borderTopWidth={1}
           borderTopColor="$borderColor"
@@ -1197,7 +1211,7 @@ export default function AddScore() {
             <View width={88} />
           )}
 
-          <XStack gap="$3" verticalAlign="center">
+          <XStack gap="$3" items="center">
             {currentStep === 1 && (
               <Button
                 size="$3"
@@ -1217,8 +1231,9 @@ export default function AddScore() {
               bg="$color9"
               color="$color1"
               onPress={handlePrimaryAction}
+              disabled={isSaving}
             >
-              {currentStep === totalSteps - 1 ? "Save match scores" : "Next"}
+              {currentStep === totalSteps - 1 ? (isSaving ? "Saving..." : "Save match scores") : "Next"}
             </Button>
           </XStack>
         </XStack>
