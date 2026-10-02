@@ -73,6 +73,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
+    "@tamagui/react-native-web-lite": "^1.143.0",
     "@testing-library/react-native": "^13.3.3",
     "@types/babel__core": "^7.20.5",
     "@types/jest": "29.5.14",
