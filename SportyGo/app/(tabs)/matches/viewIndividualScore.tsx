@@ -18,9 +18,11 @@ import {
 } from "tamagui";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { Alert } from "react-native";
 import {
   getMatchHistoryById,
   getUserProfile,
+  deleteMatchHistory,
 } from "../../../firebase/services_firestore2";
 import type { newMatchHistory } from "@/firebase/types_index";
 import { SafeAreaWrapper } from "@/components/SafeAreaWrapper";
@@ -324,6 +326,41 @@ export default function ViewIndividualScore() {
     loadMatch();
   }, [loadMatch]);
 
+  // Go back to the history list rather than pushing a second copy of it onto the stack
+  const goBack = useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/(tabs)/matches/viewScore");
+    }
+  }, [router]);
+
+  const [deleting, setDeleting] = useState(false);
+  const handleDelete = useCallback(() => {
+    if (!matchId) return;
+    Alert.alert(
+      "Delete match?",
+      "This removes the match from everyone's history and stats. This can't be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await deleteMatchHistory(matchId);
+              router.replace("/(tabs)/matches/viewScore");
+            } catch {
+              setDeleting(false);
+              Alert.alert("Error", "We couldn't delete the match. Please try again.");
+            }
+          },
+        },
+      ]
+    );
+  }, [matchId, router]);
+
   const handleStartEdit = useCallback(() => {
     if (!matchId) return;
     router.push({
@@ -370,7 +407,7 @@ export default function ViewIndividualScore() {
       <YStack flex={1} bg="$background" justify="center" items="center" gap="$4" p="$4">
         <H4 color="$color">Match not found</H4>
         <Paragraph color="$color10">We couldn&apos;t load this match. Try again from your history.</Paragraph>
-        <Button variant="outlined" onPress={() => router.push("/(tabs)/matches/viewScore")} mt="$2" icon={<Ionicons name="arrow-back" size={18} />}>Go Back</Button>
+        <Button variant="outlined" onPress={goBack} mt="$2" icon={<Ionicons name="arrow-back" size={18} />}>Go Back</Button>
       </YStack>
     );
   }
@@ -421,8 +458,9 @@ export default function ViewIndividualScore() {
           <Button
             variant="outlined"
             size="$3"
-            onPress={() => router.push("/(tabs)/matches/viewScore")}
+            onPress={goBack}
             mr="$3"
+            aria-label="Back"
             icon={<Ionicons name="arrow-back" size={20} />}
           />
           <H4 flex={1}>Match Details</H4>
@@ -545,6 +583,18 @@ export default function ViewIndividualScore() {
                 tied={isTie}
               />
             </XStack>
+
+            {/* Lets players remove a match that was entered by mistake */}
+            <Button
+              variant="outlined"
+              borderColor="#EF4444"
+              onPress={handleDelete}
+              disabled={deleting}
+              icon={<Ionicons name="trash-outline" size={18} color="#EF4444" />}
+              mt="$2"
+            >
+              <Text color="#EF4444" fontWeight="600">{deleting ? "Deleting..." : "Delete match"}</Text>
+            </Button>
           </YStack>
         </ScrollView>
       </View>

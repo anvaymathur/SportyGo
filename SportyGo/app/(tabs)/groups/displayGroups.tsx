@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
   Text,
   ScrollView,
@@ -15,7 +15,8 @@ import {
   Avatar,
 } from "tamagui";
 import { Ionicons } from "@expo/vector-icons";
-import { getGroups, getUserGroups } from '../../../firebase/services_firestore2';
+import { getUserGroups } from '../../../firebase/services_firestore2';
+import { useFocusEffect } from "@react-navigation/native";
 import { useAuth0 } from "react-native-auth0";
 import { router } from "expo-router";
 import { GroupDoc } from '../../../firebase/types_index';
@@ -43,24 +44,32 @@ export default function DisplayGroups() {
   const {user} = useAuth0()
 
 
+  // Only the first load shows the spinner; refreshes on refocus happen in the background
+  const hasLoadedRef = useRef(false);
+
   const loadGroups = async () => {
     if (user && user.sub) {
       try {
-        setLoading(true);
+        if (!hasLoadedRef.current) setLoading(true);
         const groupsData = await getUserGroups(user.sub);
         
         setGroups(groupsData);
       } catch (error) {
         console.error("Error loading groups:", error);
       } finally {
+        hasLoadedRef.current = true;
         setLoading(false);
       }
     }
   };
 
-  useEffect(() => {
-    loadGroups();
-  }, [user]);
+  // Reload whenever the tab comes back into view, so groups created, joined, edited,
+  // left or deleted elsewhere show up without restarting the app
+  useFocusEffect(
+    useCallback(() => {
+      loadGroups();
+    }, [user?.sub])
+  );
 
   const filteredTeams = groups.filter(group =>
     (group.Name || "").toLowerCase().includes(searchQuery.toLowerCase())

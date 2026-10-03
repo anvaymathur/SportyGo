@@ -15,7 +15,7 @@ import { Picker } from '@react-native-picker/picker';
 
 import { router } from "expo-router";
 import { useAuth0 } from "react-native-auth0";
-import { createGroup, uploadImage, testStorageConnection, imageToBase64 } from '../../../firebase/services_firestore2';
+import { createGroup, imageToBase64 } from '../../../firebase/services_firestore2';
 import { GroupDoc } from '../../../firebase/types_index';
 import { SafeAreaWrapper } from '@/components/SafeAreaWrapper';
 import { Ionicons } from "@expo/vector-icons";
@@ -140,7 +140,7 @@ export default function CreateGroup() {
 
         const groupInfo: GroupDoc={
           id: '',
-          Name: groupName,
+          Name: groupName.trim(),
           OwnerId: user.sub,
           MemberIds: [user.sub],
           Description: description,

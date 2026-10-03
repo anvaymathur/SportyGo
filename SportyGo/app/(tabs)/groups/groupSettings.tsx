@@ -13,7 +13,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Picker } from '@react-native-picker/picker';
 import { router, useLocalSearchParams } from "expo-router";
 import { useAuth0 } from "react-native-auth0";
-import { getGroupById, updateGroup, imageToBase64 } from '../../../firebase/services_firestore2';
+import { getGroupById, updateGroup, imageToBase64, deleteGroup } from '../../../firebase/services_firestore2';
 import { GroupDoc } from '../../../firebase/types_index';
 import { SafeAreaWrapper } from '@/components/SafeAreaWrapper';
 import { Ionicons } from "@expo/vector-icons";
@@ -24,6 +24,7 @@ export default function GroupSettings() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [group, setGroup] = useState<GroupDoc | undefined>(undefined);
 
   // Form state
@@ -182,6 +183,32 @@ export default function GroupSettings() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleDeleteGroup = () => {
+    if (!group?.id || !isOwner) return;
+    Alert.alert(
+      "Delete group?",
+      `This permanently deletes ${group.Name || 'this group'} and its invite links for everyone. Members will no longer see it. This can't be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete group",
+          style: "destructive",
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await deleteGroup(group.id);
+              router.replace('/groups/displayGroups');
+            } catch (error) {
+              console.error('Error deleting group:', error);
+              Alert.alert("Error", "Failed to delete the group. Please try again.");
+              setDeleting(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   if (loading) {
@@ -474,10 +501,25 @@ export default function GroupSettings() {
             color="$color1"
             onPress={handleSave}
             style={{ borderRadius: 8 }}
-            disabled={saving}
+            disabled={saving || deleting}
           >
             {saving ? 'Saving...' : 'Save Changes'}
           </Button>
+
+          {/* Only the owner can delete the group */}
+          {isOwner && (
+            <Button
+              bg="transparent"
+              borderColor="#EF4444"
+              borderWidth={1}
+              onPress={handleDeleteGroup}
+              disabled={saving || deleting}
+              style={{ borderRadius: 8 }}
+              mb="$6"
+            >
+              <Text color="#EF4444" fontWeight="600">{deleting ? 'Deleting...' : 'Delete Group'}</Text>
+            </Button>
+          )}
         </YStack>
       </ScrollView>
     </SafeAreaWrapper>

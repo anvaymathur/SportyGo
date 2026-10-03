@@ -8,8 +8,8 @@
 import React from 'react';
 
 import { useState, useEffect } from 'react';
-import { router, useLocalSearchParams } from 'expo-router';
-import { listenGroupEvents, listenUserGroupEvents, listenAllEvents, getVoteCounts, getUserVote, getUserGroups, hasEventStarted } from '../../../firebase/services_firestore2';
+import { router } from 'expo-router';
+import { listenUserEvents, getVoteCounts, getUserVote, getUserGroups, hasEventStarted } from '../../../firebase/services_firestore2';
 import { VoteStatus } from '../../../firebase/types_index';
 import { useAuth0 } from 'react-native-auth0';
 import { YStack, XStack, Text, Card, ScrollView, Button, Input, Paragraph, H2 } from 'tamagui';
@@ -61,9 +61,7 @@ export default function EventsList() {
   
   // Auth and routing
   const { user } = useAuth0();
-  const userId = user?.sub || 'default-user';
-  const params = useLocalSearchParams();
-  const GROUP_ID = params.groupId as string;
+  const userId = user?.sub ?? '';
 
   /**
    * Parses Firestore date objects to JavaScript Date objects
@@ -121,7 +119,9 @@ export default function EventsList() {
     group: event.GroupIDs && event.GroupIDs.length > 0 ? 'Group selected' : 'No group',
     individualParticipants: event.IndividualParticipantIDs ? event.IndividualParticipantIDs.length : 0,
     description: event.Title,
-    attendeeCount: event.VotingEnabled !== false ? (voteCounts.going + voteCounts.maybe + voteCounts.not) : 0,
+    totalCost: typeof event.TotalCost === 'number' && Number.isFinite(event.TotalCost) ? event.TotalCost : undefined,
+    // Only "going" responses are attending (maybe / not going aren't)
+    attendeeCount: event.VotingEnabled !== false ? voteCounts.going : 0,
     votingCutoff: event.CutoffDate ? formatDate(event.CutoffDate) : 'No voting',
     isVotingOpen: event.VotingEnabled !== false && event.CutoffDate ? 
       new Date() < parseFirestoreDate(event.CutoffDate) &&
@@ -161,35 +161,19 @@ export default function EventsList() {
   }, [user]);
   /**
    * Sets up real-time listeners for events based on user's groups
-   * Falls back to single group or all events if no user groups found
+   * (group events, individual invitations, and events the user created)
    */
   useEffect(() => {
-    if (loadingGroups) return; // Wait for groups to load first
-    
+    if (loadingGroups || !userId) return; // Wait for groups to load first
+
     setLoadingEvents(true);
-    
-    if (userGroups.length > 0) {
-      const unsubscribe = listenUserGroupEvents(userGroups, userId, (eventsList) => {
-        setEvents(eventsList);
-        setLoadingEvents(false);
-      });
-      return () => unsubscribe();
-    } else if (GROUP_ID) {
-      // Fallback to single group if no user groups found
-      const unsubscribe = listenGroupEvents(GROUP_ID, (eventsList) => {
-        setEvents(eventsList);
-        setLoadingEvents(false);
-      });
-      return () => unsubscribe();
-    } else {
-      // Fallback to show events where user is an individual participant
-      const unsubscribe = listenAllEvents(userId, (eventsList) => {
-        setEvents(eventsList);
-        setLoadingEvents(false);
-      });
-      return () => unsubscribe();
-    }
-  }, [userGroups, GROUP_ID, userId, loadingGroups]);
+    // Events for the user's groups, plus ones they were invited to individually or created
+    const unsubscribe = listenUserEvents(userGroups, userId, (eventsList) => {
+      setEvents(eventsList);
+      setLoadingEvents(false);
+    });
+    return () => unsubscribe();
+  }, [userGroups, userId, loadingGroups]);
 
   /**
    * Fetches vote counts and user votes for all events
@@ -207,107 +191,29 @@ export default function EventsList() {
       try {
         const eventsWithCounts = await Promise.all(
           events.map(async (event) => {
-            try {
-              let voteCounts = { going: 0, maybe: 0, not: 0 };
-              let userVote = null;
-              
-              if (event.VotingEnabled !== false) {
-                const [voteCountsResult, userVoteResult] = await Promise.all([
+            let voteCounts = { going: 0, maybe: 0, not: 0 };
+            let userVote = null;
+            if (event.VotingEnabled !== false) {
+              try {
+                [voteCounts, userVote] = await Promise.all([
                   getVoteCounts(event.id),
                   getUserVote(event.id, userId)
                 ]);
-                voteCounts = voteCountsResult;
-                userVote = userVoteResult;
+              } catch (error) {
+                // Still show the event, just without vote data
+                console.error('Error fetching vote counts for event:', event.id, error);
               }
-              
-              const totalAttendees = event.VotingEnabled !== false ? (voteCounts.going + voteCounts.maybe + voteCounts.not) : 0;
-            
-            return {
-              id: event.id || event.docId || event._id,
-              title: event.Title,
-              date: event.EventDate instanceof Date ? event.EventDate.toDateString() : new Date(event.EventDate.seconds ? event.EventDate.seconds * 1000 : event.EventDate).toDateString(),
-              time: event.EventDate instanceof Date ? event.EventDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : new Date(event.EventDate.seconds ? event.EventDate.seconds * 1000 : event.EventDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              location: typeof event.Location === 'string' ? event.Location : 
-                        (event.Location && typeof event.Location === 'object' && event.Location._lat && event.Location._long) 
-                          ? `${event.Location._lat.toFixed(6)}, ${event.Location._long.toFixed(6)}` 
-                          : 'Location not specified',
-              totalCost: event.TotalCost,
-              group: event.GroupIDs && event.GroupIDs.length > 0 ? 'Group selected' : 'No group',
-              individualParticipants: event.IndividualParticipantIDs ? event.IndividualParticipantIDs.length : 0,
-              description: event.Title,
-              attendeeCount: totalAttendees,
-              votingCutoff: event.CutoffDate ? (event.CutoffDate instanceof Date ? event.CutoffDate.toDateString() : new Date(event.CutoffDate.seconds ? event.CutoffDate.seconds * 1000 : event.CutoffDate).toDateString()) : 'No voting',
-              isVotingOpen: event.VotingEnabled !== false && event.CutoffDate ? 
-                new Date() < (event.CutoffDate instanceof Date ? event.CutoffDate : new Date(event.CutoffDate.seconds ? event.CutoffDate.seconds * 1000 : event.CutoffDate)) &&
-                !hasEventStarted(event.EventDate) && !event.StartedEarly : false,
-              userVote: event.VotingEnabled !== false ? userVote : null,
-              eventDate: event.EventDate instanceof Date ? event.EventDate : new Date(event.EventDate.seconds ? event.EventDate.seconds * 1000 : event.EventDate),
-              votingEnabled: event.VotingEnabled !== false,
-               eventStarted: hasEventStarted(event.EventDate),
-               isAdmin: event.CreatorID === userId,
-             };
-          } catch (error) {
-            console.error('Error fetching vote counts for event:', event.id, error);
-            return {
-              id: event.id || event.docId || event._id,
-              title: event.Title,
-              date: event.EventDate instanceof Date ? event.EventDate.toDateString() : new Date(event.EventDate.seconds ? event.EventDate.seconds * 1000 : event.EventDate).toDateString(),
-              time: event.EventDate instanceof Date ? event.EventDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : new Date(event.EventDate.seconds ? event.EventDate.seconds * 1000 : event.EventDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              location: typeof event.Location === 'string' ? event.Location : 
-                        (event.Location && typeof event.Location === 'object' && event.Location._lat && event.Location._long) 
-                          ? `${event.Location._lat.toFixed(6)}, ${event.Location._long.toFixed(6)}` 
-                          : 'Location not specified',
-              totalCost: event.TotalCost,
-              group: event.GroupIDs && event.GroupIDs.length > 0 ? 'Group selected' : 'No group',
-              individualParticipants: event.IndividualParticipantIDs ? event.IndividualParticipantIDs.length : 0,
-              description: event.Title,
-              attendeeCount: 0, // Fallback if vote counts fail
-              votingCutoff: event.CutoffDate ? (event.CutoffDate instanceof Date ? event.CutoffDate.toDateString() : new Date(event.CutoffDate.seconds ? event.CutoffDate.seconds * 1000 : event.CutoffDate).toDateString()) : 'No voting',
-              isVotingOpen: event.VotingEnabled !== false && event.CutoffDate ? 
-                new Date() < (event.CutoffDate instanceof Date ? event.CutoffDate : new Date(event.CutoffDate.seconds ? event.CutoffDate.seconds * 1000 : event.CutoffDate)) &&
-                !hasEventStarted(event.EventDate) && !event.StartedEarly : false,
-              userVote: null,
-              eventDate: event.EventDate instanceof Date ? event.EventDate : new Date(event.EventDate.seconds ? event.EventDate.seconds * 1000 : event.EventDate),
-                             votingEnabled: event.VotingEnabled !== false,
-               hasTimeConflict: false, // Temporarily disabled for performance
-               conflictingEvent: null, // Temporarily disabled for performance
-               eventStarted: hasEventStarted(event.EventDate),
-               isAdmin: event.CreatorID === userId,
-             };
-          }
-        })
-      );
-      
+            }
+            return mapEventToUI(event, voteCounts, userVote);
+          })
+        );
+
         // Sort events by date (earliest first)
-        const sortedEvents = eventsWithCounts.sort((a, b) => {
-          return a.eventDate.getTime() - b.eventDate.getTime();
-        });
-        
-        setMappedEvents(sortedEvents);
+        setMappedEvents(eventsWithCounts.sort((a, b) => a.eventDate.getTime() - b.eventDate.getTime()));
       } catch (error) {
         console.error('Error fetching vote data:', error);
         // Fallback: show events without vote data
-        const fallbackEvents = events.map(event => ({
-          id: event.id || event.docId || event._id,
-          title: event.Title,
-          date: formatDate(event.EventDate),
-          time: formatTime(event.EventDate),
-          location: formatLocation(event.Location),
-          totalCost: event.TotalCost,
-          group: event.GroupIDs && event.GroupIDs.length > 0 ? 'Group selected' : 'No group',
-          individualParticipants: event.IndividualParticipantIDs ? event.IndividualParticipantIDs.length : 0,
-          description: event.Title,
-          attendeeCount: 0,
-          votingCutoff: event.CutoffDate ? formatDate(event.CutoffDate) : 'No voting',
-          isVotingOpen: event.VotingEnabled !== false && event.CutoffDate ? 
-            new Date() < parseFirestoreDate(event.CutoffDate) &&
-            !hasEventStarted(event.EventDate) && !event.StartedEarly : false,
-          userVote: null,
-          eventDate: parseFirestoreDate(event.EventDate),
-          votingEnabled: event.VotingEnabled !== false,
-          eventStarted: hasEventStarted(event.EventDate),
-          isAdmin: event.CreatorID === userId,
-        }));
+        const fallbackEvents = events.map(event => mapEventToUI(event, { going: 0, maybe: 0, not: 0 }, null));
         setMappedEvents(fallbackEvents);
       } finally {
         setLoadingVoteData(false);

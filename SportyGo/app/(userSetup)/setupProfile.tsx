@@ -1,11 +1,10 @@
 import { Alert, Platform, Keyboard, KeyboardAvoidingView, ScrollView, TouchableWithoutFeedback } from "react-native";
 import React, { useContext, useEffect, useRef, useState } from "react";
-import { Button, Input, YStack, XStack, Text, H2, View } from 'tamagui'
+import { Button, Input, YStack, Text, H2, Paragraph } from 'tamagui'
 import { router } from "expo-router";
 import { useAuth0 } from "react-native-auth0";
-import { PhoneInput } from "@/components/phoneInput";
-import { UserDoc } from '../../firebase/types_index';
-import { createUserProfile, getUserProfile, updateUserProfile, checkForClaimableTemps } from '../../firebase/services_firestore2';
+import { createUserProfile, checkForClaimableTemps } from '../../firebase/services_firestore2';
+import { openPrivacyPolicy } from "@/utils/support";
 import { UserContext } from "@/components/userContext";
 import { SafeAreaWrapper } from "@/components/SafeAreaWrapper";
 import { PhotoAvatar } from "@/components/PhotoAvatar";
@@ -33,7 +32,7 @@ const calculateAgeFromYmd = (ymd: string): number | null => {
 
 export default function SetupProfile() {
     const {user} = useAuth0()
-    const {globalUser, saveUser } = useContext(UserContext);
+    const { saveUser } = useContext(UserContext);
 
     const [name, setName] = useState('')
     const [isPhotoProcessing, setIsPhotoProcessing] = useState(false)
@@ -41,7 +40,6 @@ export default function SetupProfile() {
     const [creating, setCreating] = useState(false)
     const [email, setEmail] = useState('')
     const [phone, setPhone] = useState('')
-    const [address, setAddress] = useState('')
     const [photoUrl, setPhotoUrl] = useState<string>('')
     const [dob, setDob] = useState('')
     const [showDobPicker, setShowDobPicker] = useState(false)
@@ -53,22 +51,19 @@ export default function SetupProfile() {
 
     useEffect(() => {
         if (user && user.email){
-            setEmail(user.email)
+            setEmail(user.email.trim().toLowerCase())
         }
         if (user && user.name && user.name !== user.email) {
             setName(user.name)
         }
 
         if (user && user.phoneNumber){
-            setPhone(user.phoneNumber)
+            // Auth0 can return formatted / +1 numbers; keep the last 10 digits like the input does
+            setPhone(user.phoneNumber.replace(/\D/g, '').slice(-10))
         }
-        // if (user && user.address){
-        //     setAddress(user.address)
-        // }
     }, [user]) 
 
    const createProfile = async () => {
-        console.log('createProfile')
         // Age restriction: disallow users under 13
         const age = calculateAgeFromYmd(dob);
         if (age !== null && age < 13) {
@@ -80,7 +75,15 @@ export default function SetupProfile() {
             return;
         }
 
-        if (user && name && email && phone.length === 10 && user.sub && dob){
+        const trimmedName = name.trim()
+        const normalizedEmail = email.trim().toLowerCase()
+        // Phone is optional (App Store 5.1.1: only require what the app needs), but must be complete if given
+        if (phone.length > 0 && phone.length !== 10) {
+            Alert.alert("Invalid Phone", "Phone number must be exactly 10 digits, or left blank.", [{ text: "OK" }])
+            return
+        }
+
+        if (user && trimmedName && normalizedEmail && user.sub && dob){
             if (creatingRef.current) return
             creatingRef.current = true
             setCreating(true)
@@ -89,23 +92,21 @@ export default function SetupProfile() {
 
                 const userProfile = {
                     id: user.sub, 
-                    Name: name,
-                    Email: email,
+                    Name: trimmedName,
+                    Email: normalizedEmail,
                     Groups: [], 
                     Phone: phone,
-                    Address: '', //address.trim(),
+                    Address: '',
                     PhotoUrl: photoUrl || "",
                     DateOfBirth: dateOfBirth || undefined
                 }
-                console.log('creating userProfile')
                 await createUserProfile(user.sub,userProfile)
-                console.log('userProfile created')
                 try {
                     delete (user as any)["https://badmintonapp.com/is_signup"]
                 } catch {}
-                await saveUser({name: name, email: email})
+                await saveUser({name: trimmedName, email: normalizedEmail})
                 // Detect claimable temp users before routing to dashboard
-                const claimable = await checkForClaimableTemps(email, phone);
+                const claimable = await checkForClaimableTemps(normalizedEmail, phone);
                 if (claimable.length > 0) {
                     router.replace({ pathname: '/claimTempUsers' as any, params: { ids: JSON.stringify(claimable.map(t => t.id)) } });
                 } else {
@@ -121,7 +122,7 @@ export default function SetupProfile() {
         } else {
             Alert.alert(
                 "Missing Information",
-                "Please fill all the required information.",
+                "Please enter your name, email and date of birth.",
                 [{ text: "OK" }]
               )
         }
@@ -201,6 +202,10 @@ export default function SetupProfile() {
                                 <Input
                                     value={email}
                                     onChangeText={(text: any) => setEmail(text)}
+                                    editable={!user?.email}
+                                    opacity={user?.email ? 0.7 : 1}
+                                    keyboardType="email-address"
+                                    autoCapitalize="none"
                                     onFocus={() => setShowDobPicker(false)}
                                     placeholder="Email"
                                     borderColor="$color6"
@@ -254,7 +259,7 @@ export default function SetupProfile() {
                                         setPhone(onlyDigits)
                                     }}
                                     onFocus={() => setShowDobPicker(false)}
-                                    placeholder="Phone"
+                                    placeholder="Phone (optional)"
                                     borderColor="$color6"
                                     borderWidth={1}
                                     focusStyle={{
@@ -280,6 +285,14 @@ export default function SetupProfile() {
                             >
                                 {creating ? 'Creating Profile...' : isPhotoProcessing ? 'Processing photo...' : 'Create Profile'}
                             </Button>
+
+                            <Paragraph color="$color10" fontSize="$2" style={{ textAlign: 'center', maxWidth: 320, alignSelf: 'center' }}>
+                                By creating a profile you agree to how we handle your data in our{' '}
+                                <Paragraph color="$color9" fontSize="$2" textDecorationLine="underline" onPress={openPrivacyPolicy}>
+                                    Privacy Policy
+                                </Paragraph>
+                                .
+                            </Paragraph>
                         </YStack>
                     </ScrollView>
                 </KeyboardAvoidingView>

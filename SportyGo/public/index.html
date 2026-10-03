@@ -1,66 +1,87 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Open SportyGo App</title>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Open SportyGo</title>
   <style>
     body {
-      font-family: sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      height: 100vh;
+      min-height: 100vh;
+      margin: 0;
       text-align: center;
       padding: 20px;
+      box-sizing: border-box;
+      background: #FAF7F2;
+      color: #0F172A;
     }
-
-    button {
+    button, a.store {
+      display: inline-block;
       padding: 15px 30px;
       font-size: 18px;
-      margin-top: 20px;
+      margin-top: 16px;
       cursor: pointer;
       border-radius: 8px;
-      background-color: #007AFF;
+      background-color: #065F46;
       color: white;
       border: none;
+      text-decoration: none;
     }
-
-    p {
-      font-size: 16px;
-    }
+    a.store { background-color: #E5E7DB; color: #0F172A; font-size: 16px; }
+    [hidden] { display: none !important; }
+    p { font-size: 16px; color: #6B7280; max-width: 420px; }
+    footer { margin-top: 32px; font-size: 13px; }
+    footer a { color: #6B7280; }
   </style>
 </head>
 <body>
-  <h1>Open SportyGo App</h1>
-  <p>Tap the button below to open the app and join the group.</p>
+  <h1>Join a group on SportyGo</h1>
+  <p>Tap the button below to open the invite in the SportyGo app.</p>
 
-  <button id="openAppBtn">Open App</button>
+  <button id="openAppBtn">Open in SportyGo</button>
+  <p id="storeHint" hidden>Don't have the app yet? Install it, then tap your invite link again.</p>
+  <a id="storeLink" class="store" hidden>Get SportyGo</a>
+
+  <footer><a href="/privacy">Privacy Policy</a></footer>
 
   <script>
-    const pathParts = window.location.pathname.split('/');
-    const inviteCode = pathParts[pathParts.length - 1];
+    const pathParts = window.location.pathname.split('/').filter(Boolean);
+    const inviteCode = encodeURIComponent(pathParts[pathParts.length - 1] || '');
 
-    // const iosStoreURL = "https://apps.apple.com/app/idYOUR_APPLE_ID"; // replace with your App Store ID
-    const androidPackage = "com.sparkpro.sportygo";
+    const IOS_STORE_URL = 'https://apps.apple.com/app/id6754666562';
+    const ANDROID_PACKAGE = 'com.sparkpro.sportygo';
+    const ANDROID_STORE_URL = 'https://play.google.com/store/apps/details?id=' + ANDROID_PACKAGE;
+
+    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+    // iPadOS reports itself as a Mac, so also check for touch support
+    const isIOS = /iPad|iPhone|iPod/.test(userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const isAndroid = /android/i.test(userAgent);
+
+    const showStoreLink = (url) => {
+      const link = document.getElementById('storeLink');
+      link.href = url;
+      link.hidden = false;
+      document.getElementById('storeHint').hidden = false;
+    };
 
     const openApp = () => {
-      const userAgent = navigator.userAgent || navigator.vendor || window.opera;
-
-      if (/android/i.test(userAgent)) {
-        // Android intent scheme
-        const intentLink = `intent://groups/${inviteCode}#Intent;scheme=sportygo;package=${androidPackage};end`;
-        window.location.href = intentLink;
-      // } else if (/iPad|iPhone|iPod/.test(userAgent) && !window.MSStream) {
-      //   // iOS custom scheme
-      //   const iosLink = `sportygo://groups/${inviteCode}`;
-      //   window.location.href = iosLink;
+      if (isAndroid) {
+        // Falls back to the Play Store when the app isn't installed
+        window.location.href = `intent://groups/${inviteCode}#Intent;scheme=sportygo;package=${ANDROID_PACKAGE};S.browser_fallback_url=${encodeURIComponent(ANDROID_STORE_URL)};end`;
+      } else if (isIOS) {
+        window.location.href = `sportygo://groups/${inviteCode}`;
+        // If the app didn't open, the page is still visible after a moment: offer the App Store
+        setTimeout(() => { if (!document.hidden) showStoreLink(IOS_STORE_URL); }, 1500);
       } else {
-        alert("Please open this link on your mobile device with SportyGo installed.");
+        alert('Open this link on your phone with SportyGo installed.');
       }
     };
 
-    document.getElementById("openAppBtn").addEventListener("click", openApp);
+    document.getElementById('openAppBtn').addEventListener('click', openApp);
   </script>
 </body>
 </html>

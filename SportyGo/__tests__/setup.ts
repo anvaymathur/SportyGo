@@ -15,12 +15,13 @@ jest.mock('@expo/vector-icons', () => {
 });
 
 // Signed-in Auth0 user; tests change `mockAuthUser.sub` to act as different people
-export const mockAuthUser: { sub: string; name?: string } = { sub: 'owner-1' };
+export const mockAuthUser: { sub: string; name?: string; email?: string } = { sub: 'owner-1' };
+export const mockClearSession = jest.fn(async () => undefined);
 jest.mock('react-native-auth0', () => ({
-  useAuth0: () => ({ user: mockAuthUser, isLoading: false, clearSession: jest.fn() }),
+  useAuth0: () => ({ user: mockAuthUser, isLoading: false, clearSession: mockClearSession }),
 }));
 
-export const mockRouter = { push: jest.fn(), back: jest.fn(), replace: jest.fn() };
+export const mockRouter = { push: jest.fn(), back: jest.fn(), replace: jest.fn(), canGoBack: jest.fn(() => true) };
 export const mockSearchParams: Record<string, string> = {};
 jest.mock('expo-router', () => {
   const React = require('react');
@@ -28,6 +29,7 @@ jest.mock('expo-router', () => {
   Stack.Screen = () => null;
   return {
     router: mockRouter,
+    Redirect: () => null,
     useRouter: () => mockRouter,
     useLocalSearchParams: () => mockSearchParams,
     usePathname: () => '/',
@@ -81,5 +83,6 @@ jest.mock('react-native-keyboard-aware-scroll-view', () => {
 beforeEach(() => {
   jest.clearAllMocks();
   mockAuthUser.sub = 'owner-1';
+  delete mockAuthUser.email;
   for (const key of Object.keys(mockSearchParams)) delete mockSearchParams[key];
 });

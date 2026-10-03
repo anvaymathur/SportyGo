@@ -7,13 +7,12 @@
 
 // services/firestore.ts
 import {
-  getFirestore, collection, doc, setDoc, getDoc, updateDoc, writeBatch, onSnapshot,
-  increment, arrayUnion, arrayRemove, CollectionReference, QueryDocumentSnapshot, DocumentData, getDocs, query, where,
+  collection, doc, setDoc, getDoc, updateDoc, writeBatch, onSnapshot,
+  increment, arrayUnion, arrayRemove, CollectionReference, DocumentData, Query, getDocs, query, where,
   Timestamp, deleteDoc, documentId, or, addDoc, runTransaction
 } from "firebase/firestore";
-import { db, storage} from "./index";
+import { db } from "./index";
 import { UserDoc, GroupDoc, EventDoc, VoteShard, VoteStatus, newMatchHistory, AttendanceRecord, GroupInviteDoc } from "./types_index";
-import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import * as ImageManipulator from 'expo-image-manipulator'
 
 /**
@@ -66,101 +65,6 @@ export async function imageToBase64(uri: string): Promise<string> {
   }
 }
 
-// Test function to verify Firebase Storage connectivity
-export async function testStorageConnection(): Promise<boolean> {
-  try {
-    console.log('Testing Firebase Storage connection...');
-    console.log('Storage bucket:', storage.app.options.storageBucket);
-    
-    // Try to create a simple test file
-    const testRef = ref(storage, 'test-connection.txt');
-    const testBlob = new Blob(['test'], { type: 'text/plain' });
-    
-    await uploadBytes(testRef, testBlob);
-    console.log('Storage connection test successful');
-    
-    // Clean up test file
-    try {
-      await deleteObject(testRef);
-      console.log('Test file cleaned up');
-    } catch (cleanupError) {
-      console.log('Cleanup failed (not critical):', cleanupError);
-    }
-    
-    return true;
-  } catch (error) {
-    console.error('Storage connection test failed:', error);
-    return false;
-  }
-}
-export async function uploadImage(uri: string, path: string): Promise<string> {
-  try {
-    console.log('Starting image upload for URI:', uri);
-    console.log('Upload path:', path);
-    
-    // For React Native, we need to handle file URIs differently
-    // Convert URI to blob with proper error handling
-    const response = await fetch(uri);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
-    }
-    
-    const blob = await response.blob();
-    console.log('Blob created, size:', blob.size);
-    
-    // Create storage reference
-    const storageRef = ref(storage, path);
-    
-    // Upload blob with metadata
-    const metadata = {
-      contentType: 'image/jpeg',
-      cacheControl: 'public, max-age=31536000', // Cache for 1 year
-    };
-    
-    console.log('Uploading to Firebase Storage...');
-    console.log('Storage bucket:', storage.app.options.storageBucket);
-    
-    // Try upload with retry logic
-    let uploadResult;
-    try {
-      uploadResult = await uploadBytes(storageRef, blob, metadata);
-      console.log('Upload completed successfully');
-    } catch (uploadError) {
-      console.error('Upload failed, trying alternative approach:', uploadError);
-      
-      // Alternative: Try without metadata
-      uploadResult = await uploadBytes(storageRef, blob);
-      console.log('Upload completed with alternative approach');
-    }
-    
-    // Get download URL
-    const downloadURL = await getDownloadURL(storageRef);
-    console.log('Download URL obtained:', downloadURL);
-    return downloadURL;
-  } catch (error) {
-    console.error('Error uploading image:', error);
-    console.error('Error details:', {
-      message: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
-      code: (error as any)?.code,
-      serverResponse: (error as any)?.serverResponse
-    });
-    
-    // Provide more specific error information
-    if (error instanceof Error) {
-      if (error.message.includes('storage/unauthorized')) {
-        throw new Error('Storage access denied. Please check your authentication and storage rules.');
-      } else if (error.message.includes('storage/quota-exceeded')) {
-        throw new Error('Storage quota exceeded. Please try a smaller image.');
-      } else if (error.message.includes('storage/unauthenticated')) {
-        throw new Error('User not authenticated. Please log in again.');
-      }
-    }
-    
-    throw error;
-  }
-}
-
 // --- USERS ---
 
 /**
@@ -170,7 +74,6 @@ export async function uploadImage(uri: string, path: string): Promise<string> {
  * @returns {Promise<void>} Promise that resolves when user is created
  */
 export async function createUserProfile(uid: string, userDoc: UserDoc): Promise<void> {
-  console.log('createUserProfile', uid, userDoc)
   return setDoc(doc(db, "users", uid), userDoc);
 }
 
@@ -190,51 +93,7 @@ export async function updateUserProfile(uid: string, data: Omit<Partial<UserDoc>
   return updateDoc(doc(db, "users", uid), updates);
 }
 
-export async function getAllUserProfiles(): Promise<UserDoc[]> {
-  const usersCol = collection(db, "users");
-  const snapshot = await getDocs(usersCol);
-  const users: UserDoc[] = [];
-  snapshot.forEach(doc => {
-    users.push({ id: doc.id, ...doc.data() } as UserDoc);
-  });
-  return users;
-}
-
-export async function getEventUserProfiles(eventId: string): Promise<UserDoc[]> {
-  // First get the event to find users who voted
-  const eventSnap = await getDoc(doc(db, "events", eventId));
-  if (!eventSnap.exists()) {
-    return [];
-  }
-
-  // Get all user votes for this event
-  const userVotesCol = collection(db, "events", eventId, "userVotes");
-  const userVotesSnapshot = await getDocs(userVotesCol);
-  
-  // Extract user IDs from votes where status is "going" (yes)
-  const userIds = new Set<string>();
-  userVotesSnapshot.forEach(doc => {
-    const voteData = doc.data();
-    if (voteData.userId && voteData.status === "going") {
-      userIds.add(voteData.userId);
-    }
-  });
-
-  // Get user profiles for all users who voted "going"
-  const users: UserDoc[] = [];
-  for (const userId of userIds) {
-    const userProfile = await getUserProfile(userId);
-    if (userProfile) {
-      users.push(userProfile);
-    }
-  }
-
-  return users;
-}
-
 // --- GROUPS ---
-import { v4 as uuidv4 } from 'uuid';
-
 
 export async function createGroup(userId: string, group: Omit<GroupDoc, "ownerId" | "memberIds" | "createdAt">): Promise<string> {
   const groupRef = doc(collection(db, "groups"));
@@ -250,16 +109,6 @@ export async function createGroup(userId: string, group: Omit<GroupDoc, "ownerId
   batch.set(userRef, { Groups: arrayUnion(groupId) }, { merge: true });
   await batch.commit();
   return groupId;
-}
-
-export async function getGroups(): Promise<GroupDoc[]> {
-  const groupsCol = collection(db, "groups");
-  const snapshot = await getDocs(groupsCol);
-  const groups: GroupDoc[] = [];
-  snapshot.forEach(doc => {
-    groups.push({ id: doc.id, ...doc.data() } as GroupDoc);
-  });
-  return groups;
 }
 
 export async function getUserGroups(userId: string): Promise<GroupDoc[]> {
@@ -278,13 +127,13 @@ export async function getGroupById(groupId: string): Promise<GroupDoc | undefine
   return snap.exists() ? ({ id: snap.id, ...snap.data() } as GroupDoc) : undefined;
 }
 
+/** Profiles for the given IDs, in the same order, skipping IDs with no profile. */
 export async function getUsersByIds(userIds: string[]): Promise<UserDoc[]> {
-  const users: UserDoc[] = [];
-  for (const uid of userIds) {
-    const profile = await getUserProfile(uid);
-    if (profile) users.push(profile);
-  }
-  return users;
+  const uniqueIds = Array.from(new Set(userIds));
+  const profiles = await getUserProfilesByIds(uniqueIds);
+  return uniqueIds
+    .map((uid) => profiles[uid])
+    .filter((profile): profile is UserDoc => !!profile);
 }
 
 // Batched fetch for user profiles using documentId() and chunking (max 10 IDs per query)
@@ -303,12 +152,6 @@ export async function getUserProfilesByIds(userIds: string[]): Promise<Record<st
     // Any IDs not returned will remain undefined
   }
   return result;
-}
-
-function incrementOrPushToArray(groupId: string) {
-  // This is a placeholder. In a real implementation, you'd use arrayUnion
-  // For now, we'll handle group membership separately if needed
-  return groupId;
 }
 
 // --- EVENTS ---
@@ -341,7 +184,20 @@ export async function updateEvent(eventId: string, updates: Partial<EventDoc>) {
   return updateDoc(doc(db, "events", eventId), updates);
 }
 
+/** Deletes every document in a collection, in batches of up to 500 writes. */
+async function deleteAllDocs(colRef: CollectionReference<DocumentData>) {
+  const snap = await getDocs(colRef);
+  for (let i = 0; i < snap.docs.length; i += 500) {
+    const batch = writeBatch(db);
+    snap.docs.slice(i, i + 500).forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+  }
+}
+
+/** Deletes an event along with its vote shards and per-user votes. */
 export async function deleteEvent(eventId: string) {
+  await deleteAllDocs(collection(db, "events", eventId, "userVotes"));
+  await deleteAllDocs(collection(db, "events", eventId, "voteShards"));
   await deleteDoc(doc(db, "events", eventId));
 }
 
@@ -350,77 +206,18 @@ export async function getEvent(eventId: string) {
   return snap.exists() ? snap.data() : undefined;
 }
 
-// --- HELPER FUNCTIONS ---
-
-// Check if two events overlap in time
-function eventsOverlap(event1: any, event2: any): boolean {
-  const start1 = new Date(event1.EventDate);
-  const start2 = new Date(event2.EventDate);
-  
-  // Assume events last 2 hours by default (can be made configurable)
-  const duration = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
-  const end1 = new Date(start1.getTime() + duration);
-  const end2 = new Date(start2.getTime() + duration);
-  
-  // Check if events overlap
-  return start1 < end2 && start2 < end1;
-}
-
-// DEPRECATED: This function is too slow - queries all events and all votes
-// Get all events where user has voted 'going'
-async function getUserGoingEvents(userId: string): Promise<any[]> {
-  const eventsCol = collection(db, "events");
-  const snapshot = await getDocs(eventsCol);
-  const userEvents: any[] = [];
-  
-  for (const eventDoc of snapshot.docs) {
-    const eventData = eventDoc.data();
-    const userVote = await getUserVote(eventDoc.id, userId);
-    
-    if (userVote === 'going') {
-      userEvents.push({
-        id: eventDoc.id,
-        ...eventData
-      });
-    }
-  }
-  
-  return userEvents;
-}
-
-// OPTIMIZED: Future implementation could use indexed queries
-// async function getUserGoingEventsOptimized(userId: string): Promise<any[]> {
-//   // This would require a composite index on (userId, status) in userVotes subcollection
-//   // and would be much faster than the current implementation
-//   return [];
-// }
-
-// Check if voting for this event would conflict with user's existing 'going' votes
-async function checkTimeConflict(eventId: string, userId: string): Promise<{ hasConflict: boolean; conflictingEvent?: any }> {
-  const currentEventRef = doc(db, "events", eventId);
-  const currentEventSnap = await getDoc(currentEventRef);
-  
-  if (!currentEventSnap.exists()) {
-    throw new Error('Event not found');
-  }
-  
-  const currentEvent = currentEventSnap.data();
-  const userGoingEvents = await getUserGoingEvents(userId);
-  
-  // Check for conflicts with existing 'going' votes
-  for (const userEvent of userGoingEvents) {
-    if (userEvent.id !== eventId && eventsOverlap(currentEvent, userEvent)) {
-      return {
-        hasConflict: true,
-        conflictingEvent: userEvent
-      };
-    }
-  }
-  
-  return { hasConflict: false };
-}
-
 // --- SHARDED VOTE SYSTEM ---
+
+/** Each user's vote always lives in the same shard, so changing or removing it touches one doc. */
+function getUserShard(userId: string): number {
+  let hash = 0;
+  for (let i = 0; i < userId.length; i++) {
+    hash = ((hash << 5) - hash) + userId.charCodeAt(i);
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  return Math.abs(hash) % NUM_SHARDS;
+}
+
 export async function castVote(eventId: string, status: keyof VoteShard, userId: string = 'default-user') {
   // First check if voting is enabled for this event
   const eventRef = doc(db, "events", eventId);
@@ -471,19 +268,10 @@ export async function castVote(eventId: string, status: keyof VoteShard, userId:
   const userVoteRef = doc(db, "events", eventId, "userVotes", userId);
   const userVoteSnap = await getDoc(userVoteRef);
   
-  // Use consistent shard selection based on userId for better performance
-  const getUserShard = (userId: string) => {
-    let hash = 0;
-    for (let i = 0; i < userId.length; i++) {
-      const char = userId.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32-bit integer
-    }
-    return Math.abs(hash) % NUM_SHARDS;
-  };
-  
   const batch = writeBatch(db);
-  
+  // Index the voter on the event so account deletion can always find this vote
+  batch.update(eventRef, { VoterIds: arrayUnion(userId) });
+
   if (userVoteSnap.exists()) {
     // User has voted before - update their vote
     const previousVote = userVoteSnap.data()?.status;
@@ -536,6 +324,32 @@ export async function getUserVote(eventId: string, userId: string = 'default-use
   return null;
 }
 
+/** Every vote on an event, keyed by user ID (one read instead of one per user). */
+export async function getEventVotes(eventId: string): Promise<Record<string, VoteStatus>> {
+  const snap = await getDocs(collection(db, "events", eventId, "userVotes"));
+  const votes: Record<string, VoteStatus> = {};
+  snap.forEach((d) => {
+    const data = d.data();
+    if (data?.status) votes[data.userId ?? d.id] = data.status as VoteStatus;
+  });
+  return votes;
+}
+
+/** Removes a user's vote and takes it back out of the shard totals. */
+export async function removeUserVote(eventId: string, userId: string): Promise<void> {
+  const voteRef = doc(db, "events", eventId, "userVotes", userId);
+  const voteSnap = await getDoc(voteRef);
+  if (!voteSnap.exists()) return;
+  const status = voteSnap.data()?.status;
+  const batch = writeBatch(db);
+  if (status) {
+    batch.update(doc(db, "events", eventId, "voteShards", getUserShard(userId).toString()), { [status]: increment(-1) });
+  }
+  batch.delete(voteRef);
+  batch.update(doc(db, "events", eventId), { VoterIds: arrayRemove(userId) });
+  await batch.commit();
+}
+
 export function listenVoteCounts(
   eventId: string,
   callback: (totals: VoteShard) => void
@@ -573,89 +387,75 @@ export async function getVoteCounts(eventId: string): Promise<VoteShard> {
 }
 
 
-// --- REAL-TIME EVENT LISTENER ---
-export function listenGroupEvents(groupId: string, callback: (events: EventDoc[]) => void) {
+// --- USER EVENTS ---
+
+// Firestore allows at most 30 values in an array-contains-any filter
+const ARRAY_CONTAINS_ANY_LIMIT = 30;
+
+/**
+ * Queries for the events a user can see: events for any of their groups, events they
+ * were individually invited to, and events they created. Each uses a single-field index,
+ * so only the user's own events are downloaded (not the whole collection).
+ */
+function userEventQueries(groupIds: string[], userId: string, includeHistory = false): Query<DocumentData>[] {
   const eventsCol = collection(db, "events");
-  return onSnapshot(eventsCol, snap => {
-    const result: EventDoc[] = [];
-    snap.forEach(doc => {
-      const evt = doc.data();
-      // Check if the event has the group in its GroupIDs array
-      if (evt.GroupIDs && evt.GroupIDs.includes(groupId)) {
-        result.push({ 
-          id: doc.id, 
-          GroupIDs: evt.GroupIDs,
-          IndividualParticipantIDs: evt.IndividualParticipantIDs,
-          Title: evt.Title,
-          EventDate: evt.EventDate,
-          Location: evt.Location,
-          TotalCost: evt.TotalCost,
-          CutoffDate: evt.CutoffDate,
-          CreatorID: evt.CreatorID,
-          VotingEnabled: evt.VotingEnabled
-        } as EventDoc);
-      }
-    });
-    callback(result);
-  });
+  const queries: Query<DocumentData>[] = [
+    query(eventsCol, where("IndividualParticipantIDs", "array-contains", userId)),
+    query(eventsCol, where("CreatorID", "==", userId)),
+  ];
+  if (includeHistory) {
+    // Events they voted on or attended, even in groups they've since left
+    queries.push(query(eventsCol, where("VoterIds", "array-contains", userId)));
+    queries.push(query(eventsCol, where("AttendeeIds", "array-contains", userId)));
+  }
+  const uniqueGroupIds = Array.from(new Set(groupIds.filter(Boolean)));
+  for (let i = 0; i < uniqueGroupIds.length; i += ARRAY_CONTAINS_ANY_LIMIT) {
+    queries.push(query(eventsCol, where("GroupIDs", "array-contains-any", uniqueGroupIds.slice(i, i + ARRAY_CONTAINS_ANY_LIMIT))));
+  }
+  return queries;
 }
 
-export function listenUserGroupEvents(userGroupIds: string[], userId: string, callback: (events: EventDoc[]) => void) {
-  const eventsCol = collection(db, "events");
-  return onSnapshot(eventsCol, snap => {
-    const result: EventDoc[] = [];
-    snap.forEach(doc => {
-      const evt = doc.data();
-      // Check if user is in any of the groups OR is an individual participant
-      const isInGroup = evt.GroupIDs && evt.GroupIDs.some((groupId: string) => userGroupIds.includes(groupId));
-      const isIndividualParticipant = evt.IndividualParticipantIDs && evt.IndividualParticipantIDs.includes(userId);
-      
-      if (isInGroup || isIndividualParticipant) {
-        result.push({ 
-          id: doc.id, 
-          GroupIDs: evt.GroupIDs,
-          IndividualParticipantIDs: evt.IndividualParticipantIDs,
-          Title: evt.Title,
-          EventDate: evt.EventDate,
-          Location: evt.Location,
-          TotalCost: evt.TotalCost,
-          CutoffDate: evt.CutoffDate,
-          CreatorID: evt.CreatorID,
-          VotingEnabled: evt.VotingEnabled
-        } as EventDoc);
-      }
-    });
-    callback(result);
-  });
+const toEventDoc = (id: string, data: DocumentData): EventDoc => ({ ...data, id } as EventDoc);
+
+/**
+ * One-off fetch of the events a user can see (see userEventQueries). With includeHistory, also
+ * events they voted on or attended that they can no longer see (used by account deletion).
+ */
+export async function getUserEvents(groupIds: string[], userId: string, options: { includeHistory?: boolean } = {}): Promise<EventDoc[]> {
+  const snaps = await Promise.all(userEventQueries(groupIds, userId, options.includeHistory).map((q) => getDocs(q)));
+  const events = new Map<string, EventDoc>();
+  snaps.forEach((snap) => snap.forEach((d) => { events.set(d.id, toEventDoc(d.id, d.data())); }));
+  return Array.from(events.values());
 }
 
-export function listenAllEvents(userId: string, callback: (events: EventDoc[]) => void) {
-  const eventsCol = collection(db, "events");
-  return onSnapshot(eventsCol, snap => {
-    const result: EventDoc[] = [];
-    snap.forEach(doc => {
-      const evt = doc.data();
-      // Check if user is an individual participant or the creator
-      const isIndividualParticipant = evt.IndividualParticipantIDs && evt.IndividualParticipantIDs.includes(userId);
-      const isCreator = evt.CreatorID === userId;
-      
-      if (isIndividualParticipant || isCreator) {
-        result.push({ 
-          id: doc.id, 
-          GroupIDs: evt.GroupIDs,
-          IndividualParticipantIDs: evt.IndividualParticipantIDs,
-          Title: evt.Title,
-          EventDate: evt.EventDate,
-          Location: evt.Location,
-          TotalCost: evt.TotalCost,
-          CutoffDate: evt.CutoffDate,
-          CreatorID: evt.CreatorID,
-          VotingEnabled: evt.VotingEnabled
-        } as EventDoc);
-      }
-    });
-    callback(result);
-  });
+/**
+ * Live version of getUserEvents. Calls back with the merged, de-duplicated list once every
+ * query has reported, then again on each change. Returns an unsubscribe function.
+ */
+export function listenUserEvents(groupIds: string[], userId: string, callback: (events: EventDoc[]) => void) {
+  const queries = userEventQueries(groupIds, userId);
+  const results: (Map<string, EventDoc> | undefined)[] = queries.map(() => undefined);
+
+  const emit = () => {
+    if (results.some((r) => r === undefined)) return;
+    const merged = new Map<string, EventDoc>();
+    results.forEach((r) => r!.forEach((evt, id) => merged.set(id, evt)));
+    callback(Array.from(merged.values()));
+  };
+
+  const unsubscribes = queries.map((q, i) =>
+    onSnapshot(q, (snap) => {
+      const map = new Map<string, EventDoc>();
+      snap.forEach((d) => { map.set(d.id, toEventDoc(d.id, d.data())); });
+      results[i] = map;
+      emit();
+    }, (error) => {
+      console.error('Event listener failed:', error);
+      results[i] = new Map();
+      emit();
+    })
+  );
+  return () => unsubscribes.forEach((unsub) => unsub());
 }
 
 // --- MATCH HISTORY ---
@@ -720,14 +520,18 @@ export async function getUserMatchHistory(userId: string): Promise<newMatchHisto
 export async function updateAttendance(eventId: string, attendanceRecords: AttendanceRecord[]) {
   const eventRef = doc(db, "events", eventId);
   
-  // Convert dates to Firestore timestamps
+  // Store only IDs and check-in state: names/emails are shown from profiles, and keeping copies
+  // here would leave personal data behind after someone deletes their account
   const recordsWithTimestamps = attendanceRecords.map(record => ({
-    ...record,
-    arrivalTime: record.arrivalTime ? Timestamp.fromDate(record.arrivalTime) : undefined
+    userId: record.userId,
+    votedStatus: record.votedStatus ?? null,
+    hasArrived: record.hasArrived,
+    arrivalTime: record.arrivalTime ? Timestamp.fromDate(record.arrivalTime) : null,
   }));
 
   await updateDoc(eventRef, {
-    AttendanceRecords: recordsWithTimestamps
+    AttendanceRecords: recordsWithTimestamps,
+    AttendeeIds: recordsWithTimestamps.map(record => record.userId),
   });
 }
 
@@ -797,16 +601,25 @@ export async function getGroupInvites(groupId: string): Promise<GroupInviteDoc[]
     const data = doc.data();
     invites.push({
       ...data,
+      // Firestore returns a Timestamp; new Date(Timestamp) is an Invalid Date
+      validUntil: toDate(data.validUntil),
       id: doc.id
     } as GroupInviteDoc);
   });
-  
+
   // Sort by validUntil date (most recent first)
-  return invites.sort((a, b) => {
-    const dateA = new Date(a.validUntil);
-    const dateB = new Date(b.validUntil);
-    return dateB.getTime() - dateA.getTime();
-  });
+  return invites.sort((a, b) => b.validUntil.getTime() - a.validUntil.getTime());
+}
+
+/** Converts a Firestore Timestamp, Date, string or millis value to a Date. */
+export function toDate(value: unknown): Date {
+  if (value && typeof (value as { toDate?: unknown }).toDate === 'function') {
+    return (value as { toDate: () => Date }).toDate();
+  }
+  if (value && typeof value === 'object' && typeof (value as { seconds?: unknown }).seconds === 'number') {
+    return new Date((value as { seconds: number }).seconds * 1000);
+  }
+  return new Date(value as string | number | Date);
 }
 
 
@@ -817,13 +630,7 @@ export async function getGroupInvites(groupId: string): Promise<GroupInviteDoc[]
  */
 export function isInviteUsable(invite: GroupInviteDoc, groupId: string, now: Date = new Date()): boolean {
   if (invite.groupId !== groupId || invite.expired) return false;
-  const rawValidUntil = invite.validUntil as unknown as { toDate?: () => Date } | Date | string | undefined;
-  if (rawValidUntil) {
-    const validUntil = typeof (rawValidUntil as any).toDate === 'function'
-      ? (rawValidUntil as { toDate: () => Date }).toDate()
-      : new Date(rawValidUntil as Date | string);
-    if (validUntil < now) return false;
-  }
+  if (invite.validUntil && toDate(invite.validUntil) < now) return false;
   if (Number.isFinite(invite.maxUses) && invite.maxUses > 0 && (invite.used ?? 0) >= invite.maxUses) {
     return false;
   }
@@ -877,6 +684,44 @@ export async function addGroupAdmin(groupId: string, userId: string): Promise<vo
 
 export async function removeGroupAdmin(groupId: string, userId: string): Promise<void> {
   return updateDoc(doc(db, "groups", groupId), { AdminIds: arrayRemove(userId) });
+}
+
+/** Drops a group from a user's Groups list. Uses update so a deleted user's doc isn't recreated. */
+async function removeGroupFromUser(userId: string, groupId: string): Promise<void> {
+  try {
+    await updateDoc(doc(db, "users", userId), { Groups: arrayRemove(groupId) });
+  } catch (error) {
+    // The user doc may already be gone (e.g. deleted account); membership is tracked on the group
+    console.warn('Could not update user groups:', error);
+  }
+}
+
+/**
+ * Removes a member (or admin) from a group, e.g. when they leave or are removed by the
+ * owner/an admin. The owner can't be removed: they must delete the group instead.
+ */
+export async function removeGroupMember(groupId: string, userId: string): Promise<void> {
+  const group = await getGroupById(groupId);
+  if (!group) return;
+  if (group.OwnerId === userId) {
+    throw new Error('The group owner cannot be removed. Delete the group instead.');
+  }
+  await updateDoc(doc(db, "groups", groupId), { MemberIds: arrayRemove(userId), AdminIds: arrayRemove(userId) });
+  await removeGroupFromUser(userId, groupId);
+}
+
+/** Deletes a group, its invite links, and the group from every member's Groups list. */
+export async function deleteGroup(groupId: string): Promise<void> {
+  const group = await getGroupById(groupId);
+  if (!group) return;
+  const invites = await getDocs(query(collection(db, "groupInvites"), where("groupId", "==", groupId)));
+  for (let i = 0; i < invites.docs.length; i += 500) {
+    const batch = writeBatch(db);
+    invites.docs.slice(i, i + 500).forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+  }
+  await deleteDoc(doc(db, "groups", groupId));
+  await Promise.all((group.MemberIds ?? []).map((memberId) => removeGroupFromUser(memberId, groupId)));
 }
 
 // --- TEMPORARY USER OPERATIONS ---
@@ -1003,6 +848,97 @@ export async function mergeTempUsers(survivorId: string, absorbedId: string): Pr
   }
 
   await updateDoc(doc(db, "users", absorbedId), { claimedBy: `__merged:${survivorId}` });
+}
+
+// --- ACCOUNT DELETION ---
+
+/**
+ * Stands in for a deleted user in other people's match history. Screens fall back to showing
+ * the player ID when there is no profile, so this reads naturally everywhere.
+ */
+export const DELETED_PLAYER_ID = 'Deleted player';
+
+/**
+ * Permanently deletes a user's account data (App Store 5.1.1(v) / Google Play account deletion):
+ *   1. Groups: leaves every group. Owned groups pass to an admin (or the next member), or are
+ *      deleted when nobody else is in them.
+ *   2. Events: deletes events they created; elsewhere removes their RSVP, individual
+ *      invitation and attendance record, including events in groups they left earlier (found
+ *      through the VoterIds / AttendeeIds indexes).
+ *   3. Matches: replaces their ID with DELETED_PLAYER_ID so other players keep their history.
+ *   4. Temporary players: deletes ones only they managed (anonymising their matches too),
+ *      leaves shared ones, and deletes claimed-temp records that hold their own email/phone.
+ *   5. Deletes the profile last, so a failed run can simply be retried.
+ *
+ * Signing out of / deleting the Auth0 login is up to the caller.
+ */
+export async function deleteUserAccount(userId: string): Promise<void> {
+  // 1. Groups
+  const groups = await getUserGroups(userId);
+  for (const group of groups) {
+    const otherMembers = (group.MemberIds ?? []).filter((id) => id !== userId);
+    if (group.OwnerId === userId) {
+      if (otherMembers.length === 0) {
+        await deleteGroup(group.id);
+        continue;
+      }
+      const newOwner = (group.AdminIds ?? []).find((id) => otherMembers.includes(id)) ?? otherMembers[0];
+      await updateDoc(doc(db, "groups", group.id), {
+        OwnerId: newOwner,
+        MemberIds: arrayRemove(userId),
+        // The new owner doesn't also need to be listed as an admin
+        AdminIds: arrayRemove(userId, newOwner),
+      });
+    } else {
+      await updateDoc(doc(db, "groups", group.id), { MemberIds: arrayRemove(userId), AdminIds: arrayRemove(userId) });
+    }
+  }
+
+  // 2. Events: ones they can see, plus any they voted on or attended in groups they left earlier
+  const events = await getUserEvents(groups.map((g) => g.id), userId, { includeHistory: true });
+  for (const event of events) {
+    if (event.CreatorID === userId) {
+      await deleteEvent(event.id);
+      continue;
+    }
+    await removeUserVote(event.id, userId);
+    const updates: DocumentData = {};
+    if (event.IndividualParticipantIDs?.includes(userId)) {
+      updates.IndividualParticipantIDs = arrayRemove(userId);
+    }
+    if (event.AttendanceRecords?.some((r) => r.userId === userId)) {
+      updates.AttendanceRecords = event.AttendanceRecords.filter((r) => r.userId !== userId);
+    }
+    if (event.AttendeeIds?.includes(userId)) {
+      updates.AttendeeIds = arrayRemove(userId);
+    }
+    if (Object.keys(updates).length > 0) {
+      await updateDoc(doc(db, "events", event.id), updates);
+    }
+  }
+
+  // 3. Matches
+  await migrateMatchRefs(userId, DELETED_PLAYER_ID);
+
+  // 4. Temporary players
+  const ownedTemps = await getDocs(query(collection(db, "users"), where("owners", "array-contains", userId)));
+  for (const tempDoc of ownedTemps.docs) {
+    const temp = tempDoc.data() as UserDoc;
+    const otherOwners = (temp.owners ?? []).filter((id) => id !== userId);
+    if (otherOwners.length === 0 && !temp.claimedBy) {
+      await migrateMatchRefs(tempDoc.id, DELETED_PLAYER_ID);
+      await deleteDoc(tempDoc.ref);
+    } else {
+      await updateDoc(tempDoc.ref, { owners: arrayRemove(userId) });
+    }
+  }
+  const claimedTemps = await getDocs(query(collection(db, "users"), where("claimedBy", "==", userId)));
+  for (const tempDoc of claimedTemps.docs) {
+    await deleteDoc(tempDoc.ref);
+  }
+
+  // 5. Profile
+  await deleteDoc(doc(db, "users", userId));
 }
 
 /**

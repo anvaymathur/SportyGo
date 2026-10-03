@@ -16,6 +16,7 @@ import { GroupDoc, UserDoc } from '../../../firebase/types_index';
 import { useAuth0 } from 'react-native-auth0';
 import { YStack, XStack, Button, Input, Label, Paragraph, H2, Text, Card, ScrollView } from 'tamagui';
 import { SafeAreaWrapper } from '@/components/SafeAreaWrapper';
+import { buildEventParticipants, countEventParticipants } from '@/utils/eventParticipants';
 
 /**
  * Interface for form validation errors
@@ -106,7 +107,8 @@ export default function CreateGameSession() {
         setGroups(fetchedGroups);
         setGroupsLoaded(true);
       } catch (error) {
-        Alert.alert('Error', 'Failed to load groups. Becasue of ' + error);
+        console.error('Error loading groups:', error);
+        Alert.alert('Error', 'Failed to load your groups. Please try again.');
       } finally {
         setLoadingGroups(false);
       }
@@ -133,9 +135,9 @@ export default function CreateGameSession() {
       newErrors.title = 'Title must be at least 3 characters';
     }
 
-    // Date validation
-    if (!gameDate || gameDate < new Date(today.setHours(0, 0, 0, 0))) {
-      newErrors.gameDate = 'Game date cannot be in the past';
+    // Date validation (date + time together, so an earlier time today is rejected too)
+    if (!gameDate || getEventDate() < new Date()) {
+      newErrors.gameDate = 'The game must be scheduled in the future';
     }
 
     // Time validation
@@ -169,12 +171,7 @@ export default function CreateGameSession() {
     }
 
     // Check minimum participants requirement
-    const effectiveGroupId = getEffectiveSelectedGroupId();
-    const selectedGroupData = effectiveGroupId ? groups.find(g => g.id === effectiveGroupId) : null;
-    const groupMemberCount = selectedGroupData ? selectedGroupData.MemberIds.length : 0;
-    const individualCount = selectedParticipants.length + (!effectiveGroupId && !selectedParticipants.includes(userId) ? 1 : 0);
-    const totalParticipants = groupMemberCount + individualCount;
-
+    const { total: totalParticipants } = getParticipants();
     if (totalParticipants < 2) {
       newErrors.participants = 'You need at least 2 participants total (group and/or individuals)';
     }
@@ -228,33 +225,20 @@ export default function CreateGameSession() {
    * Validates form data and creates the event in Firestore
    */
   const handleSubmit = async (): Promise<void> => {
-    if (!validate()) return;
+    if (loading || !validate()) return;
 
     setLoading(true);
     try {
-      // Ensure creator is always included as a participant
-      let finalIndividualParticipants = [...selectedParticipants];
-
-      // If no group is selected, creator must be in individual participants
-      if (!getEffectiveSelectedGroupId() && !finalIndividualParticipants.includes(userId)) {
-        finalIndividualParticipants.push(userId);
-      }
+      const { participants } = getParticipants();
 
       // Build EventDoc object
       const event = {
         id: '', // Firestore will generate the ID
-        GroupIDs: (() => { const gid = getEffectiveSelectedGroupId(); return gid ? [gid] : []; })(),
-        IndividualParticipantIDs: finalIndividualParticipants,
+        ...participants,
 
         Title: title.trim(),
-        EventDate: new Date(
-          gameDate.getFullYear(),
-          gameDate.getMonth(),
-          gameDate.getDate(),
-          gameTime.getHours(),
-          gameTime.getMinutes()
-        ),
-        Location: location,
+        EventDate: getEventDate(),
+        Location: location.trim(),
         TotalCost: totalCost ? Number(totalCost) : 0,
         CutoffDate: votingEnabled ? votingCutoff : new Date('1970-01-01'),
         CreatorID: userId,
@@ -266,8 +250,8 @@ export default function CreateGameSession() {
       setSuccess(true);
     } catch (e) {
       setLoading(false);
-      Alert.alert('Error', 'Failed to create event. Becasue of ' + e);
-      console.log(e);
+      console.error('Error creating event:', e);
+      Alert.alert('Error', 'Failed to create the event. Please try again.');
     }
   };
 
@@ -418,8 +402,8 @@ export default function CreateGameSession() {
     if (!userSearchQuery.trim()) return groupUsers;
 
     return groupUsers.filter(user =>
-      user.Name.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
-      user.Email.toLowerCase().includes(userSearchQuery.toLowerCase())
+      (user.Name ?? '').toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+      (user.Email ?? '').toLowerCase().includes(userSearchQuery.toLowerCase())
     );
   };
 
@@ -427,6 +411,29 @@ export default function CreateGameSession() {
   const getEffectiveSelectedGroupId = (): string | null => {
     if (!selectedGroup || selectedGroup === 'null' || selectedGroup === '' || selectedGroup === NO_GROUP_VALUE) return null;
     return selectedGroup;
+  };
+
+  // The chosen date combined with the chosen time
+  const getEventDate = (): Date => new Date(
+    gameDate.getFullYear(),
+    gameDate.getMonth(),
+    gameDate.getDate(),
+    gameTime.getHours(),
+    gameTime.getMinutes()
+  );
+
+  // Who the event will be shared with, honouring group members that were deselected
+  const getParticipants = () => {
+    const groupId = getEffectiveSelectedGroupId();
+    const groupMemberIds = (groupId ? groups.find(g => g.id === groupId)?.MemberIds : undefined) ?? [];
+    const participants = buildEventParticipants({
+      groupId,
+      groupMemberIds,
+      selectedIds: selectedParticipants,
+      excludedIds: excludedGroupParticipants,
+      creatorId: userId,
+    });
+    return { participants, groupMemberIds, total: countEventParticipants(participants, groupMemberIds) };
   };
 
   // Determine if a user should be highlighted (selected or part of selected group)
@@ -842,11 +849,9 @@ export default function CreateGameSession() {
                     </Label>
                     <Card p={12} bg="$color3" borderRadius="$2">
                       {(() => {
-                        const effectiveGroupId = getEffectiveSelectedGroupId();
-                        const selectedGroupData = effectiveGroupId ? groups.find(g => g.id === effectiveGroupId) : null;
-                        const groupMemberCount = selectedGroupData ? selectedGroupData.MemberIds.length : 0;
-                        const individualCount = selectedParticipants.length + (!effectiveGroupId && !selectedParticipants.includes(userId) ? 1 : 0);
-                        const totalParticipants = groupMemberCount + individualCount;
+                        const { participants, groupMemberIds, total: totalParticipants } = getParticipants();
+                        const selectedGroupData = groups.find(g => g.id === getEffectiveSelectedGroupId());
+                        const sharedWithGroup = participants.GroupIDs.length > 0;
 
                         return (
                           <>
@@ -854,8 +859,9 @@ export default function CreateGameSession() {
                               Total Participants: {totalParticipants}
                             </Text>
                             <Text fontSize={12} color="$color10">
-                              Group: {effectiveGroupId ? `${selectedGroupData?.Name} (${groupMemberCount} members)` : 'No'} | Individuals: {individualCount}
-                              {!effectiveGroupId && !selectedParticipants.includes(userId) && ' (including you)'}
+                              {sharedWithGroup
+                                ? `Whole group: ${selectedGroupData?.Name} (${groupMemberIds.length} members)`
+                                : `${participants.IndividualParticipantIDs.length} people invited individually${selectedGroupData ? ` from ${selectedGroupData.Name}` : ''}`}
                             </Text>
 
                             {totalParticipants < 2 && (

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
-import { View, Alert, ScrollView, Share, Platform, Clipboard } from "react-native";
+import { View, Alert, ScrollView, Share, Platform } from "react-native";
+import * as Clipboard from "expo-clipboard";
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { 
   Button, 
@@ -142,6 +143,9 @@ export default function AddMembers() {
     } else if (maxUses === 'undefined') {
         Alert.alert("Error", "Max uses cannot be undefined");
         return;
+    } else if (expiryDate <= new Date()) {
+        Alert.alert("Invalid expiry", "Choose an expiry date and time in the future.");
+        return;
     }
 
     // 999 is the app's "unlimited" value (parseInt('unlimited') would store NaN)
@@ -197,7 +201,7 @@ export default function AddMembers() {
 
   const copyToClipboard = async () => {
     try {
-      Clipboard.setString(inviteLink);
+      await Clipboard.setStringAsync(inviteLink);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
       Alert.alert("Copied!", "Invite link copied to clipboard");
