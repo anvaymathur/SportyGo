@@ -269,7 +269,9 @@ export async function castVote(eventId: string, status: keyof VoteShard, userId:
   const userVoteSnap = await getDoc(userVoteRef);
   
   const batch = writeBatch(db);
-  
+  // Index the voter on the event so account deletion can always find this vote
+  batch.update(eventRef, { VoterIds: arrayUnion(userId) });
+
   if (userVoteSnap.exists()) {
     // User has voted before - update their vote
     const previousVote = userVoteSnap.data()?.status;
@@ -344,6 +346,7 @@ export async function removeUserVote(eventId: string, userId: string): Promise<v
     batch.update(doc(db, "events", eventId, "voteShards", getUserShard(userId).toString()), { [status]: increment(-1) });
   }
   batch.delete(voteRef);
+  batch.update(doc(db, "events", eventId), { VoterIds: arrayRemove(userId) });
   await batch.commit();
 }
 
@@ -394,12 +397,17 @@ const ARRAY_CONTAINS_ANY_LIMIT = 30;
  * were individually invited to, and events they created. Each uses a single-field index,
  * so only the user's own events are downloaded (not the whole collection).
  */
-function userEventQueries(groupIds: string[], userId: string): Query<DocumentData>[] {
+function userEventQueries(groupIds: string[], userId: string, includeHistory = false): Query<DocumentData>[] {
   const eventsCol = collection(db, "events");
   const queries: Query<DocumentData>[] = [
     query(eventsCol, where("IndividualParticipantIDs", "array-contains", userId)),
     query(eventsCol, where("CreatorID", "==", userId)),
   ];
+  if (includeHistory) {
+    // Events they voted on or attended, even in groups they've since left
+    queries.push(query(eventsCol, where("VoterIds", "array-contains", userId)));
+    queries.push(query(eventsCol, where("AttendeeIds", "array-contains", userId)));
+  }
   const uniqueGroupIds = Array.from(new Set(groupIds.filter(Boolean)));
   for (let i = 0; i < uniqueGroupIds.length; i += ARRAY_CONTAINS_ANY_LIMIT) {
     queries.push(query(eventsCol, where("GroupIDs", "array-contains-any", uniqueGroupIds.slice(i, i + ARRAY_CONTAINS_ANY_LIMIT))));
@@ -409,9 +417,12 @@ function userEventQueries(groupIds: string[], userId: string): Query<DocumentDat
 
 const toEventDoc = (id: string, data: DocumentData): EventDoc => ({ ...data, id } as EventDoc);
 
-/** One-off fetch of the events a user can see (see userEventQueries). */
-export async function getUserEvents(groupIds: string[], userId: string): Promise<EventDoc[]> {
-  const snaps = await Promise.all(userEventQueries(groupIds, userId).map((q) => getDocs(q)));
+/**
+ * One-off fetch of the events a user can see (see userEventQueries). With includeHistory, also
+ * events they voted on or attended that they can no longer see (used by account deletion).
+ */
+export async function getUserEvents(groupIds: string[], userId: string, options: { includeHistory?: boolean } = {}): Promise<EventDoc[]> {
+  const snaps = await Promise.all(userEventQueries(groupIds, userId, options.includeHistory).map((q) => getDocs(q)));
   const events = new Map<string, EventDoc>();
   snaps.forEach((snap) => snap.forEach((d) => { events.set(d.id, toEventDoc(d.id, d.data())); }));
   return Array.from(events.values());
@@ -509,14 +520,18 @@ export async function getUserMatchHistory(userId: string): Promise<newMatchHisto
 export async function updateAttendance(eventId: string, attendanceRecords: AttendanceRecord[]) {
   const eventRef = doc(db, "events", eventId);
   
-  // Convert dates to Firestore timestamps
+  // Store only IDs and check-in state: names/emails are shown from profiles, and keeping copies
+  // here would leave personal data behind after someone deletes their account
   const recordsWithTimestamps = attendanceRecords.map(record => ({
-    ...record,
-    arrivalTime: record.arrivalTime ? Timestamp.fromDate(record.arrivalTime) : undefined
+    userId: record.userId,
+    votedStatus: record.votedStatus ?? null,
+    hasArrived: record.hasArrived,
+    arrivalTime: record.arrivalTime ? Timestamp.fromDate(record.arrivalTime) : null,
   }));
 
   await updateDoc(eventRef, {
-    AttendanceRecords: recordsWithTimestamps
+    AttendanceRecords: recordsWithTimestamps,
+    AttendeeIds: recordsWithTimestamps.map(record => record.userId),
   });
 }
 
@@ -848,7 +863,8 @@ export const DELETED_PLAYER_ID = 'Deleted player';
  *   1. Groups: leaves every group. Owned groups pass to an admin (or the next member), or are
  *      deleted when nobody else is in them.
  *   2. Events: deletes events they created; elsewhere removes their RSVP, individual
- *      invitation and attendance record.
+ *      invitation and attendance record, including events in groups they left earlier (found
+ *      through the VoterIds / AttendeeIds indexes).
  *   3. Matches: replaces their ID with DELETED_PLAYER_ID so other players keep their history.
  *   4. Temporary players: deletes ones only they managed (anonymising their matches too),
  *      leaves shared ones, and deletes claimed-temp records that hold their own email/phone.
@@ -878,8 +894,8 @@ export async function deleteUserAccount(userId: string): Promise<void> {
     }
   }
 
-  // 2. Events (including ones visible through the groups they just left)
-  const events = await getUserEvents(groups.map((g) => g.id), userId);
+  // 2. Events: ones they can see, plus any they voted on or attended in groups they left earlier
+  const events = await getUserEvents(groups.map((g) => g.id), userId, { includeHistory: true });
   for (const event of events) {
     if (event.CreatorID === userId) {
       await deleteEvent(event.id);
@@ -892,6 +908,9 @@ export async function deleteUserAccount(userId: string): Promise<void> {
     }
     if (event.AttendanceRecords?.some((r) => r.userId === userId)) {
       updates.AttendanceRecords = event.AttendanceRecords.filter((r) => r.userId !== userId);
+    }
+    if (event.AttendeeIds?.includes(userId)) {
+      updates.AttendeeIds = arrayRemove(userId);
     }
     if (Object.keys(updates).length > 0) {
       await updateDoc(doc(db, "events", event.id), updates);

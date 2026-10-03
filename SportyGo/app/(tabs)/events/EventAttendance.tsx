@@ -250,8 +250,6 @@ export default function EventAttendance() {
         .filter((r) => r.hasArrived)
         .map((r) => ({
           userId: r.userId,
-          userName: r.userName,
-          userEmail: r.userEmail ?? '',
           votedStatus: r.votedStatus,
           hasArrived: true,
           arrivalTime: r.arrivalTime ?? new Date(),

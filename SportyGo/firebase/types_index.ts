@@ -47,8 +47,9 @@ export interface GroupDoc {
  */
 export interface AttendanceRecord {
   userId: string;
-  userName: string;
-  userEmail: string;
+  // Only on older records: names/emails are no longer stored (they're read from profiles)
+  userName?: string;
+  userEmail?: string;
   votedStatus: 'going' | 'maybe' | 'not' | null;
   hasArrived: boolean;
   arrivalTime?: Date;
@@ -71,6 +72,10 @@ export interface EventDoc {
   StartedEarly?: boolean; // New field - true if admin started event early
   StartedEarlyAt?: Date; // New field - timestamp when event was started early
   TotalCost?: number; // Optional - total cost for the event
+  // Queryable indexes so account deletion can find every event a user voted on or attended,
+  // even ones from groups they've since left
+  VoterIds?: string[];
+  AttendeeIds?: string[];
 }
 
 export interface VoteDoc {

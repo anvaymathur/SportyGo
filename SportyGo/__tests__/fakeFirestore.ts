@@ -27,7 +27,15 @@ let autoId = 0;
 type Listener = { target: Ref | QueryRef; next: (snap: any) => void };
 let listeners: Listener[] = [];
 
-const clone = <T,>(value: T): T => (value === undefined ? value : JSON.parse(JSON.stringify(value, (_k, v) => (v instanceof Date ? { __date: v.toISOString() } : v)), (_k, v) => (v && v.__date ? new Date(v.__date) : v)));
+// Deep copy that keeps Dates as Dates (JSON.stringify calls Date#toJSON before a replacer sees
+// the value, so the replacer checks the original via `this[key]`)
+function clone<T>(value: T): T {
+  if (value === undefined) return value;
+  const json = JSON.stringify(value, function (this: any, key: string, v: any) {
+    return this[key] instanceof Date ? { __date: this[key].toISOString() } : v;
+  });
+  return JSON.parse(json, (_k, v) => (v && typeof v === 'object' && '__date' in v ? new Date(v.__date) : v));
+}
 
 const join = (segments: string[]) => segments.filter(Boolean).join('/');
 const lastSegment = (path: string) => path.split('/').pop() as string;

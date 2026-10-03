@@ -17,6 +17,7 @@ import {
   removeGroupMember,
   removeUserVote,
   toDate,
+  updateAttendance,
 } from '../firebase/services_firestore2';
 
 const future = () => new Date(Date.now() + 7 * 86_400_000);
@@ -135,6 +136,14 @@ describe('votes', () => {
     await expect(getVoteCounts('e1')).resolves.toEqual({ going: 1, maybe: 0, not: 0 });
   });
 
+  it('indexes voters on the event and removes them when their vote is removed', async () => {
+    await castVote('e1', 'going', 'a');
+    await castVote('e1', 'not', 'a'); // changing a vote keeps a single entry
+    expect(fakeDb.get('events/e1')!.VoterIds).toEqual(['a']);
+    await removeUserVote('e1', 'a');
+    expect(fakeDb.get('events/e1')!.VoterIds).toEqual([]);
+  });
+
   it('removeUserVote does nothing for someone who never voted', async () => {
     await removeUserVote('e1', 'nobody');
     await expect(getVoteCounts('e1')).resolves.toEqual({ going: 0, maybe: 0, not: 0 });
@@ -146,6 +155,24 @@ describe('votes', () => {
     expect(fakeDb.has('events/e1')).toBe(false);
     expect(fakeDb.ids('events/e1/userVotes')).toEqual([]);
     expect(fakeDb.ids('events/e1/voteShards')).toEqual([]);
+  });
+});
+
+describe('updateAttendance', () => {
+  it('stores IDs and check-in state only (no names or emails), plus a queryable AttendeeIds list', async () => {
+    fakeDb.set('events/e1', { CreatorID: 'host' });
+    const arrived = new Date('2026-05-01T18:00:00Z');
+    await updateAttendance('e1', [
+      { userId: 'a', userName: 'Ann', userEmail: 'ann@example.com', votedStatus: 'going', hasArrived: true, arrivalTime: arrived },
+      { userId: 'b', userName: 'Bo', userEmail: '', votedStatus: null, hasArrived: true },
+    ]);
+    const event = fakeDb.get('events/e1')!;
+    expect(event.AttendeeIds).toEqual(['a', 'b']);
+    expect(event.AttendanceRecords).toEqual([
+      { userId: 'a', votedStatus: 'going', hasArrived: true, arrivalTime: arrived },
+      { userId: 'b', votedStatus: null, hasArrived: true, arrivalTime: null },
+    ]);
+    expect(JSON.stringify(event)).not.toContain('ann@example.com');
   });
 });
 
@@ -212,6 +239,14 @@ describe('deleteUserAccount', () => {
       AttendanceRecords: [{ userId: 'me', userName: 'Name me', userEmail: 'me@example.com', hasArrived: true }, { userId: 'u2', userName: 'Name u2', userEmail: '', hasArrived: true }],
     });
     fakeDb.set('events/unrelated', { CreatorID: 'u3', GroupIDs: [], IndividualParticipantIDs: ['u3'] });
+    // An event in a group I've since left: I voted and was checked in, but can no longer see it
+    fakeDb.set('events/formerGroup', { CreatorID: 'u3', GroupIDs: ['oldGroup'], VotingEnabled: true, EventDate: future(), CutoffDate: future() });
+    seedShards('formerGroup');
+    await castVote('formerGroup', 'going', 'me');
+    await updateAttendance('formerGroup', [
+      { userId: 'me', userName: 'Name me', userEmail: 'me@example.com', votedStatus: 'going', hasArrived: true },
+      { userId: 'u3', userName: 'Name u3', userEmail: '', votedStatus: null, hasArrived: true },
+    ]);
 
     // Matches, and temporary players: one only I manage, one shared, and my own claimed record
     fakeDb.set('users/tempMine', { Name: 'Casual', Email: 'casual@example.com', Phone: '', isTemp: true, owners: ['me'], claimedBy: null });
@@ -254,6 +289,15 @@ describe('deleteUserAccount', () => {
     const invited = fakeDb.get('events/invited')!;
     expect(invited.IndividualParticipantIDs).toEqual(['u2']);
     expect(invited.AttendanceRecords.map((r: any) => r.userId)).toEqual(['u2']);
+  });
+
+  it('cleans up events from groups I left before deleting (found via VoterIds / AttendeeIds)', async () => {
+    const event = fakeDb.get('events/formerGroup')!;
+    expect(event.AttendanceRecords.map((r: any) => r.userId)).toEqual(['u3']);
+    expect(event.AttendeeIds).toEqual(['u3']);
+    expect(event.VoterIds).toEqual([]);
+    await expect(getEventVotes('formerGroup')).resolves.toEqual({});
+    await expect(getVoteCounts('formerGroup')).resolves.toEqual({ going: 0, maybe: 0, not: 0 });
   });
 
   it('leaves unrelated events alone', () => {
