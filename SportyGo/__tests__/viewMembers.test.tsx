@@ -4,13 +4,15 @@ import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { mockAuthUser, mockRouter, mockSearchParams } from './setup';
 import { renderWithTheme } from './test-utils';
 import ViewMembers from '../app/(tabs)/groups/viewMembers';
-import { addGroupAdmin, getGroupById, getUsersByIds, removeGroupAdmin } from '../firebase/services_firestore2';
+import { addGroupAdmin, getGroupById, getUsersByIds, removeGroupAdmin, removeGroupMember } from '../firebase/services_firestore2';
+import { Linking } from 'react-native';
 
 jest.mock('../firebase/services_firestore2', () => ({
   getGroupById: jest.fn(),
   getUsersByIds: jest.fn(),
   addGroupAdmin: jest.fn(async () => undefined),
   removeGroupAdmin: jest.fn(async () => undefined),
+  removeGroupMember: jest.fn(async () => undefined),
 }));
 
 const group = {
@@ -114,5 +116,69 @@ describe('ViewMembers', () => {
     renderWithTheme(<ViewMembers />);
     await waitFor(() => expect(screen.getByText('No members found.')).toBeTruthy());
     expect(alertSpy).toHaveBeenCalledWith('Error', 'Failed to load group members. Please try again.');
+  });
+  describe('moderation', () => {
+    // Button texts in the most recent Alert
+    const alertButtons = () => (alertSpy.mock.calls.at(-1)[2] ?? []).map((b: any) => b.text);
+
+    it('lets a member report the group or leave it', async () => {
+      await renderAs('member-1');
+      fireEvent.press(screen.getByLabelText('Group options'));
+      expect(alertButtons()).toEqual(['Cancel', 'Report group', 'Leave group']);
+
+      await confirmAlert(alertSpy, 'Leave group');
+      expect(removeGroupMember).not.toHaveBeenCalled(); // asks again before leaving
+      await confirmAlert(alertSpy, 'Leave');
+      expect(removeGroupMember).toHaveBeenCalledWith('g1', 'member-1');
+      expect(mockRouter.replace).toHaveBeenCalledWith('/groups/displayGroups');
+    });
+
+    it("doesn't offer the owner a way to leave (they delete the group instead)", async () => {
+      await renderAs('owner-1');
+      expect(screen.queryByLabelText('Group options')).toBeNull();
+    });
+
+    it('reporting opens a pre-filled email to support', async () => {
+      const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+      await renderAs('member-1');
+      fireEvent.press(screen.getByLabelText('Options for Adam Admin'));
+      await confirmAlert(alertSpy, 'Report');
+      await confirmAlert(alertSpy, 'Report'); // confirm the report
+      const url = decodeURIComponent(openURL.mock.calls[0][0] as string);
+      expect(url).toMatch(/^mailto:contactus@sparkpro\.ca/);
+      expect(url).toContain('User: Adam Admin (admin-1)');
+      expect(url).toContain('In group: g1');
+      expect(url).toContain('Reported by: member-1');
+    });
+
+    it('has no options on your own card', async () => {
+      await renderAs('member-1');
+      expect(screen.queryByLabelText('Options for Mia Member')).toBeNull();
+    });
+
+    it('lets the owner remove any other member', async () => {
+      await renderAs('owner-1');
+      fireEvent.press(screen.getByLabelText('Options for Adam Admin'));
+      expect(alertButtons()).toEqual(['Cancel', 'Report', 'Remove from group']);
+      await confirmAlert(alertSpy, 'Remove from group');
+      await confirmAlert(alertSpy, 'Remove');
+      expect(removeGroupMember).toHaveBeenCalledWith('g1', 'admin-1');
+      expect(screen.queryByText('Adam Admin')).toBeNull();
+      expect(screen.getByText('2 members')).toBeTruthy();
+    });
+
+    it('lets admins remove regular members but not other admins or the owner', async () => {
+      await renderAs('admin-1');
+      fireEvent.press(screen.getByLabelText('Options for Mia Member'));
+      expect(alertButtons()).toEqual(['Cancel', 'Report', 'Remove from group']);
+      fireEvent.press(screen.getByLabelText('Options for Olivia Owner'));
+      expect(alertButtons()).toEqual(['Cancel', 'Report']);
+    });
+
+    it('regular members can only report', async () => {
+      await renderAs('member-1');
+      fireEvent.press(screen.getByLabelText('Options for Olivia Owner'));
+      expect(alertButtons()).toEqual(['Cancel', 'Report']);
+    });
   });
 });

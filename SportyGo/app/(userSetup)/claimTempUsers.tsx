@@ -7,6 +7,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getUserProfile, getUserMatchHistory, migrateMatchRefs, markTempClaimed } from "@/firebase/services_firestore2";
 import { UserDoc } from "@/firebase/types_index";
 import { SafeAreaWrapper } from "@/components/SafeAreaWrapper";
+import { skipTempIds } from "@/utils/claimPrompts";
 import { Ionicons } from "@expo/vector-icons";
 
 interface TempPreview {
@@ -72,6 +73,8 @@ export default function ClaimTempUsers() {
 
       // Step 3: invalidate stale caches
       await AsyncStorage.removeItem("playerNames");
+      // Players left unclaimed were reviewed and aren't theirs; don't ask again until next sign-in
+      await skipTempIds(user.sub, previews.filter(p => !p.claimed).map(p => p.doc.id));
 
       router.replace("/dashboard");
     } catch (e) {
@@ -86,9 +89,15 @@ export default function ClaimTempUsers() {
     }
   };
 
-  const handleSkip = () => {
+  const handleSkip = async () => {
+    if (user?.sub) await skipTempIds(user.sub, previews.map(p => p.doc.id));
     router.replace("/dashboard");
   };
+
+  // Nothing to claim (e.g. already claimed elsewhere): continue to the dashboard
+  useEffect(() => {
+    if (!loading && previews.length === 0) router.replace("/dashboard");
+  }, [loading, previews.length]);
 
   // --- Render states ---
 
@@ -103,9 +112,8 @@ export default function ClaimTempUsers() {
     );
   }
 
-  // If no claimable temps (shouldn't normally happen), go straight to dashboard
+  // If no claimable temps (shouldn't normally happen), the effect above redirects
   if (previews.length === 0) {
-    router.replace("/dashboard");
     return null;
   }
 

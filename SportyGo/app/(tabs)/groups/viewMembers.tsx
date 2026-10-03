@@ -5,7 +5,8 @@ import { Alert } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useAuth0 } from "react-native-auth0";
 import { GroupDoc, UserDoc } from "../../../firebase/types_index";
-import { getGroupById, getUsersByIds, addGroupAdmin, removeGroupAdmin } from "../../../firebase/services_firestore2";
+import { getGroupById, getUsersByIds, addGroupAdmin, removeGroupAdmin, removeGroupMember } from "../../../firebase/services_firestore2";
+import { reportContent } from "@/utils/support";
 import { SafeAreaWrapper } from "@/components/SafeAreaWrapper";
 
 function getInitials(name: string) {
@@ -125,6 +126,81 @@ export default function ViewMembers() {
     }
   };
 
+  // Owners can remove anyone else; admins can remove regular members
+  const canRemove = (memberId: string): boolean => {
+    if (memberId === userId) return false;
+    const role = getMemberRole(memberId);
+    if (isOwner) return role !== 'owner';
+    return isAdmin && role === 'member';
+  };
+
+  const removeMember = async (member: UserDoc) => {
+    try {
+      await removeGroupMember(group!.id, member.id);
+      setMembers(prev => prev.filter(m => m.id !== member.id));
+      setGroup(prev => prev ? {
+        ...prev,
+        MemberIds: prev.MemberIds.filter(id => id !== member.id),
+        AdminIds: (prev.AdminIds || []).filter(id => id !== member.id),
+      } : prev);
+    } catch (error) {
+      console.error('Error removing member:', error);
+      Alert.alert("Error", "Failed to remove member.");
+    }
+  };
+
+  const confirmRemoveMember = (member: UserDoc) => {
+    Alert.alert(
+      "Remove member",
+      `Remove ${member.Name} from ${group?.Name ?? 'this group'}?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Remove", style: "destructive", onPress: () => removeMember(member) },
+      ]
+    );
+  };
+
+  // Per-member actions: report, and remove when allowed (Alert supports at most 3 buttons on Android)
+  const openMemberActions = (member: UserDoc) => {
+    Alert.alert(member.Name, undefined, [
+      { text: "Cancel", style: "cancel" },
+      { text: "Report", onPress: () => reportContent({ kind: 'user', id: member.id, name: member.Name, groupId: group?.id }, userId) },
+      ...(canRemove(member.id)
+        ? [{ text: "Remove from group", style: "destructive" as const, onPress: () => confirmRemoveMember(member) }]
+        : []),
+    ]);
+  };
+
+  const leaveGroup = async () => {
+    try {
+      await removeGroupMember(group!.id, userId);
+      router.replace('/groups/displayGroups');
+    } catch (error) {
+      console.error('Error leaving group:', error);
+      Alert.alert("Error", "Failed to leave the group.");
+    }
+  };
+
+  // Group actions for non-owners: report the group or leave it
+  const openGroupActions = () => {
+    Alert.alert(group?.Name ?? 'Group', undefined, [
+      { text: "Cancel", style: "cancel" },
+      { text: "Report group", onPress: () => reportContent({ kind: 'group', id: group!.id, name: group!.Name }, userId) },
+      {
+        text: "Leave group",
+        style: "destructive",
+        onPress: () => Alert.alert(
+          "Leave group",
+          `Leave ${group?.Name ?? 'this group'}? You'll need a new invite to rejoin.`,
+          [
+            { text: "Cancel", style: "cancel" },
+            { text: "Leave", style: "destructive", onPress: leaveGroup },
+          ]
+        ),
+      },
+    ]);
+  };
+
   const roleBadge = (memberId: string) => {
     const role = getMemberRole(memberId);
     if (role === 'owner') {
@@ -162,26 +238,41 @@ export default function ViewMembers() {
                 <Text color="$color">Back</Text>
               </XStack>
             </Button>
-            {canAccessSettings && (
-              <Button
-                bg="$color2"
-                borderColor="$color6"
-                borderWidth="$1"
-                onPress={() => {
-                  router.push({
-                    pathname: '/groups/groupSettings',
-                    params: { groupId: group?.id }
-                  });
-                }}
-                px="$3"
-                py="$2"
-              >
-                <XStack items="center" gap="$2">
-                  <Ionicons name="settings-outline" size={18} color="#888" />
-                  <Text color="$color">Settings</Text>
-                </XStack>
-              </Button>
-            )}
+            <XStack gap="$2">
+              {canAccessSettings && (
+                <Button
+                  bg="$color2"
+                  borderColor="$color6"
+                  borderWidth="$1"
+                  onPress={() => {
+                    router.push({
+                      pathname: '/groups/groupSettings',
+                      params: { groupId: group?.id }
+                    });
+                  }}
+                  px="$3"
+                  py="$2"
+                >
+                  <XStack items="center" gap="$2">
+                    <Ionicons name="settings-outline" size={18} color="#888" />
+                    <Text color="$color">Settings</Text>
+                  </XStack>
+                </Button>
+              )}
+              {group && !isOwner && (
+                <Button
+                  bg="$color2"
+                  borderColor="$color6"
+                  borderWidth="$1"
+                  onPress={openGroupActions}
+                  px="$3"
+                  py="$2"
+                  aria-label="Group options"
+                >
+                  <Ionicons name="ellipsis-horizontal" size={18} color="#888" />
+                </Button>
+              )}
+            </XStack>
           </XStack>
           <Text
             color="$color9"
@@ -258,6 +349,17 @@ export default function ViewMembers() {
                           size={22}
                           color={getMemberRole(u.id) === 'admin' ? "#E8A838" : "#888"}
                         />
+                      </Button>
+                    )}
+                    {u.id !== userId && (
+                      <Button
+                        bg="transparent"
+                        borderWidth={0}
+                        p="$2"
+                        onPress={() => openMemberActions(u)}
+                        aria-label={`Options for ${u.Name}`}
+                      >
+                        <Ionicons name="ellipsis-vertical" size={20} color="#888" />
                       </Button>
                     )}
                   </XStack>

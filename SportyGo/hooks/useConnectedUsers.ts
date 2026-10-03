@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react';
-import { getUserGroups, getUserProfilesByIds } from '@/firebase/services_firestore2';
-import { UserDoc, EventDoc } from '@/firebase/types_index';
-import { collection, getDocs } from 'firebase/firestore';
-import { db } from '@/firebase/index';
+import { getUserEvents, getUserGroups, getUserProfilesByIds } from '@/firebase/services_firestore2';
+import { UserDoc } from '@/firebase/types_index';
 
 /**
  * Custom hook to fetch users connected to the current user.
@@ -44,33 +42,17 @@ export function useConnectedUsers(userId: string | undefined) {
 
                 // 1. Get Groups
                 const groups = await getUserGroups(userId);
-                const userGroupIds = new Set(groups.map(g => g.id));
 
                 groups.forEach(group => {
                     group.MemberIds?.forEach(memberId => connectedUserIds.add(memberId));
                 });
 
-                // 2. Get Events
-                // We fetch all events and filter because there's no efficient query currently available
-                const eventsCol = collection(db, "events");
-                const eventsSnapshot = await getDocs(eventsCol);
-
-                eventsSnapshot.forEach(doc => {
-                    const evt = doc.data() as EventDoc;
-
-                    // Check if user is involved
-                    const isInGroup = evt.GroupIDs && evt.GroupIDs.some((groupId: string) => userGroupIds.has(groupId));
-                    const isIndividualParticipant = evt.IndividualParticipantIDs && evt.IndividualParticipantIDs.includes(userId);
-                    const isCreator = evt.CreatorID === userId;
-
-                    if (isInGroup || isIndividualParticipant || isCreator) {
-                        // Add all individual participants of this event
-                        evt.IndividualParticipantIDs?.forEach(pid => connectedUserIds.add(pid));
-
-                        // Note: We are not fetching members of groups that the user is NOT in, 
-                        // even if they are in the same event, to avoid excessive reads.
-                        // The primary "connected" definition is usually direct group members or direct event participants.
-                    }
+                // 2. Get Events the user is involved in (queried directly, not the whole collection)
+                const events = await getUserEvents(groups.map(g => g.id), userId);
+                events.forEach(evt => {
+                    // Add all individual participants of this event. Members of groups the user is
+                    // NOT in aren't fetched, even if they share an event, to avoid excessive reads.
+                    evt.IndividualParticipantIDs?.forEach(pid => connectedUserIds.add(pid));
                 });
 
                 const idsToFetch = Array.from(connectedUserIds);

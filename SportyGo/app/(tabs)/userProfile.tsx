@@ -2,7 +2,7 @@ import React, { useContext, useEffect, useState } from 'react';
 import { YStack, XStack, Text, Card, Button, Paragraph, H2, Separator, Spinner, Input } from 'tamagui';
 import { SafeAreaWrapper } from "@/components/SafeAreaWrapper";
 import { useAuth0 } from 'react-native-auth0';
-import { updateUserProfile, getUserGroups } from '../../firebase/services_firestore2';
+import { updateUserProfile, getUserGroups, deleteUserAccount } from '../../firebase/services_firestore2';
 import { UserDoc } from '../../firebase/types_index';
 import { PhotoAvatar } from "@/components/PhotoAvatar";
 import { UserContext } from "@/components/userContext";
@@ -12,6 +12,8 @@ import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view
 import { onSnapshot, doc } from 'firebase/firestore';
 import { db } from '../../firebase/index';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { emailSupport, openPrivacyPolicy } from '@/utils/support';
+import { signOut } from '@/utils/session';
 
 // Helper: format various date representations (Date, Firestore Timestamp, ISO string) to YYYY-MM-DD
 function formatDate(input: any): string {
@@ -56,8 +58,8 @@ const calculateAgeFromDate = (date: Date): number => {
 
 
 export default function UserProfileScreen() {
-  const { user, isLoading: isAuthLoading } = useAuth0();
-  const { saveUser } = useContext(UserContext);
+  const { user, isLoading: isAuthLoading, clearSession } = useAuth0();
+  const { saveUser, clearUser } = useContext(UserContext);
 
   const [profile, setProfile] = useState<UserDoc | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -67,6 +69,7 @@ export default function UserProfileScreen() {
   // Edit mode state
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editDob, setEditDob] = useState('');
@@ -108,9 +111,10 @@ export default function UserProfileScreen() {
       return;
     }
 
+    // Phone is optional; if one is given it must be a full 10-digit number
     const digitsOnly = editPhone.replace(/\D/g, '');
-    if (digitsOnly.length !== 10) {
-      Alert.alert('Invalid Phone', 'Phone number must be exactly 10 digits.', [{ text: 'OK' }]);
+    if (digitsOnly.length > 0 && digitsOnly.length !== 10) {
+      Alert.alert('Invalid Phone', 'Phone number must be exactly 10 digits, or left blank.', [{ text: 'OK' }]);
       return;
     }
 
@@ -155,6 +159,42 @@ export default function UserProfileScreen() {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const signOutLocally = () => signOut({ clearUser, clearSession });
+
+  const handleSignOut = () => {
+    Alert.alert('Sign out', 'Are you sure you want to sign out?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Sign out', onPress: signOutLocally },
+    ]);
+  };
+
+  const deleteAccount = async () => {
+    if (!user?.sub || isDeleting) return;
+    setIsDeleting(true);
+    try {
+      await deleteUserAccount(user.sub);
+    } catch (e) {
+      console.error('Account deletion failed', e);
+      setIsDeleting(false);
+      Alert.alert('Error', "We couldn't delete your account. Please check your connection and try again.", [{ text: 'OK' }]);
+      return;
+    }
+    Alert.alert('Account deleted', 'Your SportyGo account and data have been deleted.', [{ text: 'OK' }]);
+    await signOutLocally();
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete account?',
+      'This permanently deletes your profile, removes you from your groups and events, deletes events you created, ' +
+        'and shows you as "Deleted player" in other people\'s match history. This can\'t be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete account', style: 'destructive', onPress: deleteAccount },
+      ]
+    );
   };
 
   const handleDismissOverlays = () => {
@@ -312,7 +352,7 @@ export default function UserProfileScreen() {
                         value={editPhone}
                         onChangeText={(text: any) => setEditPhone(text.replace(/\D/g, ''))}
                         onFocus={() => setShowDobPicker(false)}
-                        placeholder="Phone (10 digits)"
+                        placeholder="Phone (optional, 10 digits)"
                         borderColor="$color6"
                         borderWidth={1}
                         focusStyle={{ borderWidth: 2, borderColor: '$color6' }}
@@ -379,6 +419,43 @@ export default function UserProfileScreen() {
                   )}
                 </YStack>
               </Card>
+
+              {/* Account: legal, support, sign out and deletion (required by the app stores) */}
+              {!isEditing && (
+                <Card bordered p="$2" borderWidth={1} borderColor="$borderColor" width="100%" style={{ maxWidth: 560 }} mt="$4">
+                  <YStack>
+                    <Button unstyled flexDirection="row" items="center" gap="$3" p="$3" onPress={openPrivacyPolicy} aria-label="Privacy Policy">
+                      <Ionicons name="shield-checkmark-outline" size={20} color="#6B7280" />
+                      <Text color="$color" fontSize="$4" flex={1}>Privacy Policy</Text>
+                      <Ionicons name="open-outline" size={16} color="#6B7280" />
+                    </Button>
+                    <Separator />
+                    <Button unstyled flexDirection="row" items="center" gap="$3" p="$3" onPress={() => emailSupport('SportyGo support')} aria-label="Contact support">
+                      <Ionicons name="mail-outline" size={20} color="#6B7280" />
+                      <Text color="$color" fontSize="$4" flex={1}>Contact support</Text>
+                    </Button>
+                    <Separator />
+                    <Button unstyled flexDirection="row" items="center" gap="$3" p="$3" onPress={handleSignOut} aria-label="Sign out">
+                      <Ionicons name="log-out-outline" size={20} color="#6B7280" />
+                      <Text color="$color" fontSize="$4" flex={1}>Sign out</Text>
+                    </Button>
+                    <Separator />
+                    <Button
+                      unstyled
+                      flexDirection="row"
+                      items="center"
+                      gap="$3"
+                      p="$3"
+                      onPress={handleDeleteAccount}
+                      disabled={isDeleting}
+                      aria-label="Delete account"
+                    >
+                      {isDeleting ? <Spinner size="small" color="#EF4444" /> : <Ionicons name="trash-outline" size={20} color="#EF4444" />}
+                      <Text color="#EF4444" fontSize="$4" flex={1}>{isDeleting ? 'Deleting account...' : 'Delete account'}</Text>
+                    </Button>
+                  </YStack>
+                </Card>
+              )}
             </YStack>
           </YStack>
         </YStack>

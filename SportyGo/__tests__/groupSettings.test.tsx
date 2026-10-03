@@ -1,16 +1,17 @@
 import React from 'react';
 import { Alert } from 'react-native';
-import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { mockAuthUser, mockRouter, mockSearchParams } from './setup';
 import { renderWithTheme } from './test-utils';
 import GroupSettings from '../app/(tabs)/groups/groupSettings';
-import { getGroupById, updateGroup } from '../firebase/services_firestore2';
+import { deleteGroup, getGroupById, updateGroup } from '../firebase/services_firestore2';
 import { GroupDoc } from '../firebase/types_index';
 
 jest.mock('../firebase/services_firestore2', () => ({
   getGroupById: jest.fn(),
   updateGroup: jest.fn(async () => undefined),
   imageToBase64: jest.fn(async () => 'data:image/jpeg;base64,NEW'),
+  deleteGroup: jest.fn(async () => undefined),
 }));
 
 const baseGroup: GroupDoc = {
@@ -151,5 +152,36 @@ describe('GroupSettings', () => {
     await renderScreen();
     expect(alertSpy).toHaveBeenCalledWith('Error', 'Failed to load group settings. Please try again.');
     expect(screen.getByText('Group not found.')).toBeTruthy();
+  });
+  describe('delete group', () => {
+    it('is only offered to the owner', async () => {
+      mockAuthUser.sub = 'admin-1';
+      loadGroup();
+      await renderScreen();
+      expect(screen.queryByText('Delete Group')).toBeNull();
+    });
+
+    it('deletes after confirmation and returns to the groups list', async () => {
+      loadGroup();
+      await renderScreen();
+      fireEvent.press(screen.getByText('Delete Group'));
+      expect(deleteGroup).not.toHaveBeenCalled();
+      const buttons = alertSpy.mock.calls.at(-1)[2];
+      await act(async () => { await buttons.find((b: any) => b.text === 'Delete group').onPress(); });
+      expect(deleteGroup).toHaveBeenCalledWith('g1');
+      expect(mockRouter.replace).toHaveBeenCalledWith('/groups/displayGroups');
+    });
+
+    it('stays on the screen and explains when deletion fails', async () => {
+      (deleteGroup as jest.Mock).mockRejectedValueOnce(new Error('offline'));
+      jest.spyOn(console, 'error').mockImplementation(() => undefined);
+      loadGroup();
+      await renderScreen();
+      fireEvent.press(screen.getByText('Delete Group'));
+      const buttons = alertSpy.mock.calls.at(-1)[2];
+      await act(async () => { await buttons.find((b: any) => b.text === 'Delete group').onPress(); });
+      expect(alertSpy).toHaveBeenLastCalledWith('Error', 'Failed to delete the group. Please try again.');
+      expect(mockRouter.replace).not.toHaveBeenCalled();
+    });
   });
 });

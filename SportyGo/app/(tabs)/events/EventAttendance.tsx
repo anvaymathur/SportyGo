@@ -5,7 +5,7 @@
 import React, { useState, useEffect } from 'react';
 import { Alert } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { getEvent, getUserVote, updateAttendance, getAttendanceRecords, getGroupById, getUsersByIds } from '../../../firebase/services_firestore2';
+import { getEvent, getEventVotes, updateAttendance, getAttendanceRecords, getGroupById, getUsersByIds } from '../../../firebase/services_firestore2';
 import { useConnectedUsers } from '@/hooks/useConnectedUsers';
 import { useAuth0 } from 'react-native-auth0';
 import { SafeAreaWrapper } from '@/components/SafeAreaWrapper';
@@ -117,7 +117,7 @@ export default function EventAttendance() {
                 return {
                   userId: u.id,
                   userName: u.Name,
-                  userEmail: u.Email,
+                  userEmail: u.Email ?? '',
                   votedStatus: null,
                   hasArrived: existingRecord ? existingRecord.hasArrived : false,
                   arrivalTime: existingRecord ? existingRecord.arrivalTime : undefined,
@@ -158,7 +158,7 @@ export default function EventAttendance() {
                 return {
                   userId: u.id,
                   userName: u.Name,
-                  userEmail: u.Email,
+                  userEmail: u.Email ?? '',
                   votedStatus: null,
                   hasArrived: existingRecord ? existingRecord.hasArrived : false,
                   arrivalTime: existingRecord ? existingRecord.arrivalTime : undefined,
@@ -183,27 +183,27 @@ export default function EventAttendance() {
         }
 
         // Voting enabled: include users who voted 'going' or 'maybe'
-        const allUsers = connectedUsers;
-        const attendanceRecords: AttendanceRecord[] = [];
-
-        for (const u of allUsers) {
-          try {
-            const userVote = await getUserVote(eventId, u.id);
-            if (userVote === 'going' || userVote === 'maybe') {
-              const existingRecord = existingAttendance.find((record: any) => record.userId === u.id);
-              attendanceRecords.push({
-                userId: u.id,
-                userName: u.Name,
-                userEmail: u.Email,
-                votedStatus: userVote,
-                hasArrived: existingRecord ? existingRecord.hasArrived : false,
-                arrivalTime: existingRecord ? existingRecord.arrivalTime : undefined,
-              });
-            }
-          } catch (error) {
-            console.error(`Error fetching vote for user ${u.id}:`, error);
-          }
+        // Everyone who RSVP'd going or maybe, from a single read of the event's votes
+        const votes = await getEventVotes(eventId);
+        const expectedIds = Object.keys(votes).filter((id) => votes[id] === 'going' || votes[id] === 'maybe');
+        const knownUsers = new Map(connectedUsers.map((u: any) => [u.id, u]));
+        const unknownIds = expectedIds.filter((id) => !knownUsers.has(id));
+        if (unknownIds.length > 0) {
+          (await getUsersByIds(unknownIds)).forEach((u) => knownUsers.set(u.id, u));
         }
+
+        const attendanceRecords: AttendanceRecord[] = expectedIds.map((id) => {
+          const u = knownUsers.get(id);
+          const existingRecord = existingAttendance.find((record: any) => record.userId === id);
+          return {
+            userId: id,
+            userName: u?.Name ?? 'Unknown User',
+            userEmail: u?.Email ?? '',
+            votedStatus: votes[id],
+            hasArrived: existingRecord ? existingRecord.hasArrived : false,
+            arrivalTime: existingRecord ? existingRecord.arrivalTime : undefined,
+          };
+        });
 
         setAttendanceList(attendanceRecords);
       } catch (error) {
@@ -251,7 +251,7 @@ export default function EventAttendance() {
         .map((r) => ({
           userId: r.userId,
           userName: r.userName,
-          userEmail: r.userEmail,
+          userEmail: r.userEmail ?? '',
           votedStatus: r.votedStatus,
           hasArrived: true,
           arrivalTime: r.arrivalTime ?? new Date(),
@@ -260,7 +260,7 @@ export default function EventAttendance() {
       Alert.alert('Success', 'Attendance saved successfully');
     } catch (error) {
       console.error('Error saving attendance:', error);
-      Alert.alert('Error', 'Failed to save attendance: ' + error);
+      Alert.alert('Error', 'Failed to save attendance. Please try again.');
     } finally {
       setSaving(false);
     }

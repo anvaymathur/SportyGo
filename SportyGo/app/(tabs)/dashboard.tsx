@@ -8,8 +8,8 @@
  *
  * Data sources:
  *   - Match history is fetched via `getUserMatchHistory` on mount and on tab focus.
- *   - Upcoming events use a realtime Firestore listener (`listenUserGroupEvents`
- *     or `listenAllEvents`) combined with per-event `getUserVote` checks.
+ *   - Upcoming events use a realtime Firestore listener (`listenUserEvents`)
+ *     combined with per-event `getUserVote` checks.
  *
  * Navigation targets:
  *   - Tap user name      → /userProfile
@@ -23,7 +23,7 @@
 import React, { useContext, useEffect, useMemo, useState } from "react";
 import { ScrollView, YStack, XStack, Text, Card, H3, Paragraph, Separator, Spinner, Button } from "tamagui";
 import { useAuth0 } from "react-native-auth0";
-import { getUserMatchHistory, getUserVote, getUserGroups, listenUserGroupEvents, listenAllEvents } from "@/firebase/services_firestore2";
+import { getUserMatchHistory, getUserVote, getUserGroups, listenUserEvents, toDate } from "@/firebase/services_firestore2";
 import { newMatchHistory, EventDoc } from "@/firebase/types_index";
 
 import { router } from "expo-router";
@@ -31,6 +31,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { UserContext } from "@/components/userContext";
 import { useFocusEffect } from "@react-navigation/native";
 import { SafeAreaWrapper } from "@/components/SafeAreaWrapper";
+import { signOut } from "@/utils/session";
 
 export default function Dashboard() {
   // --- Auth & User Context ---
@@ -108,12 +109,10 @@ export default function Dashboard() {
    *
    * Flow:
    *   1. Fetch the user's groups via `getUserGroups`.
-   *   2. Subscribe to events:
-   *      - If user has groups → `listenUserGroupEvents` (scoped to their groups)
-   *      - Otherwise          → `listenAllEvents` (fallback for users with no groups)
-   *   3. On each Firestore snapshot, check `getUserVote` for every event.
-   *   4. Filter to future events where vote === "going".
-   *   5. Sort ascending by date, take the first 2.
+   *   2. Subscribe to the user's events (`listenUserEvents`: their groups' events, plus
+   *      ones they were invited to individually or created).
+   *   3. On each snapshot, keep future events and check `getUserVote` for just those.
+   *   4. Keep events voted "going", sort ascending by date, take the first 2.
    *
    * Cleanup: unsubscribes from the Firestore listener and sets `cancelled = true`.
    */
@@ -133,56 +132,36 @@ export default function Dashboard() {
       /** Callback invoked on every Firestore snapshot with the latest events list. */
       const handleEvents = async (events: EventDoc[]) => {
         try {
-          // Check the user's RSVP status for each event in parallel
+          const now = Date.now();
+          // Only future events can be "upcoming", so skip RSVP lookups for past ones
+          const futureEvents = events
+            .map((evt) => ({ evt, date: toDate(evt.EventDate) }))
+            .filter(({ date }) => date.getTime() > now);
+
           const results = await Promise.all(
-            events.map(async (evt) => {
-              const vote = await getUserVote(evt.id, userId);
-              return { evt, vote } as { evt: EventDoc; vote: any };
-            })
+            futureEvents.map(async ({ evt, date }) => ({ evt, date, vote: await getUserVote(evt.id, userId) }))
           );
 
-          const now = new Date().getTime();
           const goingUpcoming = results
-            // Keep only future events the user voted "going" on
-            .filter(({ evt, vote }) => {
-              // Handle both native Date and Firestore Timestamp objects
-              const eventDate = (evt.EventDate instanceof Date)
-                ? evt.EventDate
-                : new Date((evt as any).EventDate?.seconds ? (evt as any).EventDate.seconds * 1000 : (evt as any).EventDate);
-              return vote === "going" && eventDate.getTime() > now;
-            })
-            .map(({ evt }) => evt)
+            .filter(({ vote }) => vote === "going")
             // Sort ascending by date so the soonest event comes first
-            .sort((a, b) => {
-              const aDate = a.EventDate instanceof Date ? a.EventDate : new Date((a as any).EventDate?.seconds ? (a as any).EventDate.seconds * 1000 : (a as any).EventDate);
-              const bDate = b.EventDate instanceof Date ? b.EventDate : new Date((b as any).EventDate?.seconds ? (b as any).EventDate.seconds * 1000 : (b as any).EventDate);
-              return aDate.getTime() - bDate.getTime();
-            })
+            .sort((a, b) => a.date.getTime() - b.date.getTime())
+            .map(({ evt }) => evt)
             // Only show the next 2 upcoming events on the dashboard
             .slice(0, 2);
 
           if (!cancelled) setMyUpcomingEvents(goingUpcoming);
+        } catch (error) {
+          console.error("Error loading upcoming events:", error);
         } finally {
           if (!cancelled) setIsLoadingEvents(false);
         }
       };
 
-      try {
-        // Determine which listener to use based on group membership
-        const groups = await getUserGroups(userId).catch(() => []);
-        const groupIds = (groups ?? []).map((g: any) => g.id);
-
-        if (groupIds.length > 0) {
-          unsubscribe = listenUserGroupEvents(groupIds, userId, handleEvents);
-        } else {
-          unsubscribe = listenAllEvents(userId, handleEvents);
-        }
-      } catch {
-        if (!cancelled) {
-          setMyUpcomingEvents([]);
-          setIsLoadingEvents(false);
-        }
-      }
+      const groups = await getUserGroups(userId).catch(() => []);
+      // The screen may have unmounted while groups loaded; don't attach a listener nobody cleans up
+      if (cancelled) return;
+      unsubscribe = listenUserEvents(groups.map((g) => g.id), userId, handleEvents);
     };
 
     setup();
@@ -255,16 +234,8 @@ export default function Dashboard() {
     return `${dateObj.toDateString()} ${dateObj.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
   };
 
-  /** Clears the app-level user context, ends the Auth0 session, and redirects to /login. */
-  const onLogout = async () => {
-    try {
-      await clearUser()
-      await clearSession();
-      router.replace('/login' );
-    } catch (e) {
-      console.log(e);
-    }
-  };
+  /** Clears local data and the app-level user context, ends the Auth0 session, and redirects to /login. */
+  const onLogout = () => signOut({ clearUser, clearSession });
 
   // ─────────────────────────────── UI ───────────────────────────────
   return (
@@ -275,7 +246,7 @@ export default function Dashboard() {
           <YStack p="$2">
             <XStack justify="space-between" items="center">
               <Text verticalAlign="middle" fontSize={24} fontWeight="800" color="$color" onPress={() => router.push('/userProfile')}>{userName}</Text>
-              <Button onPress={onLogout}><Ionicons name="log-out-outline" size={20} color="$color1" /></Button>
+              <Button onPress={onLogout} aria-label="Sign out"><Ionicons name="log-out-outline" size={20} color="$color1" /></Button>
             </XStack>
             <Paragraph verticalAlign="middle" m="$1" color="$color10">Dashboard</Paragraph>
           </YStack>

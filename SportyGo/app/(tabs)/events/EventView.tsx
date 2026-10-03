@@ -8,7 +8,7 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { useAuth0 } from 'react-native-auth0';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../../firebase/index';
-import { castVote, listenVoteCounts, getEvent, getUserVote, hasEventStarted } from '../../../firebase/services_firestore2';
+import { castVote, listenVoteCounts, getEvent, getUserVote, getEventVotes, getUserProfilesByIds, hasEventStarted } from '../../../firebase/services_firestore2';
 import { useConnectedUsers } from '@/hooks/useConnectedUsers';
 import { VoteStatus } from '../../../firebase/types_index';
 import { SafeAreaWrapper } from '@/components/SafeAreaWrapper';
@@ -171,7 +171,8 @@ export default function EventView() {
     };
 
     updateCountdown();
-    const interval = setInterval(updateCountdown, 1000);
+    // The countdown shows minutes at most, so a 15s tick is plenty (and avoids re-rendering every second)
+    const interval = setInterval(updateCountdown, 15000);
 
     return () => clearInterval(interval);
   }, [eventData]);
@@ -187,23 +188,28 @@ export default function EventView() {
     const loadVoters = async () => {
       try {
         setVotersLoading(true);
-        const users = connectedUsers;
-        const results = await Promise.all(
-          users.map(async (u: any) => {
-            try {
-              const v = await getUserVote(eventId, u.id);
-              return { user: u, vote: v } as { user: any; vote: 'going' | 'maybe' | 'not' | null };
-            } catch {
-              return { user: u, vote: null };
-            }
-          })
-        );
+        // One read for every vote on the event, rather than one read per connected user
+        const votes = await getEventVotes(eventId);
+        const voterIds = Object.keys(votes);
+        // Voters may include people outside the user's groups (e.g. individual invitees)
+        const knownUsers = new Map(connectedUsers.map((u: any) => [u.id, u]));
+        const unknownIds = voterIds.filter((id) => !knownUsers.has(id));
+        if (unknownIds.length > 0) {
+          const fetched = await getUserProfilesByIds(unknownIds);
+          Object.values(fetched).forEach((profile) => { if (profile) knownUsers.set(profile.id, profile); });
+        }
         if (cancelled) return;
+        const results = voterIds.map((id) => ({
+          user: knownUsers.get(id) ?? { id, Name: 'Unknown player' },
+          vote: votes[id],
+        }));
         const going = results.filter(r => r.vote === 'going').map(r => r.user);
         const maybe = results.filter(r => r.vote === 'maybe').map(r => r.user);
         const not = results.filter(r => r.vote === 'not').map(r => r.user);
         setVotersByStatus({ going, maybe, not });
         setAllVotersWithStatus(results.filter(r => !!r.vote));
+      } catch (error) {
+        console.error('Error loading voters:', error);
       } finally {
         if (!cancelled) setVotersLoading(false);
       }
@@ -219,7 +225,8 @@ export default function EventView() {
    * @param {VoteStatus} vote - The vote to cast ('going', 'maybe', 'not')
    */
   const handleVote = async (vote: VoteStatus): Promise<void> => {
-    if (!eventData?.VotingEnabled) {
+    // Older events have no VotingEnabled field; like the rest of the app, only an explicit false disables voting
+    if (eventData?.VotingEnabled === false) {
       Alert.alert('Voting Disabled', 'Voting is not enabled for this event.');
       return;
     }
