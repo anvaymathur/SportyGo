@@ -10,7 +10,8 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "dev": "npx expo start --dev-client",
-    "test": "jest"
+    "test": "jest",
+    "test:rules": "firebase emulators:exec --only firestore --project demo-sportygo \"jest -c jest.rules.config.js\""
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -73,6 +74,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
+    "@firebase/rules-unit-testing": "^5.0.2",
     "@tamagui/react-native-web-lite": "^1.143.0",
     "@testing-library/react-native": "^13.3.3",
     "@types/babel__core": "^7.20.5",

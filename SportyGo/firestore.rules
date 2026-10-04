@@ -1,0 +1,163 @@
+rules_version = '2';
+
+// Firestore security rules for SportyGo.
+//
+// The app signs people in with Auth0 only, so requests reach Firestore without a Firebase
+// identity (request.auth is always null) and these rules can't tell users apart. Until the
+// Auth0 -> Firebase sign-in exchange exists, they protect the data's integrity instead:
+//   - only the app's own collections can be read or written; everything else is denied
+//   - new documents must have the fields and types the app writes
+//   - updates may only touch fields the app updates, and fields it never changes are locked
+//     (a profile's email, a group's / event's creator and id, a match's id)
+//   - invite links can only be used one at a time, and not once expired or used up
+//   - vote tallies only move one vote at a time
+// They do NOT stop someone outside the app from reading data or making otherwise valid edits.
+// Checks are deliberately limited to what the app writes, so existing documents keep working.
+//
+// Tests: npm run test:rules (runs the app's own service functions against the emulator).
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---- helpers ----
+    function incoming() { return request.resource.data; }
+    function changedKeys() { return request.resource.data.diff(resource.data).affectedKeys(); }
+    function onlyChanges(keys) { return changedKeys().hasOnly(keys); }
+    function unchanged(key) { return !(key in changedKeys()); }
+
+    function optString(key, max) {
+      return !(key in incoming()) || incoming()[key] == null
+        || (incoming()[key] is string && incoming()[key].size() <= max);
+    }
+    function optList(key) { return !(key in incoming()) || incoming()[key] is list; }
+    function optBool(key) { return !(key in incoming()) || incoming()[key] == null || incoming()[key] is bool; }
+    function optTimestamp(key) {
+      return !(key in incoming()) || incoming()[key] == null || incoming()[key] is timestamp;
+    }
+
+    // ---- users (profiles and temporary players) ----
+    function userFields() {
+      return ['id', 'Name', 'Email', 'Groups', 'Phone', 'Address', 'PhotoUrl', 'DateOfBirth',
+              'isTemp', 'owners', 'claimedBy', 'createdAt'];
+    }
+    function validUser() {
+      return optString('Name', 200) && optString('Email', 320) && optString('Phone', 32)
+        && optString('Address', 500) && optString('PhotoUrl', 1100000) && optString('claimedBy', 512)
+        && optList('Groups') && optList('owners') && optBool('isTemp');
+    }
+
+    match /users/{userId} {
+      allow read: if true;
+      allow create: if incoming().keys().hasOnly(userFields()) && validUser();
+      // The email comes from the login and can't be changed (it may be filled in once if missing)
+      allow update: if onlyChanges(userFields()) && validUser()
+        && (unchanged('Email') || resource.data.get('Email', '') == '')
+        && unchanged('isTemp');
+      allow delete: if true;
+    }
+
+    // ---- groups ----
+    function groupFields() {
+      return ['id', 'Name', 'OwnerId', 'AdminIds', 'MemberIds', 'Description', 'SkillLevel',
+              'Privacy', 'HomeCourt', 'MeetingSchedule', 'PhotoUrl', 'createdAt'];
+    }
+    function validGroup() {
+      return optString('Name', 200) && optString('Description', 1000) && optString('SkillLevel', 50)
+        && optString('Privacy', 50) && optString('HomeCourt', 300) && optString('MeetingSchedule', 50)
+        && optString('PhotoUrl', 1100000) && optList('AdminIds') && optList('MemberIds');
+    }
+
+    match /groups/{groupId} {
+      allow read: if true;
+      // The creator owns the group and is its first member
+      allow create: if incoming().keys().hasOnly(groupFields()) && validGroup()
+        && incoming().OwnerId is string && incoming().MemberIds is list
+        && incoming().OwnerId in incoming().MemberIds;
+      // Ownership can only pass to someone already in the group (account deletion hands it on)
+      allow update: if onlyChanges(groupFields()) && validGroup()
+        && unchanged('id') && unchanged('createdAt')
+        && (unchanged('OwnerId') || incoming().OwnerId in resource.data.MemberIds);
+      allow delete: if true;
+    }
+
+    // ---- group invite links (document ID = invite code) ----
+    function inviteUsable() {
+      return !resource.data.get('expired', false)
+        && (!(resource.data.get('validUntil', null) is timestamp) || resource.data.validUntil > request.time)
+        && (!(resource.data.get('maxUses', null) is int) || resource.data.maxUses <= 0
+            || incoming().used <= resource.data.maxUses);
+    }
+
+    match /groupInvites/{inviteCode} {
+      allow read: if true;
+      allow create: if incoming().keys().hasOnly(['groupId', 'inviteCode', 'inviteLink', 'validUntil', 'maxUses', 'expired', 'used'])
+        && incoming().inviteCode == inviteCode && incoming().groupId is string
+        && incoming().used == 0 && incoming().maxUses is int && incoming().maxUses > 0;
+      // Joining uses the link once; it can also be marked expired
+      allow update: if (onlyChanges(['used']) && incoming().used == resource.data.get('used', 0) + 1 && inviteUsable())
+        || (onlyChanges(['expired']) && incoming().expired == true);
+      allow delete: if true;
+    }
+
+    // ---- events ----
+    function eventFields() {
+      return ['id', 'GroupIDs', 'IndividualParticipantIDs', 'Title', 'EventDate', 'Location',
+              'CutoffDate', 'CreatorID', 'VotingEnabled', 'AttendanceRecords', 'StartedEarly',
+              'StartedEarlyAt', 'TotalCost', 'VoterIds', 'AttendeeIds'];
+    }
+    function validEvent() {
+      return optString('Title', 200) && optString('Location', 300) && optTimestamp('EventDate')
+        && optTimestamp('CutoffDate') && optBool('VotingEnabled') && optBool('StartedEarly')
+        && optList('GroupIDs') && optList('IndividualParticipantIDs') && optList('AttendanceRecords')
+        && optList('VoterIds') && optList('AttendeeIds')
+        && (!('TotalCost' in incoming()) || incoming().TotalCost is number);
+    }
+
+    match /events/{eventId} {
+      allow read: if true;
+      allow create: if incoming().keys().hasOnly(eventFields()) && validEvent()
+        && incoming().CreatorID is string;
+      allow update: if onlyChanges(eventFields()) && validEvent()
+        && unchanged('CreatorID') && unchanged('id');
+      allow delete: if true;
+
+      // Vote tallies, split across shards; each write moves a tally by at most one vote
+      function oneStep(key) {
+        return !(key in incoming()) || (incoming()[key] - resource.data.get(key, 0)) in [-1, 0, 1];
+      }
+      match /voteShards/{shardId} {
+        allow read: if true;
+        allow create: if incoming().keys().hasOnly(['going', 'maybe', 'not'])
+          && incoming().going == 0 && incoming().maybe == 0 && incoming().not == 0;
+        allow update: if onlyChanges(['going', 'maybe', 'not'])
+          && oneStep('going') && oneStep('maybe') && oneStep('not');
+        allow delete: if true;
+      }
+
+      // One vote per user, stored under their user ID
+      match /userVotes/{voterId} {
+        allow read: if true;
+        allow create, update: if incoming().keys().hasOnly(['status', 'votedAt', 'userId'])
+          && incoming().userId == voterId && incoming().status in ['going', 'maybe', 'not'];
+        allow delete: if true;
+      }
+    }
+
+    // ---- match results ----
+    // [player 1 ID, player 2 ID or "", score]
+    function validTeam(team) {
+      return team is list && team.size() == 3 && team[0] is string && team[1] is string
+        && team[2] is number && team[2] >= 0 && team[2] <= 999;
+    }
+
+    match /matchHistory/{matchId} {
+      allow read: if true;
+      allow create: if incoming().keys().hasOnly(['team1', 'team2', 'date', 'id'])
+        && validTeam(incoming().team1) && validTeam(incoming().team2) && optTimestamp('date');
+      allow update: if onlyChanges(['team1', 'team2', 'date'])
+        && validTeam(incoming().team1) && validTeam(incoming().team2) && optTimestamp('date');
+      allow delete: if true;
+    }
+
+    // Everything else (any other collection) is denied by default.
+  }
+}

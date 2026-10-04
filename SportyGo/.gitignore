@@ -89,3 +89,6 @@ ios/
 
 # Local logs
 *.log
+
+# Firebase CLI deploy cache
+.firebase/
