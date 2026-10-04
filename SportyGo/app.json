@@ -86,9 +86,7 @@
             "manifestPlaceholders": {
               "auth0Domain": "sportygo.ca.auth0.com",
               "auth0Scheme": "com.sparkpro.sportygo.auth0"
-            },
-            "gradleVersion": "8.6",
-            "androidGradlePluginVersion": "8.3.2"
+            }
           }
         }
       ],
