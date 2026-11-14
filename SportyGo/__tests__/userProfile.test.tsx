@@ -52,7 +52,7 @@ describe('UserProfile', () => {
     await renderProfile();
     expect(screen.getByText('Olivia Owner')).toBeTruthy();
     expect(screen.getByText('olivia@example.com')).toBeTruthy();
-    expect(screen.getByText('5551234567')).toBeTruthy();
+    expect(screen.getByText('(555) 123-4567')).toBeTruthy();
     expect(screen.getByText('1995-06-15')).toBeTruthy();
     expect(screen.queryByDisplayValue('Olivia Owner')).toBeNull();
   });
@@ -61,7 +61,7 @@ describe('UserProfile', () => {
     await renderProfile();
     fireEvent.press(screen.getByText('Edit'));
     expect(screen.getByDisplayValue('Olivia Owner')).toBeTruthy();
-    expect(screen.getByDisplayValue('5551234567')).toBeTruthy();
+    expect(screen.getByDisplayValue('(555) 123-4567')).toBeTruthy();
     expect(screen.getByText('olivia@example.com')).toBeTruthy();
     expect(screen.queryByDisplayValue('olivia@example.com')).toBeNull();
   });
@@ -70,7 +70,7 @@ describe('UserProfile', () => {
     await renderProfile();
     fireEvent.press(screen.getByText('Edit'));
     fireEvent.changeText(screen.getByDisplayValue('Olivia Owner'), '  Liv Owner ');
-    fireEvent.changeText(screen.getByDisplayValue('5551234567'), '(555) 999-8888');
+    fireEvent.changeText(screen.getByDisplayValue('(555) 123-4567'), '(555) 999-8888');
     fireEvent.press(screen.getByText('Save'));
 
     await waitFor(() => expect(updateUserProfile).toHaveBeenCalled());
@@ -85,7 +85,7 @@ describe('UserProfile', () => {
   it('rejects an invalid phone number', async () => {
     await renderProfile();
     fireEvent.press(screen.getByText('Edit'));
-    fireEvent.changeText(screen.getByDisplayValue('5551234567'), '555');
+    fireEvent.changeText(screen.getByDisplayValue('(555) 123-4567'), '555');
     fireEvent.press(screen.getByText('Save'));
     expect(alertSpy).toHaveBeenCalledWith('Invalid Phone', 'Phone number must be exactly 10 digits, or left blank.', expect.any(Array));
     expect(updateUserProfile).not.toHaveBeenCalled();
@@ -133,7 +133,7 @@ describe('UserProfile', () => {
   it('allows clearing the phone number (it is optional)', async () => {
     await renderProfile();
     fireEvent.press(screen.getByText('Edit'));
-    fireEvent.changeText(screen.getByDisplayValue('5551234567'), '');
+    fireEvent.changeText(screen.getByDisplayValue('(555) 123-4567'), '');
     fireEvent.press(screen.getByText('Save'));
     await waitFor(() => expect(updateUserProfile).toHaveBeenCalled());
     expect((updateUserProfile as jest.Mock).mock.calls[0][1].Phone).toBe('');

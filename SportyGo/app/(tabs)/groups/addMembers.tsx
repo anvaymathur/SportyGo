@@ -20,9 +20,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useAuth0 } from "react-native-auth0";
 import { GroupDoc } from "../../../firebase/types_index";
-import { getGroupById, getGroupInvites } from "../../../firebase/services_firestore2";
+import { getGroupById, getGroupInvites, toDate } from "../../../firebase/services_firestore2";
 import { Picker } from '@react-native-picker/picker';
 import { createGroupInvite } from "../../../firebase/services_firestore2";
+import { parseInviteCode } from "@/utils/inviteCode";
 import { GroupInviteDoc } from "../../../firebase/types_index";
 import { nanoid } from "nanoid/non-secure";
 import { SafeAreaWrapper } from "@/components/SafeAreaWrapper";
@@ -229,35 +230,30 @@ export default function AddMembers() {
   };
 
   // Helper functions for invite display
+  // Older "unlimited" invites were saved with maxUses NaN; newer ones use 999
+  const hasUseLimit = (invite: GroupInviteDoc) =>
+    Number.isFinite(invite.maxUses) && invite.maxUses > 0 && invite.maxUses !== 999;
+
   const getInviteStatus = (invite: GroupInviteDoc) => {
-    const now = new Date();
-    const validUntil = new Date(invite.validUntil);
-    
-    if (invite.expired || validUntil < now) {
+    const expiry = toDate(invite.validUntil);
+    if (invite.expired || (!isNaN(expiry.getTime()) && expiry < new Date())) {
       return { status: 'Expired', color: '#ef4444' };
     }
-    
-    if (invite.maxUses && invite.used >= invite.maxUses) {
+    if (hasUseLimit(invite) && (invite.used ?? 0) >= invite.maxUses) {
       return { status: 'Max Uses Reached', color: '#f59e0b' };
     }
-    
     return { status: 'Active', color: '#22c55e' };
   };
 
-  const formatTimeAgo = (date: Date) => {
-    const now = new Date();
-    const diffInMs = now.getTime() - new Date(date).getTime();
-    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
-    
-    if (diffInDays === 0) {
-      return 'Today';
-    } else if (diffInDays === 1) {
-      return '1 day ago';
-    } else if (diffInDays < 7) {
-      return `${diffInDays} days ago`;
-    } else {
-      return new Date(date).toLocaleDateString();
-    }
+  const describeInvite = (invite: GroupInviteDoc) => {
+    const used = invite.used ?? 0;
+    const expiry = toDate(invite.validUntil);
+    return {
+      uses: hasUseLimit(invite) ? `Used ${used} of ${invite.maxUses}` : `Used ${used} times (unlimited)`,
+      expiry: isNaN(expiry.getTime())
+        ? 'No expiry'
+        : `${expiry < new Date() ? 'Expired' : 'Expires'} ${expiry.toLocaleDateString()}`,
+    };
   };
 
   return (
@@ -370,6 +366,15 @@ export default function AddMembers() {
                       selectable
                     >
                       {inviteLink}
+                    </Text>
+                    <Text color="$color8" fontSize="$3" fontWeight="bold">
+                      Invite Code:
+                    </Text>
+                    <Text color="$color" fontSize="$6" fontWeight="700" style={{ fontFamily: 'monospace', letterSpacing: 2 }} selectable>
+                      {parseInviteCode(inviteLink) ?? ''}
+                    </Text>
+                    <Text color="$color8" fontSize="$2">
+                      People without the link can enter this code under Groups &gt; Join with code.
                     </Text>
                   </YStack>
                 </Card>
@@ -546,25 +551,24 @@ export default function AddMembers() {
                   <YStack gap="$3">
                     {invites.slice(0, 2).map((invite, index) => {
                       const status = getInviteStatus(invite);
-                      const timeAgo = formatTimeAgo(invite.validUntil);
-                      const maxUsesText = invite.maxUses === 999 ? 'Unlimited' : invite.maxUses.toString();
-                      
+                      const details = describeInvite(invite);
+
                       return (
                         <Card key={invite.id || index} p="$3" bg="$color2">
                           <YStack gap="$2">
                             <XStack justify="space-between" items="center">
-                              <Text color="$color9" fontWeight="bold" fontSize="$3" numberOfLines={1}>
-                                {invite.inviteLink}
+                              <Text color="$color9" fontWeight="bold" fontSize="$4" style={{ fontFamily: 'monospace' }} selectable>
+                                Code: {invite.inviteCode}
                               </Text>
                               <Text color="$color" fontSize="$3" style={{ color: status.color }}>
                                 {status.status}
                               </Text>
                             </XStack>
                             <Text color="$color8" fontSize="$3">
-                              Created: {timeAgo} • Used: {invite.used}/{maxUsesText} times
+                              {details.uses}
                             </Text>
                             <Text color="$color8" fontSize="$3">
-                              Expires: {new Date(invite.validUntil).toLocaleDateString()}
+                              {details.expiry}
                             </Text>
                           </YStack>
                         </Card>

@@ -1,4 +1,6 @@
 import React, { useContext, useEffect, useState } from 'react';
+import { PhoneInput } from '@/components/phoneInput';
+import { formatPhone, phoneDigits } from '@/utils/phone';
 import { YStack, XStack, Text, Card, Button, Paragraph, H2, Separator, Spinner, Input } from 'tamagui';
 import { SafeAreaWrapper } from "@/components/SafeAreaWrapper";
 import { useAuth0 } from 'react-native-auth0';
@@ -112,7 +114,7 @@ export default function UserProfileScreen() {
     }
 
     // Phone is optional; if one is given it must be a full 10-digit number
-    const digitsOnly = editPhone.replace(/\D/g, '');
+    const digitsOnly = phoneDigits(editPhone);
     if (digitsOnly.length > 0 && digitsOnly.length !== 10) {
       Alert.alert('Invalid Phone', 'Phone number must be exactly 10 digits, or left blank.', [{ text: 'OK' }]);
       return;
@@ -345,27 +347,17 @@ export default function UserProfileScreen() {
                   <YStack>
                     <Text color="$color10" fontSize="$3">Phone</Text>
                     {isEditing ? (
-                      <Input
-                        keyboardType="numeric"
-                        inputMode="numeric"
-                        maxLength={10}
+                      <PhoneInput
                         value={editPhone}
-                        onChangeText={(text: any) => setEditPhone(text.replace(/\D/g, ''))}
+                        onChangeDigits={setEditPhone}
                         onFocus={() => setShowDobPicker(false)}
                         placeholder="Phone (optional, 10 digits)"
-                        borderColor="$color6"
-                        borderWidth={1}
-                        focusStyle={{ borderWidth: 2, borderColor: '$color6' }}
-                        background="$color2"
-                        placeholderTextColor="$color10"
-                        color="$color"
                         p="$2"
                         pl="$3"
                         mt="$1"
-                        style={{ borderRadius: 8, fontSize: 16 }}
                       />
                     ) : (
-                      <Text color="$color" fontSize="$5">{profile?.Phone || '-'}</Text>
+                      <Text color="$color" fontSize="$5">{formatPhone(profile?.Phone) || '-'}</Text>
                     )}
                   </YStack>
                   <Separator />

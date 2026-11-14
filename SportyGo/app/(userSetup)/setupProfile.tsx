@@ -1,4 +1,6 @@
 import { Alert, Platform, Keyboard, KeyboardAvoidingView, ScrollView, TouchableWithoutFeedback } from "react-native";
+import { PhoneInput } from '@/components/phoneInput'
+import { isValidOptionalPhone, phoneDigits } from '@/utils/phone'
 import React, { useContext, useEffect, useRef, useState } from "react";
 import { Button, Input, YStack, Text, H2, Paragraph } from 'tamagui'
 import { router } from "expo-router";
@@ -59,7 +61,7 @@ export default function SetupProfile() {
 
         if (user && user.phoneNumber){
             // Auth0 can return formatted / +1 numbers; keep the last 10 digits like the input does
-            setPhone(user.phoneNumber.replace(/\D/g, '').slice(-10))
+            setPhone(phoneDigits(user.phoneNumber.replace(/\D/g, '').slice(-10)))
         }
     }, [user]) 
 
@@ -78,7 +80,7 @@ export default function SetupProfile() {
         const trimmedName = name.trim()
         const normalizedEmail = email.trim().toLowerCase()
         // Phone is optional (App Store 5.1.1: only require what the app needs), but must be complete if given
-        if (phone.length > 0 && phone.length !== 10) {
+        if (!isValidOptionalPhone(phone)) {
             Alert.alert("Invalid Phone", "Phone number must be exactly 10 digits, or left blank.", [{ text: "OK" }])
             return
         }
@@ -249,29 +251,13 @@ export default function SetupProfile() {
                                     />
                                 )}
                                 
-                                <Input
-                                    keyboardType="numeric"
-                                    inputMode="numeric"
-                                    maxLength={10}
+                                <PhoneInput
                                     value={phone}
-                                    onChangeText={(text: any) => {
-                                        const onlyDigits = text.replace(/\D/g, '')
-                                        setPhone(onlyDigits)
-                                    }}
+                                    onChangeDigits={setPhone}
                                     onFocus={() => setShowDobPicker(false)}
                                     placeholder="Phone (optional)"
-                                    borderColor="$color6"
-                                    borderWidth={1}
-                                    focusStyle={{
-                                        borderWidth: 2,
-                                        borderColor: '$color6'
-                                    }}
-                                    background="$color2"
-                                    placeholderTextColor="$color10"
-                                    color="$color"
                                     p="$2"
                                     pl="$3"
-                                    style={{ borderRadius: 8, fontSize: 16 }}
                                 />
                             </YStack>
 

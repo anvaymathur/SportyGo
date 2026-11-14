@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { formatPhone } from '@/utils/phone';
 import { YStack, XStack, Text, H4, Input, Button, Card, ScrollView, Avatar } from "tamagui";
 import { Ionicons } from "@expo/vector-icons";
 import { Alert } from "react-native";
@@ -332,7 +333,7 @@ export default function ViewMembers() {
                       </XStack>
                       <Text color="$color10" fontSize="$2">{u.Email}</Text>
                       {!!u.Phone && (
-                        <Text color="$color10" fontSize="$2">{u.Phone}</Text>
+                        <Text color="$color10" fontSize="$2">{formatPhone(u.Phone)}</Text>
                       )}
                     </YStack>
                     {/* Admin toggle button - only visible to owner, not on the owner's own card */}

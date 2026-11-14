@@ -1,4 +1,5 @@
 // Multi-step wizard for logging a new match result.
+import { PhoneInput } from '@/components/phoneInput';
 // Handles player selection, score entry, match metadata, validation, and persists data to Firestore.
 import React, { useContext, useEffect, useRef, useState } from "react";
 import {
@@ -971,23 +972,7 @@ export default function AddScore() {
                           p="$3"
                           style={{ borderRadius: 8, fontSize: 16 }}
                         />
-                        <Input
-                          value={qaPhone}
-                          onChangeText={(text: any) => {
-                            const digits = text.replace(/\D/g, '');
-                            setQaPhone(digits);
-                          }}
-                          placeholder="Phone"
-                          keyboardType="numeric"
-                          inputMode="numeric"
-                          borderColor="$color6"
-                          borderWidth={1}
-                          background="$color2"
-                          color="$color"
-                          placeholderTextColor="$color10"
-                          p="$3"
-                          style={{ borderRadius: 8, fontSize: 16 }}
-                        />
+                        <PhoneInput value={qaPhone} onChangeDigits={setQaPhone} />
                         <Paragraph color="$color10" fontSize="$2">
                           At least one of Email or Phone is required.
                         </Paragraph>

@@ -1,40 +1,47 @@
-import React, { useState } from 'react'
+import React from 'react'
 import { Input } from 'tamagui'
-import { AsYouType } from 'libphonenumber-js'
+import { formatPhone, phoneDigits } from '@/utils/phone'
 
-type PhoneInputProps = {
-  onChange?: (formatted: string, raw: string) => void
+type PhoneInputProps = Omit<React.ComponentProps<typeof Input>, 'value' | 'onChangeText' | 'onChange'> & {
+  /** The number as digits only, which is how it is stored */
+  value: string
+  onChangeDigits: (digits: string) => void
 }
 
-export function PhoneInput({ onChange }: PhoneInputProps) {
-  const [rawDigits, setRawDigits] = useState('')
+/**
+ * Phone field that shows the number formatted as it is typed, e.g. (555) 123-4567, while the
+ * caller only ever sees digits.
+ */
+export function PhoneInput({ value, onChangeDigits, ...inputProps }: PhoneInputProps) {
+  const formatted = formatPhone(value)
 
   const handleChange = (text: string) => {
-    const onlyDigits = text.replace(/\D/g, '')
-    setRawDigits(onlyDigits)
-
-    const formatted = new AsYouType('US').input(onlyDigits)
-    onChange?.(formatted, onlyDigits)
+    let digits = phoneDigits(text)
+    // Backspacing over punctuation ("(555)" -> "(555") leaves the digits unchanged, which would
+    // re-format to the same text and make the field feel stuck; remove a digit instead
+    if (text.length < formatted.length && digits === value) digits = digits.slice(0, -1)
+    onChangeDigits(digits)
   }
-
-  const formattedValue = new AsYouType('US').input(rawDigits)
 
   return (
     <Input
-      keyboardType="numeric"
-      inputMode="numeric"
+      keyboardType="phone-pad"
+      inputMode="tel"
+      autoComplete="tel"
+      textContentType="telephoneNumber"
       maxLength={14}
-      value={formattedValue}
-      onChangeText={(text: any) => handleChange(text)}
       placeholder="Phone"
+      borderColor="$color6"
       borderWidth={1}
-      focusStyle={{
-        borderWidth: 2,
-      }}
+      focusStyle={{ borderWidth: 2, borderColor: '$color6' }}
       background="$color2"
-      placeholderTextColor="$color9"
+      placeholderTextColor="$color10"
+      color="$color"
       p="$3"
       style={{ borderRadius: 8, fontSize: 16 }}
+      {...inputProps}
+      value={formatted}
+      onChangeText={(text: any) => handleChange(String(text))}
     />
   )
 }
