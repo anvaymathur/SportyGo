@@ -15,11 +15,14 @@ Last updated: 2026-11-14
 | T3 | Publishable on Google Play | Blocked on T1 rollout + store paperwork | Production AAB targets the current API level; data-safety form, delete-account URL, content rating filled in |
 | T4 | Good user flow | In progress | A new user can sign up, join or create a group, RSVP to an event, and record a match without dead ends, with consistent navigation and clear empty/loading/error states |
 | T5 | Consistent, polished UI | In progress | One colour system (no hard-coded greys/blacks), one header/back pattern, one button style, readable contrast everywhere |
-| T6 | v1 feature set complete | In progress (3 of 6) | Edit event ✅, join by code ✅, phone formatting ✅, match-event link, privacy levels, payment tracking, push notifications |
+| T6 | v1 feature set complete | In progress (4 of 7) | Edit event ✅, join by code ✅, phone formatting ✅, match-event link ✅, privacy levels, payment tracking, push notifications |
 | T7 | Maintainable | In progress | Type-clean, tests green, lint warnings near zero, no dead code or stale branches |
 
 ## Owner action items (nothing here can be done from the code)
 
+0. **Before releasing any build made after PR #72, run `npm run deploy:rules`** (from `SportyGo/`).
+   New matches carry an `eventId`; the rules deployed today reject that field, so saving a match
+   would fail. The updated rules still accept matches from older builds.
 1. **Roll out Firestore security** by following the six steps in
    [SportyGo/docs/FIREBASE_AUTH_SETUP.md](SportyGo/docs/FIREBASE_AUTH_SETUP.md): turn on Firebase
    Authentication, create a service-account key, create the Auth0 Action, verify on a dev build,
@@ -44,7 +47,7 @@ Last updated: 2026-11-14
 
 ## State of `dev-main` (2026-11-14)
 
-- `tsc`: clean. `jest`: 19 suites / 173 tests. Rules tests: 36. `expo lint`: 0 errors, 42 warnings
+- `tsc`: clean. `jest`: 20 suites / 178 tests. Rules tests: 36. `expo lint`: 0 errors, 42 warnings
   (was 58).
 - Expo SDK 54, React Native 0.81, Tamagui, Auth0 login, Firestore (web SDK), Firebase Auth
   (custom token).
@@ -62,12 +65,13 @@ Last updated: 2026-11-14
   formatted for display.
 - Edit Event changes details only, not who is invited, and is closed once the event starts.
 - Sign out lives on the Profile tab only (removed from the Home header).
+- A match must be attached to an event from the last 30 days (or one starting within a day).
+  There is no "no event" option, as #43 asks; casual matches need an event created first.
 
 ## Open GitHub issues
 
 | Issue | Title | Status |
 |-------|-------|--------|
-| #43 | Match score must attach an event | **Next.** Needs an `eventId` on matches (types, both rules files, Add/Edit Score) |
 | #54 | White selector on create group | Next: replace the native wheel pickers on Create Group / Group Settings with themed option buttons, then close |
 | #17 | Privacy levels mean something | To do (v1). Needs a decision on what each level allows, then a public-group browse/join screen and rule changes |
 | #56 | Log payment sent / not sent | To do (v1). Per-attendee paid flag on events, organiser marks received |
@@ -76,7 +80,7 @@ Last updated: 2026-11-14
 | #55, #57, #24, #14, #30, #34 | Payments, best-of-n, friends, location, linked accounts | Post-launch |
 
 Closed this session: #12, #28, #31, #33, #35, #42, #46 (already fixed in code), #41, #52, #53
-(PR #69), #37 (PR #70).
+(PR #69), #37 (PR #70), #43 (PR #72).
 
 ## Other problems found (not in GitHub issues)
 
@@ -93,8 +97,8 @@ Fixed this session:
 
 Still open:
 
-- Matches store no event or group reference, and the "Tournament/Event" text typed in Add Score is
-  never saved (fix with #43).
+- Edit Score cannot change which event a match belongs to, and matches recorded before PR #72
+  have no event. The match lists do not show or filter by event yet.
 - 22 hard-coded colours (`gray`, `white`, `#666`, ...) and 17 hard-coded status hexes remain in
   screens, mostly Add Members, Add Score and View Score; several screens build their own header
   instead of using `ScreenHeader`.
@@ -123,13 +127,16 @@ Still open:
 - **Edit Event (PR #70, #37):** organiser can edit event details until it starts.
 - **UI foundation (PR #71):** contrast-checked colours, themed tab bar with outline/filled icons,
   Home screen rewrite (record card, next events open directly, consistent results).
+- **Match-event link (PR #72, #43):** Add Score requires picking one of your events from the last
+  30 days (or creating one); the free-text tournament field that was never saved is gone; the
+  match page shows the event. `eventId` added to both rules files.
 
 ## Resume here
 
 Branch from `dev-main`. Suggested order:
 
-1. **#43** match-event link, together with splitting the shared player-picker logic out of the
-   score screens.
+1. Split the shared player-picker logic out of the three score screens (1,000+ lines each),
+   and let Edit Score change a match's event.
 2. **#54 + colour sweep:** option buttons instead of wheel pickers; replace the remaining
    hard-coded colours; move every screen onto `ScreenHeader`.
 3. **#56** payment tracking (small data change on events; add to both rules files).

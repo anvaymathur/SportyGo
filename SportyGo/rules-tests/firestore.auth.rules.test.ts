@@ -234,10 +234,11 @@ describe('events and votes', () => {
 describe('matches', () => {
   it('lets signed-in users record, edit and delete matches', async () => {
     as('member');
-    await assertSucceeds(svc.createMatchHistory({ team1: ['member', '', 21], team2: ['owner', '', 15], date: new Date(), id: '' } as any));
+    await assertSucceeds(svc.createMatchHistory({ team1: ['member', '', 21], team2: ['owner', '', 15], date: new Date(), id: '', eventId: 'e1' } as any));
     const [saved] = await svc.getUserMatchHistory('member');
     await assertSucceeds(svc.updateMatchHistory(saved.id, { team1: ['member', '', 11], team2: ['owner', '', 9], date: new Date() }));
     await assertFails(addDoc(collection(mockDb, 'matchHistory'), { team1: ['member', '', 5000], team2: ['owner', '', 1], date: new Date(), id: '' }));
+    await assertFails(addDoc(collection(mockDb, 'matchHistory'), { team1: ['member', '', 5], team2: ['owner', '', 1], date: new Date(), id: '', eventId: 42 }));
     await assertSucceeds(svc.deleteMatchHistory(saved.id));
   });
 });

@@ -115,6 +115,8 @@ export interface newMatchHistory {
   ]
   date: Date
   id: string
+  /** The event the match was played at. Required for new matches; absent on older ones. */
+  eventId?: string
 }
 
 export interface GroupInviteDoc {
