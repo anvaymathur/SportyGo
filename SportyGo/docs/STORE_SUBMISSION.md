@@ -21,15 +21,11 @@ today. If you turn on Pendo (or any analytics) later, update the policy and the 
 
 ## 2. Close the server-side security gap (high priority)
 
-The app signs users in with Auth0 only and never signs in to Firebase, so Firestore sees every
-request as unauthenticated and its security rules can't tell users apart. Anyone who extracts the
-Firebase config from the app could read or change all data. Fix before launch:
-
-1. Exchange the Auth0 login for a Firebase session (e.g. a Cloud Function that verifies the Auth0
-   token and returns a Firebase custom token with `uid` = the Auth0 `sub`), and sign in to
-   Firebase with it in the app.
-2. Write and deploy Firestore rules that use `request.auth.uid` (users edit only their own profile,
-   group writes limited to owners/admins, etc.).
+Until this is done, Firestore sees every request as anonymous and anyone who extracts the
+Firebase config from the app could read or change all data. The app-side code, an Auth0 Action
+script and per-user Firestore rules are in the repository; follow the six steps in
+[FIREBASE_AUTH_SETUP.md](FIREBASE_AUTH_SETUP.md) (Auth0 dashboard + Firebase console, no paid
+plan needed) before public launch.
 
 ## 3. Auth0
 

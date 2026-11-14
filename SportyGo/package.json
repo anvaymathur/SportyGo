@@ -11,7 +11,9 @@
     "lint": "expo lint",
     "dev": "npx expo start --dev-client",
     "test": "jest",
-    "test:rules": "firebase emulators:exec --only firestore --project demo-sportygo \"jest -c jest.rules.config.js\""
+    "test:rules": "firebase emulators:exec --only firestore --project demo-sportygo \"jest -c jest.rules.config.js\"",
+    "deploy:rules": "firebase deploy --only firestore:rules",
+    "deploy:rules:auth": "firebase deploy --only firestore:rules --config firebase.auth.json"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

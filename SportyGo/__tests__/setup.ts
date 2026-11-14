@@ -17,8 +17,13 @@ jest.mock('@expo/vector-icons', () => {
 // Signed-in Auth0 user; tests change `mockAuthUser.sub` to act as different people
 export const mockAuthUser: { sub: string; name?: string; email?: string } = { sub: 'owner-1' };
 export const mockClearSession = jest.fn(async () => undefined);
+export const mockGetCredentials = jest.fn(async (): Promise<{ idToken?: string } | undefined> => undefined);
+export const mockClearCredentials = jest.fn(async () => undefined);
 jest.mock('react-native-auth0', () => ({
-  useAuth0: () => ({ user: mockAuthUser, isLoading: false, clearSession: mockClearSession }),
+  useAuth0: () => ({
+    user: mockAuthUser, isLoading: false, clearSession: mockClearSession,
+    getCredentials: mockGetCredentials, clearCredentials: mockClearCredentials,
+  }),
 }));
 
 export const mockRouter = { push: jest.fn(), back: jest.fn(), replace: jest.fn(), canGoBack: jest.fn(() => true) };
@@ -39,7 +44,16 @@ jest.mock('expo-router', () => {
 });
 
 // Never initialize or talk to the real Firebase project in tests
-jest.mock('../firebase/index', () => ({ app: {}, db: {}, storage: {} }));
+export const mockAuth: { currentUser: { uid: string } | null; authStateReady: () => Promise<void> } = {
+  currentUser: null,
+  authStateReady: async () => undefined,
+};
+jest.mock('../firebase/index', () => ({ app: {}, db: {}, storage: {}, auth: mockAuth }));
+export const mockFirebaseAuth = {
+  signInWithCustomToken: jest.fn(),
+  signOut: jest.fn(async () => { mockAuth.currentUser = null; }),
+};
+jest.mock('firebase/auth', () => mockFirebaseAuth);
 export const mockFirestore = {
   doc: jest.fn((_db: unknown, col: string, id: string) => ({ path: `${col}/${id}` })),
   updateDoc: jest.fn(async () => undefined),
@@ -83,6 +97,7 @@ jest.mock('react-native-keyboard-aware-scroll-view', () => {
 beforeEach(() => {
   jest.clearAllMocks();
   mockAuthUser.sub = 'owner-1';
+  mockAuth.currentUser = null;
   delete mockAuthUser.email;
   for (const key of Object.keys(mockSearchParams)) delete mockSearchParams[key];
 });

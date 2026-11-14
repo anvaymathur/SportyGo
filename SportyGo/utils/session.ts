@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
+import { endFirebaseSession } from './firebaseSession';
 
 /**
  * Signs the user out: clears everything cached on this device (profile, match history,
@@ -9,6 +10,7 @@ export async function signOut(options: {
   clearUser: () => Promise<void>;
   clearSession: () => Promise<void>;
 }): Promise<void> {
+  await endFirebaseSession();
   try {
     await AsyncStorage.clear();
   } catch (e) {

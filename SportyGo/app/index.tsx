@@ -6,9 +6,10 @@ import { UserContext } from '@/components/userContext'
 import { getUserProfile } from '../firebase/services_firestore2'
 import { findTempsToOffer } from '@/utils/claimPrompts'
 import { SafeAreaWrapper } from '@/components/SafeAreaWrapper'
+import { ensureFirebaseSession, isPermissionDenied } from '@/utils/firebaseSession'
 
 export default function Index() {
-  const { user, isLoading } = useAuth0();
+  const { user, isLoading, getCredentials, clearCredentials } = useAuth0();
   const [initializing, setInitializing] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
   const { saveUser } = useContext(UserContext)
@@ -20,6 +21,7 @@ export default function Index() {
         return;
       }
       try {
+        await ensureFirebaseSession(user.sub, getCredentials)
         const userProfile = await getUserProfile(user.sub)
         if (!userProfile) {
           router.replace('/login');
@@ -34,6 +36,12 @@ export default function Index() {
           router.replace('/dashboard');
         }
       } catch (error) {
+        if (isPermissionDenied(error)) {
+          // This login can't be exchanged for a Firebase session; logging in again always can
+          await clearCredentials().catch(() => undefined);
+          router.replace('/login');
+          return;
+        }
         // Usually offline; without this the app sits on the spinner forever
         console.error('Error loading user profile:', error);
         setLoadFailed(true);
@@ -43,6 +51,8 @@ export default function Index() {
       setInitializing(false);
       fetchUserProfile()
     }
+    // Runs once per launch (guarded by `initializing`); the Auth0 helpers aren't stable between renders
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, isLoading, initializing, saveUser]);
 
   const retry = () => {
