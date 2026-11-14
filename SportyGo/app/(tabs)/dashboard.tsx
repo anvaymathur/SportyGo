@@ -1,27 +1,18 @@
 /**
- * @fileoverview Dashboard Screen — Main landing page for authenticated users.
+ * @fileoverview Home screen: the landing page for signed-in users.
  *
- * Displays a personalized summary with three sections:
- *   1. Win Rate   — percentage of matches won (one decimal place)
- *   2. Latest Matches — the 5 most recent matches with W/L, score, and date
- *   3. Upcoming Events — next 2 future events where the user RSVP'd "going"
+ *   1. Record       : win rate with wins / losses / draws
+ *   2. Next up      : the next 2 events the user RSVP'd "going" to
+ *   3. Recent matches: the 5 most recent results
  *
- * Data sources:
- *   - Match history is fetched via `getUserMatchHistory` on mount and on tab focus.
- *   - Upcoming events use a realtime Firestore listener (`listenUserEvents`)
- *     combined with per-event `getUserVote` checks.
- *
- * Navigation targets:
- *   - Tap user name      → /userProfile
- *   - Tap matches card   → /matches/viewScore
- *   - Tap events card    → /events/EventsList
- *   - Logout button      → clears session → /login
+ * Match history is re-read every time the tab gains focus; upcoming events come from a realtime
+ * listener. Signing out lives on the Profile tab.
  *
  * @route /(tabs)/dashboard
  */
 
 import React, { useContext, useEffect, useMemo, useState } from "react";
-import { ScrollView, YStack, XStack, Text, Card, H3, Paragraph, Separator, Spinner, Button } from "tamagui";
+import { ScrollView, YStack, XStack, Text, Card, H2, H4, Paragraph, Separator, Spinner, Button, useTheme } from "tamagui";
 import { useAuth0 } from "react-native-auth0";
 import { getUserMatchHistory, getUserVote, getUserGroups, listenUserEvents, toDate } from "@/firebase/services_firestore2";
 import { newMatchHistory, EventDoc } from "@/firebase/types_index";
@@ -31,55 +22,25 @@ import { Ionicons } from "@expo/vector-icons";
 import { UserContext } from "@/components/userContext";
 import { useFocusEffect } from "@react-navigation/native";
 import { SafeAreaWrapper } from "@/components/SafeAreaWrapper";
-import { signOut } from "@/utils/session";
+import { matchOutcomeFor, summarizeMatches } from "@/utils/matchStats";
+
+const RESULT_COLORS = { W: "$success", L: "$danger", D: "$color10" } as const;
 
 export default function Dashboard() {
-  // --- Auth & User Context ---
-  const { user, clearSession } = useAuth0();        // Auth0 profile + logout
-  const { globalUser, clearUser } = useContext(UserContext); // App-level user state
-  const userId = user?.sub ?? "";                    // Auth0 subject ID (unique user identifier)
-  const userName = globalUser?.name ?? "Player";     // Display name, falls back to "Player"
+  const theme = useTheme();
+  const { user } = useAuth0();
+  const { globalUser } = useContext(UserContext);
+  const userId = user?.sub ?? "";
+  const firstName = (globalUser?.name ?? "").trim().split(/\s+/)[0];
 
-  // --- State: Match History ---
-  const [matchHistory, setMatchHistory] = useState<newMatchHistory[]>([]);    // All matches the user participated in
+  const [matchHistory, setMatchHistory] = useState<newMatchHistory[]>([]);
   const [isLoadingMatches, setIsLoadingMatches] = useState<boolean>(true);
+  const [matchesFailed, setMatchesFailed] = useState(false);
 
-  // --- State: Upcoming Events ---
-  const [myUpcomingEvents, setMyUpcomingEvents] = useState<EventDoc[]>([]);   // Next 2 future events user voted "going"
+  const [myUpcomingEvents, setMyUpcomingEvents] = useState<EventDoc[]>([]);
   const [isLoadingEvents, setIsLoadingEvents] = useState<boolean>(true);
 
-  /**
-   * Effect: Fetch match history on mount / userId change.
-   * Uses an `isActive` cleanup flag to prevent state updates after unmount.
-   */
-  useEffect(() => {
-    let isActive = true;
-    const fetchMatches = async () => {
-      if (!userId) {
-        setMatchHistory([]);
-        setIsLoadingMatches(false);
-        return;
-      }
-      setIsLoadingMatches(true);
-      try {
-        const data = await getUserMatchHistory(userId);
-        if (isActive) setMatchHistory(data);
-      } finally {
-        if (isActive) setIsLoadingMatches(false);
-      }
-    };
-    fetchMatches();
-    return () => {
-      isActive = false;
-    };
-  }, [userId]);
-
-  /**
-   * Effect: Re-fetch match history every time the tab gains focus.
-   * Ensures data is fresh when the user navigates back to the dashboard.
-   * Note: This also fires on initial mount, so the first load triggers two fetches
-   * (one from the useEffect above, one from here).
-   */
+  // Re-read match history whenever the tab gains focus (this also covers the first load)
   useFocusEffect(
     React.useCallback(() => {
       let isActive = true;
@@ -89,10 +50,15 @@ export default function Dashboard() {
           setIsLoadingMatches(false);
           return;
         }
-        setIsLoadingMatches(true);
         try {
           const data = await getUserMatchHistory(userId);
-          if (isActive) setMatchHistory(data);
+          if (isActive) {
+            setMatchHistory(data);
+            setMatchesFailed(false);
+          }
+        } catch (error) {
+          console.error("Error loading match history:", error);
+          if (isActive) setMatchesFailed(true);
         } finally {
           if (isActive) setIsLoadingMatches(false);
         }
@@ -105,16 +71,8 @@ export default function Dashboard() {
   );
 
   /**
-   * Effect: Realtime listener for upcoming events the user voted "going" on.
-   *
-   * Flow:
-   *   1. Fetch the user's groups via `getUserGroups`.
-   *   2. Subscribe to the user's events (`listenUserEvents`: their groups' events, plus
-   *      ones they were invited to individually or created).
-   *   3. On each snapshot, keep future events and check `getUserVote` for just those.
-   *   4. Keep events voted "going", sort ascending by date, take the first 2.
-   *
-   * Cleanup: unsubscribes from the Firestore listener and sets `cancelled = true`.
+   * Realtime listener for upcoming events the user is going to: their groups' events plus ones
+   * they were invited to individually or created, filtered to future events voted "going".
    */
   useEffect(() => {
     let cancelled = false as boolean;
@@ -129,7 +87,6 @@ export default function Dashboard() {
 
       setIsLoadingEvents(true);
 
-      /** Callback invoked on every Firestore snapshot with the latest events list. */
       const handleEvents = async (events: EventDoc[]) => {
         try {
           const now = Date.now();
@@ -144,10 +101,8 @@ export default function Dashboard() {
 
           const goingUpcoming = results
             .filter(({ vote }) => vote === "going")
-            // Sort ascending by date so the soonest event comes first
             .sort((a, b) => a.date.getTime() - b.date.getTime())
             .map(({ evt }) => evt)
-            // Only show the next 2 upcoming events on the dashboard
             .slice(0, 2);
 
           if (!cancelled) setMyUpcomingEvents(goingUpcoming);
@@ -172,155 +127,133 @@ export default function Dashboard() {
     };
   }, [userId]);
 
-  /**
-   * Derived: Win rate as a percentage with one decimal place.
-   * Iterates all matches, determines which team the user is on,
-   * and counts strict wins (ties are NOT counted as wins here).
-   */
-  const winRate = useMemo(() => {
-    if (!matchHistory || matchHistory.length === 0 || !userId) return 0;
-    let wins = 0;
-    let total = 0;
-    for (const match of matchHistory) {
-      const [team1Player1, team1Player2, team1Score] = match.team1;
-      const [team2Player1, team2Player2, team2Score] = match.team2;
-      // Determine which team the current user belongs to
-      const inTeam1 = userId === team1Player1 || (!!team1Player2 && userId === team1Player2);
-      const inTeam2 = userId === team2Player1 || (!!team2Player2 && userId === team2Player2);
-      if (!inTeam1 && !inTeam2) continue; // Skip matches the user wasn't in
-      total += 1;
-      const didWin = (inTeam1 && team1Score > team2Score) || (inTeam2 && team2Score > team1Score);
-      if (didWin) wins += 1;
-    }
-    return total === 0 ? 0 : Math.round((wins / total) * 1000) / 10; // one decimal
-  }, [matchHistory, userId]);
+  const summary = useMemo(() => summarizeMatches(matchHistory, userId), [matchHistory, userId]);
 
-  /** Derived: The 5 most recent matches for the "Latest Matches" card. */
-  const latestFiveMatches = useMemo(() => {
-    return (matchHistory ?? []).slice(0, 5);
-  }, [matchHistory]);
+  /** The 5 most recent matches the user played in, with the user's own score first. */
+  const recentMatches = useMemo(
+    () =>
+      (matchHistory ?? [])
+        .map((match) => ({ match, outcome: matchOutcomeFor(match, userId) }))
+        .filter(({ outcome }) => outcome !== null)
+        .slice(0, 5)
+        .map(({ match, outcome }) => ({
+          id: match.id,
+          outcome: outcome!,
+          dateStr: toDate(match.date).toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+        })),
+    [matchHistory, userId]
+  );
 
-  /**
-   * Formats a single match into display data for the Latest Matches list.
-   * @param match - A match history record with team1/team2 tuples.
-   * @returns `{ result: "W"|"L", score: "X-Y", dateStr }`.
-   *
-   * Note: Uses >= for win check, so ties display as "W" for the user's team.
-   * This differs from the winRate memo which uses strict > (ties are not wins).
-   */
-  const formatMatchRow = (match: newMatchHistory) => {
-    const [t1p1, t1p2, t1Score] = match.team1;
-    const [t2p1, t2p2, t2Score] = match.team2;
-    const userInTeam1 = userId === t1p1 || (!!t1p2 && userId === t1p2);
-    const result = (userInTeam1 ? t1Score >= t2Score : t2Score >= t1Score) ? "W" : "L";
-
-    // Handle both Firestore Timestamp (.toDate()) and raw Date/number values
-    const dateObj = (match as any).date && typeof (match as any).date === "object" && "toDate" in (match as any).date
-      ? (match as any).date.toDate()
-      : new Date((match as any).date ?? Date.now());
-
-    const dateStr = dateObj.toLocaleDateString();
-    return { result, score: `${t1Score}-${t2Score}`, dateStr };
+  const formatEventDate = (d: unknown) => {
+    const date = toDate(d);
+    return `${date.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })} · ${date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
   };
 
-  /**
-   * Formats an event date for display. Handles native Date objects and
-   * Firestore Timestamp objects (which have a `.seconds` property).
-   * @param d - Date, Firestore Timestamp, or raw value.
-   * @returns A string like "Mon Feb 09 2026 07:30 PM".
-   */
-  const formatEventDate = (d: any) => {
-    const dateObj = d instanceof Date ? d : new Date(d?.seconds ? d.seconds * 1000 : d);
-    return `${dateObj.toDateString()} ${dateObj.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
-  };
+  const loadingRow = (
+    <XStack items="center" gap="$2" py="$2">
+      <Spinner size="small" color="$color9" />
+      <Text color="$color10">Loading…</Text>
+    </XStack>
+  );
 
-  /** Clears local data and the app-level user context, ends the Auth0 session, and redirects to /login. */
-  const onLogout = () => signOut({ clearUser, clearSession });
+  /** Card title with a "see all" style link on the right. */
+  const cardHeader = (title: string, linkLabel: string, onPress: () => void) => (
+    <XStack justify="space-between" items="center">
+      <H4 color="$color">{title}</H4>
+      <XStack items="center" gap="$1" onPress={onPress} hitSlop={12} accessibilityRole="link">
+        <Text color="$color9" fontWeight="600">{linkLabel}</Text>
+        <Ionicons name="chevron-forward" size={16} color={theme.color9?.val as string} />
+      </XStack>
+    </XStack>
+  );
 
-  // ─────────────────────────────── UI ───────────────────────────────
   return (
     <SafeAreaWrapper>
-      <ScrollView flex={1} p="$4" bg="$background">
-        <YStack gap="$4">
-          {/* Header: User name (tappable → /userProfile) + logout button */}
-          <YStack p="$2">
-            <XStack justify="space-between" items="center">
-              <Text verticalAlign="middle" fontSize={24} fontWeight="800" color="$color" onPress={() => router.push('/userProfile')}>{userName}</Text>
-              <Button onPress={onLogout} aria-label="Sign out"><Ionicons name="log-out-outline" size={20} color="$color1" /></Button>
-            </XStack>
-            <Paragraph verticalAlign="middle" m="$1" color="$color10">Dashboard</Paragraph>
+      <ScrollView flex={1} bg="$background" showsVerticalScrollIndicator={false}>
+        <YStack p="$4" gap="$4">
+          <YStack>
+            <Paragraph color="$color10">Welcome back</Paragraph>
+            <H2 color="$color" fontWeight="800" numberOfLines={1}>{firstName || "Player"}</H2>
           </YStack>
-          {/* Win Rate Card — shows win % and total match count */}
-          <Card p="$4" borderRadius="$4" bg="$color2">
-            <YStack gap="$2">
-              <H3 verticalAlign="middle" color="$color9">Win Rate</H3>
-              {isLoadingMatches ? (
-                <XStack justify="flex-start" p="$2">
-                  <Spinner size="small" color="$color9" />
-                  <Text m="$2" verticalAlign="middle" color="$color10">Loading...</Text>
-                </XStack>
-              ) : (
-                <XStack justify="space-between" p="$2">
-                  <Text verticalAlign="middle" fontSize={40} fontWeight="900" color="$color9">{winRate}%</Text>
-                  <Paragraph verticalAlign="middle" color="$color10">based on {matchHistory.length} matches</Paragraph>
-                </XStack>
-              )}
-            </YStack>
-          </Card>
 
-          {/* Latest 5 Matches Card — tappable, navigates to /matches/viewScore */}
-          <Card p="$4" borderRadius="$4" onPress={() => router.push('/matches/viewScore')} bg="$color2">
-            <YStack gap="$2">
-              <H3 verticalAlign="middle" color="$color9">Latest Matches</H3>
-              <Separator />
-              {isLoadingMatches && (
-                <XStack justify="flex-start" p="$2">
-                  <Spinner size="small" color="$color9" />
-                  <Text m="$2" verticalAlign="middle" color="$color10">Loading...</Text>
-
-                </XStack>
-              )}
-              {!isLoadingMatches && latestFiveMatches.length === 0 && (
-                <Paragraph verticalAlign="middle" p="$2" color="$color10">No matches yet.</Paragraph>
-              )}
-              {!isLoadingMatches && latestFiveMatches.map((m, idx) => {
-                const row = formatMatchRow(m);
-                const resultColor = row.result === "W" ? "$success" : "$secondary";
-                return (
-                  <XStack key={idx} justify="space-between" p="$2">
-                    <Text verticalAlign="middle" fontWeight="700" color={resultColor as any}>{row.result}</Text>
-                    <Text verticalAlign="middle" color="$color">{row.score}</Text>
-                    <Text verticalAlign="middle" color="$color10">{row.dateStr}</Text>
-                  </XStack>
-                );
-              })}
-            </YStack>
-          </Card>
-
-          {/* Upcoming Events — shows next 2 events user RSVP'd "going", tappable → /events/EventsList */}
-          <Card p="$4" borderRadius="$4" onPress={() => router.push('/events/EventsList')} bg="$color2">
-            <YStack gap="$2">
-              <H3 verticalAlign="middle" color="$color9">Upcoming Events (Going)</H3>
-              <Separator />
-              {isLoadingEvents && (
-                <XStack justify="flex-start" p="$2">
-                  <Spinner size="small" color="$color9" />
-                  <Text m="$2" verticalAlign="middle" color="$color10">Loading...</Text>
-                </XStack>
-              )}
-              {!isLoadingEvents && myUpcomingEvents.length === 0 && (
-                <Paragraph verticalAlign="middle" p="$2" color="$color10">
-                  No upcoming events you marked as going.
-                </Paragraph>
-              )}
-              {!isLoadingEvents && myUpcomingEvents.map((evt) => (
-                <YStack key={evt.id} p="$2">
-                  <XStack justify="space-between">
-                    <Text verticalAlign="middle" fontWeight="700" color="$color">{evt.Title}</Text>
-                    <Text verticalAlign="middle" color="$color10">{formatEventDate(evt.EventDate)}</Text>
-                  </XStack>
-                  <Paragraph verticalAlign="middle" color="$color10">{evt.Location}</Paragraph>
+          {/* Record */}
+          <Card p="$4" borderRadius="$4" bg="$color9">
+            {isLoadingMatches ? (
+              <XStack items="center" gap="$2" py="$2">
+                <Spinner size="small" color="$color1" />
+                <Text color="$color1">Loading…</Text>
+              </XStack>
+            ) : matchesFailed ? (
+              <Text color="$color1">Couldn&apos;t load your matches. Pull up this tab again to retry.</Text>
+            ) : summary.played === 0 ? (
+              <YStack gap="$3">
+                <Text color="$color1" fontSize="$6" fontWeight="700">No matches yet</Text>
+                <Text color="$color1" opacity={0.85}>Record your first match to start tracking your win rate.</Text>
+                <Button self="flex-start" bg="$color1" color="$color9" onPress={() => router.push("/matches/addScore")}>
+                  Record a match
+                </Button>
+              </YStack>
+            ) : (
+              <XStack justify="space-between" items="flex-end">
+                <YStack>
+                  <Text color="$color1" opacity={0.85}>Win rate</Text>
+                  <Text color="$color1" fontSize={44} fontWeight="900">{summary.winRate}%</Text>
                 </YStack>
+                <YStack items="flex-end" gap="$1">
+                  <Text color="$color1" fontWeight="700">
+                    {summary.wins}W · {summary.losses}L{summary.draws > 0 ? ` · ${summary.draws}D` : ""}
+                  </Text>
+                  <Text color="$color1" opacity={0.85}>
+                    {summary.played} {summary.played === 1 ? "match" : "matches"}
+                  </Text>
+                </YStack>
+              </XStack>
+            )}
+          </Card>
+
+          {/* Next up */}
+          <Card p="$4" borderRadius="$4" bg="$color2" borderWidth={1} borderColor="$borderColor">
+            <YStack gap="$2">
+              {cardHeader("Next up", "All events", () => router.push("/events/EventsList"))}
+              <Separator />
+              {isLoadingEvents ? loadingRow : null}
+              {!isLoadingEvents && myUpcomingEvents.length === 0 ? (
+                <Paragraph py="$2" color="$color10">
+                  Nothing coming up that you&apos;re going to. RSVP to an event and it will show here.
+                </Paragraph>
+              ) : null}
+              {!isLoadingEvents && myUpcomingEvents.map((evt) => (
+                <YStack
+                  key={evt.id}
+                  py="$2"
+                  pressStyle={{ opacity: 0.7 }}
+                  onPress={() => router.push({ pathname: "/events/EventView", params: { eventId: evt.id } })}
+                >
+                  <Text fontWeight="700" color="$color" numberOfLines={1}>{evt.Title}</Text>
+                  <Text color="$color9" fontWeight="600" fontSize="$3">{formatEventDate(evt.EventDate)}</Text>
+                  {evt.Location ? <Text color="$color10" fontSize="$3" numberOfLines={1}>{evt.Location}</Text> : null}
+                </YStack>
+              ))}
+            </YStack>
+          </Card>
+
+          {/* Recent matches */}
+          <Card p="$4" borderRadius="$4" bg="$color2" borderWidth={1} borderColor="$borderColor">
+            <YStack gap="$2">
+              {cardHeader("Recent matches", "All matches", () => router.push("/matches/viewScore"))}
+              <Separator />
+              {isLoadingMatches ? loadingRow : null}
+              {!isLoadingMatches && recentMatches.length === 0 ? (
+                <Paragraph py="$2" color="$color10">No matches yet.</Paragraph>
+              ) : null}
+              {!isLoadingMatches && recentMatches.map((row, idx) => (
+                <XStack key={row.id || idx} justify="space-between" items="center" py="$2">
+                  <XStack items="center" gap="$3">
+                    <Text width={20} fontWeight="800" color={RESULT_COLORS[row.outcome.result]}>{row.outcome.result}</Text>
+                    <Text color="$color" fontWeight="600">{row.outcome.myScore} – {row.outcome.theirScore}</Text>
+                  </XStack>
+                  <Text color="$color10" fontSize="$3">{row.dateStr}</Text>
+                </XStack>
               ))}
             </YStack>
           </Card>

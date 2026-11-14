@@ -1,13 +1,14 @@
 import { defaultConfig } from '@tamagui/config/v4'
 import { createTamagui } from 'tamagui'
 
-// Earthy Sport base palette
+// Earthy Sport base palette. Text colours are chosen to meet WCAG AA (4.5:1) on both the
+// background and the surface colour; check contrast before changing them.
 const earthyTokens = {
   earthyBg: '#FAF7F2',
-  earthySurface: '#E5E7DB',
+  earthySurface: '#EFECE3',
   earthyText: '#0F172A',
-  earthyMuted: '#6B7280',
-  earthyBorder: '#D1D5DB',
+  earthyMuted: '#4B5563',
+  earthyBorder: '#D9D5C7',
 
   earthyPrimary: '#065F46',
   earthyPrimaryHover: '#0B7A5C',
@@ -21,11 +22,11 @@ const earthyTokens = {
   earthyAccentHover: '#10A392',
   earthyAccentPress: '#0E8074',
 
-  earthySuccess: '#22C55E',
-  earthyWarning: '#F59E0B',
-  earthyDanger: '#EF4444',
+  earthySuccess: '#166534',
+  earthyWarning: '#92400E',
+  earthyDanger: '#B91C1C',
 
-  earthyCard: '#ECE9DF',
+  earthyCard: '#EFECE3',
   earthyInput: '#F3F1EA',
   earthyShadow: 'rgba(15, 23, 42, 0.2)'
 }
@@ -62,15 +63,15 @@ const earthyDarkTokens = {
 // Build color steps used by Tamagui themes ($color1..$color12)
 const earthyLightSteps = {
   color1: '#FAF7F2', // background
-  color2: '#E5E7DB', // surface
+  color2: '#EFECE3', // surface (cards, inputs)
   color3: '#DCD8C9',
   color4: '#CBCAB6',
   color5: '#BBBCA6',
   color6: '#ABAE96',
   color7: '#9CA184',
-  color8: '#8A9275',
+  color8: '#5F6651', // secondary text: 5:1 on the surface colour
   color9: '#065F46', // brand depth
-  color10: '#6B7280', // muted text
+  color10: '#4B5563', // muted text: 6.4:1 on the surface colour
   color11: '#0F172A', // text
   color12: '#000000', // highest contrast
   success: earthyTokens.earthySuccess,
@@ -101,9 +102,10 @@ export const config = createTamagui({
   tokens: {
     ...defaultConfig.tokens,
     color: {
-      success: '#22C55E', // or earthyTokens.earthySuccess
-      warning: '#F59E0B',
-      danger: '#EF4444',
+      // Dark enough to read as text on the cream background and to carry white button labels
+      success: earthyTokens.earthySuccess,
+      warning: earthyTokens.earthyWarning,
+      danger: earthyTokens.earthyDanger,
     },
   },
   themes: {
