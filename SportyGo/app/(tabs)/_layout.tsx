@@ -3,6 +3,7 @@ import React from "react";
 import { router } from "expo-router";
 import { usePathname } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useTheme } from "tamagui";
 
 export default function TabsLayout() {
   const pathname = usePathname();
@@ -14,15 +15,32 @@ export default function TabsLayout() {
     '/userProfile',
   ];
   const shouldHideTabBar = !topLevelPaths.includes(pathname);
+  const theme = useTheme();
+  const activeColor = theme.color9?.val as string;
+  const inactiveColor = theme.color10?.val as string;
+  const tabIcon = (name: React.ComponentProps<typeof Ionicons>['name']) => {
+    const TabIcon = ({ focused, color }: { focused: boolean; color: string }) => (
+      <Ionicons name={focused ? name : (`${name}-outline` as typeof name)} size={24} color={color} />
+    );
+    return TabIcon;
+  };
   return (
-    <Tabs screenOptions={{ headerShown: false, tabBarStyle: shouldHideTabBar ? { display: 'none' } : undefined }}>
+    <Tabs
+      screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: activeColor,
+        tabBarInactiveTintColor: inactiveColor,
+        tabBarLabelStyle: { fontSize: 12, fontWeight: '600' },
+        tabBarStyle: shouldHideTabBar
+          ? { display: 'none' }
+          : { backgroundColor: theme.color1?.val as string, borderTopColor: theme.borderColor?.val as string },
+      }}
+    >
       <Tabs.Screen
         name="dashboard"
         options={{
-          tabBarLabel: 'Dashboard',
-          tabBarIcon: ({ focused }) => (
-            <Ionicons name="home" size={24} color={focused ? 'black' : 'gray'} />
-          ),
+          tabBarLabel: 'Home',
+          tabBarIcon: tabIcon('home'),
         }}
         listeners={{
           tabPress: (e) => {
@@ -36,9 +54,7 @@ export default function TabsLayout() {
         name="groups"
         options={{
           tabBarLabel: 'Groups',
-          tabBarIcon: ({ focused }) => (
-            <Ionicons name="people" size={24} color={focused ? 'black' : 'gray'} />
-          ),
+          tabBarIcon: tabIcon('people'),
         }}
         listeners={{
           tabPress: (e) => {
@@ -55,9 +71,7 @@ export default function TabsLayout() {
         name="events"
         options={{
           tabBarLabel: 'Events',
-          tabBarIcon: ({ focused }) => (
-            <Ionicons name="calendar" size={24} color={focused ? 'black' : 'gray'} />
-          ),
+          tabBarIcon: tabIcon('calendar'),
         }}
         listeners={{
           tabPress: (e) => {
@@ -74,9 +88,7 @@ export default function TabsLayout() {
         name="matches"
         options={{
           tabBarLabel: 'Matches',
-          tabBarIcon: ({ focused }) => (
-            <Ionicons name="trophy" size={24} color={focused ? 'black' : 'gray'} />
-          ),
+          tabBarIcon: tabIcon('trophy'),
         }}
         listeners={{
           tabPress: (e) => {
@@ -93,9 +105,7 @@ export default function TabsLayout() {
         name="userProfile"
         options={{
           tabBarLabel: 'Profile',
-          tabBarIcon: ({ focused }) => (
-            <Ionicons name="person" size={24} color={focused ? 'black' : 'gray'} />
-          ),
+          tabBarIcon: tabIcon('person'),
         }}
         listeners={{
           tabPress: (e) => {
