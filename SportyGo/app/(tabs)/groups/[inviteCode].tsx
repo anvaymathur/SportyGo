@@ -5,25 +5,33 @@ import { YStack, Card, Button, Text, Paragraph, H3, Spinner } from "tamagui";
 import { getGroupInvite, addGroupMember, getGroupById, isInviteUsable } from "../../../firebase/services_firestore2";
 
 import { useAuth0 } from "react-native-auth0";
-import { GroupInviteDoc } from "../../../firebase/types_index";
+import { GroupDoc, GroupInviteDoc } from "../../../firebase/types_index";
 import { SafeAreaWrapper } from "@/components/SafeAreaWrapper";
+import { ScreenHeader } from "@/components/ScreenHeader";
 
+type InviteStatus = "checking" | "valid" | "invalid" | "expired" | "already_member" | "error";
+
+/**
+ * Join-a-group screen. Reached from an invite link (deep link) or by typing an invite code on
+ * the Groups tab. Checks the invite, shows which group it is for, and joins on confirmation.
+ */
 export default function GroupInviteScreen() {
   const localParams = useLocalSearchParams<{ inviteCode?: string }>();
   const [invite, setInvite] = useState<GroupInviteDoc | null>(null);
+  const [group, setGroup] = useState<GroupDoc | null>(null);
   const joiningRef = useRef(false);
   const [joining, setJoining] = useState(false);
-  const [status, setStatus] = useState<"checking" | "valid" | "invalid" | "expired" | "already_member">("checking");
+  const [status, setStatus] = useState<InviteStatus>("checking");
   const [inviteCode, setInviteCode] = useState<string | undefined>(localParams.inviteCode);
+  const [attempt, setAttempt] = useState(0);
 
-  const { user } = useAuth0();
-  let userId: string | null = null;
-  if (user && user.sub) {
-    userId = user.sub;
-  } else {  
-    Alert.alert("Error", "Please login to continue");
-    router.replace("/index" as any);
-  }
+  const { user, isLoading } = useAuth0();
+  const userId = user?.sub ?? null;
+
+  // Invite links only work once signed in; go through the normal launch flow first
+  useEffect(() => {
+    if (!isLoading && !userId) router.replace("/");
+  }, [isLoading, userId]);
 
   // Listen for incoming deep links
   useEffect(() => {
@@ -32,7 +40,7 @@ export default function GroupInviteScreen() {
         const parsed = new URL(url);
         const code = parsed.searchParams.get("inviteCode");
         if (code) setInviteCode(code);
-      } catch (err) {
+      } catch {
         console.warn("Invalid URL:", url);
       }
     };
@@ -48,41 +56,47 @@ export default function GroupInviteScreen() {
   // Verify invite whenever inviteCode changes
   useEffect(() => {
     if (!inviteCode || !userId) return;
+    let cancelled = false;
 
     async function verifyInvite() {
       setStatus("checking");
-      if (!inviteCode || !userId) return;
-      let invite = await getGroupInvite(inviteCode);
-      
-      // Convert Firestore Timestamp to JavaScript Date right after fetching
-      if (invite && invite.validUntil) {
-        const validUntilDate = typeof invite.validUntil === 'object' && 'toDate' in invite.validUntil
-          ? (invite.validUntil as any).toDate()
-          : new Date(invite.validUntil);
-        invite = { ...invite, validUntil: validUntilDate };
-      }
-      
-      if (invite) setInvite(invite);
-
-      if (!invite) {
-        setStatus("invalid");
-      } else if (invite.expired) {
-        setStatus("expired");
-      } else if (!isInviteUsable(invite, invite.groupId)) {
-        setStatus("invalid");
-      } else {
-        // Check if user is already a member of the group
-        const group = await getGroupById(invite.groupId);
-        if (group && group.MemberIds && group.MemberIds.includes(userId)) {
-          setStatus("already_member");
-        } else {
-          setStatus("valid");
+      try {
+        const found = await getGroupInvite(inviteCode!);
+        if (cancelled) return;
+        if (!found) {
+          setStatus("invalid");
+          return;
         }
+        setInvite(found);
+        if (found.expired) {
+          setStatus("expired");
+          return;
+        }
+        if (!isInviteUsable(found, found.groupId)) {
+          setStatus("invalid");
+          return;
+        }
+        const foundGroup = await getGroupById(found.groupId);
+        if (cancelled) return;
+        if (!foundGroup) {
+          // The group was deleted after the invite was made
+          setStatus("invalid");
+          return;
+        }
+        setGroup(foundGroup);
+        setStatus(foundGroup.MemberIds?.includes(userId!) ? "already_member" : "valid");
+      } catch (error) {
+        console.error("Error checking invite:", error);
+        if (!cancelled) setStatus("error");
       }
     }
 
     verifyInvite();
-  }, [inviteCode, userId]);
+    return () => { cancelled = true; };
+  }, [inviteCode, userId, attempt]);
+
+  const goToGroups = () => router.replace("/groups/displayGroups");
+  const openGroup = (groupId: string) => router.replace({ pathname: "/groups/viewMembers", params: { groupId } });
 
   const handleAddGroupMember = async () => {
     if (!invite || !userId || joiningRef.current) return;
@@ -90,111 +104,117 @@ export default function GroupInviteScreen() {
     setJoining(true);
     try {
       const result = await addGroupMember(userId, invite.groupId, invite.inviteCode);
-      if (result === 'joined') {
-        router.push({
-          pathname: '/groups/viewMembers',
-          params: { groupId: invite.groupId }
-        })
-      } else if (result === 'already_member') {
-        Alert.alert("Error", "You are already a member of this group")
+      if (result === 'joined' || result === 'already_member') {
+        openGroup(invite.groupId);
       } else if (result === 'invite_unavailable') {
         // Someone else may have used the last spot since the invite was checked
         setStatus("invalid");
-        Alert.alert("Invite unavailable", "This invite link has expired or reached its maximum number of uses.")
       } else {
-        Alert.alert("Error", "Failed to add group member")
+        Alert.alert("Couldn't join", "This group no longer exists.");
+        setStatus("invalid");
       }
     } catch (error) {
       console.error('Error joining group:', error);
-      Alert.alert("Error", "Failed to join the group. Please try again.");
+      Alert.alert("Couldn't join", "Something went wrong joining the group. Please try again.");
     } finally {
       joiningRef.current = false;
       setJoining(false);
     }
   };
 
-  if (!inviteCode) {
-    return (
-      <SafeAreaWrapper>
-        <YStack flex={1} p="$4" style={{ justifyContent: 'center', alignItems: 'center' }}>
-          <Text>No invite code found</Text>
-        </YStack>
-      </SafeAreaWrapper>
-    );
-  }
+  const memberCount = group?.MemberIds?.length ?? 0;
 
-  if (status === "checking") {
-    return (
-      <SafeAreaWrapper>
-        <YStack flex={1} p="$4" style={{ justifyContent: 'center', alignItems: 'center' }}>
+  const renderBody = () => {
+    if (!inviteCode) {
+      return (
+        <>
+          <H3 color="$color">No invite code</H3>
+          <Paragraph color="$color10" style={{ textAlign: 'center' }}>
+            Open an invite link, or enter a code from the Groups tab.
+          </Paragraph>
+        </>
+      );
+    }
+    if (status === "checking") {
+      return (
+        <>
           <Spinner color="$color9" />
-          <Text color="$color10">Verifying invite code...</Text>
-        </YStack>
-      </SafeAreaWrapper>
-    );
-  }
-
-  if (status === "expired") return (
-    <SafeAreaWrapper>
-      <YStack flex={1} p="$4" style={{ justifyContent: 'center', alignItems: 'center' }}>
-        <Card elevate bordered p="$5" width="100%" style={{ maxWidth: 420, alignItems: 'center' }}>
-          <H3>Invite Expired</H3>
-          <Paragraph>This invite link has expired and is no longer valid.</Paragraph>
-        </Card>
-      </YStack>
-    </SafeAreaWrapper>
-  );
-
-  if (status === "invalid") return (
-    <SafeAreaWrapper>
-      <YStack flex={1} p="$4" style={{ justifyContent: 'center', alignItems: 'center' }}>
-        <Card elevate bordered p="$5" width="100%" style={{ maxWidth: 420, alignItems: 'center' }}>
-          <H3>Invalid Invite</H3>
-          <Paragraph>This invite link is invalid or has reached its maximum uses.</Paragraph>
-        </Card>
-      </YStack>
-    </SafeAreaWrapper>
-  );
-
-  if (status === "already_member") return (
-    <SafeAreaWrapper>
-      <YStack flex={1} p="$4" style={{ justifyContent: 'center', alignItems: 'center' }}>
-        <Card elevate bordered p="$5" width="100%" style={{ maxWidth: 420, alignItems: 'center' }}>
-          <H3>Already a Member</H3>
-          <Paragraph>You are already a member of this group!</Paragraph>
-          <Button 
-            bg="$color9"
-            color="$color1"
-            borderWidth="$0"
-            onPress={() => router.push({
-              pathname: '/groups/viewMembers',
-              params: { groupId: invite?.groupId }
-            })}
-            mt="$3"
-          >
-            View Group
+          <Text color="$color10">Checking invite…</Text>
+        </>
+      );
+    }
+    if (status === "error") {
+      return (
+        <>
+          <H3 color="$color">Couldn&apos;t check this invite</H3>
+          <Paragraph color="$color10" style={{ textAlign: 'center' }}>Check your connection and try again.</Paragraph>
+          <Button bg="$color9" color="$color1" mt="$3" onPress={() => setAttempt((n) => n + 1)}>Try again</Button>
+        </>
+      );
+    }
+    if (status === "expired") {
+      return (
+        <>
+          <H3 color="$color">Invite expired</H3>
+          <Paragraph color="$color10" style={{ textAlign: 'center' }}>
+            This invite is no longer valid. Ask a group admin for a new one.
+          </Paragraph>
+        </>
+      );
+    }
+    if (status === "invalid") {
+      return (
+        <>
+          <H3 color="$color">Invite not valid</H3>
+          <Paragraph color="$color10" style={{ textAlign: 'center' }}>
+            This code doesn&apos;t match an active invite, or it has been used the maximum number of times.
+            Codes are case-sensitive.
+          </Paragraph>
+        </>
+      );
+    }
+    if (status === "already_member") {
+      return (
+        <>
+          <H3 color="$color">You&apos;re already in {group?.Name || 'this group'}</H3>
+          <Button bg="$color9" color="$color1" borderWidth="$0" mt="$3" onPress={() => invite && openGroup(invite.groupId)}>
+            View group
           </Button>
-        </Card>
-      </YStack>
-    </SafeAreaWrapper>
-  );
+        </>
+      );
+    }
+    return (
+      <>
+        <Paragraph color="$color10">You&apos;ve been invited to join</Paragraph>
+        <H3 color="$color" style={{ textAlign: 'center' }}>{group?.Name || 'a group'}</H3>
+        <Text color="$color10">{memberCount} {memberCount === 1 ? 'member' : 'members'}</Text>
+        {group?.Description ? (
+          <Paragraph color="$color" style={{ textAlign: 'center' }} numberOfLines={4}>{group.Description}</Paragraph>
+        ) : null}
+        <Button
+          bg="$color9"
+          color="$color1"
+          borderWidth="$0"
+          width="100%"
+          onPress={handleAddGroupMember}
+          disabled={joining}
+          opacity={joining ? 0.6 : 1}
+          mt="$3"
+        >
+          {joining ? "Joining…" : "Join group"}
+        </Button>
+      </>
+    );
+  };
 
   return (
     <SafeAreaWrapper>
+      <ScreenHeader title="Join a group" onBack={goToGroups} />
       <YStack flex={1} p="$4" style={{ justifyContent: 'center', alignItems: 'center' }}>
-        <Card elevate bordered p="$5" width="100%" style={{ maxWidth: 420, alignItems: 'center' }}>
-          <H3>Join Group</H3>
-          <Paragraph>You&apos;ve been invited to join this group!</Paragraph>
-          <Button 
-            bg="$color9"
-            color="$color1"
-            borderWidth="$0"
-            onPress={handleAddGroupMember}
-            disabled={joining}
-            mt="$3"
-          >
-            {joining ? "Joining..." : "Join Group"}
-          </Button>
+        <Card bordered p="$5" width="100%" bg="$color2" style={{ maxWidth: 420, alignItems: 'center' }}>
+          <YStack gap="$2" width="100%" style={{ alignItems: 'center' }}>
+            {renderBody()}
+          </YStack>
         </Card>
       </YStack>
     </SafeAreaWrapper>
