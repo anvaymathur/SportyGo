@@ -53,17 +53,30 @@ export async function ensureFirebaseSession(userId: string, getCredentials: GetC
 
   // The token in the stored ID token is only valid for an hour after it was issued, so if the
   // stored one is missing or stale, ask Auth0 for a new ID token and try once more.
+  let sawToken = false;
   for (const forceRefresh of [false, true]) {
     try {
       const credentials = await getCredentials(undefined, undefined, undefined, forceRefresh);
       const token = readFirebaseToken(credentials?.idToken);
       if (!token) continue;
+      sawToken = true;
       const result = await signInWithCustomToken(auth, token);
-      if (result.user.uid === userId) return true;
+      if (result.user.uid === userId) {
+        console.log('Firebase sign-in OK for', userId);
+        return true;
+      }
+      console.warn('Firebase sign-in: token was for a different user', result.user.uid);
       await signOut(auth);
     } catch (e) {
       console.warn(`Firebase sign-in failed${forceRefresh ? ' after refresh' : ''}`, e);
     }
+  }
+  if (!sawToken) {
+    // Setup problem, not a network one: see docs/FIREBASE_AUTH_SETUP.md step 3
+    console.warn(
+      'Firebase sign-in skipped: the Auth0 ID token has no Firebase token. Check the Auth0 Action is ' +
+      'deployed and in the Login flow, then log out and back in.'
+    );
   }
   return false;
 }

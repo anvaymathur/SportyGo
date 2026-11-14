@@ -47,11 +47,39 @@ Auth0 dashboard > Actions > Library > **Create Action** > Build from scratch.
 Also check Applications > SportyGo > Settings > Advanced > Grant Types: **Refresh Token** must be
 ticked (the app now requests `offline_access` so it can renew the Firebase token silently).
 
-### Step 4: Verify with a development build
+### Step 4: Verify
 
-Log out and back in on a build of this version, then check Firebase console > Authentication >
-Users: a user whose UID is your Auth0 ID (for example `auth0|...` or `google-oauth2|...`) should
-appear. If it does not, look at Auth0 > Monitoring > Logs and the Action's console output.
+No new build is needed for steps 1 to 3: they are server-side, and any build that includes the
+Firebase sign-in code (PR #68 onwards) picks them up. But the token is only added to an ID token
+issued **after** the Action is in the Login flow, so you must **log out and back in**.
+
+1. **Test the Action on its own.** In the Action editor, click **Test** (play icon) and **Run**.
+   The result should list a custom claim `https://sportygo.ca/firebase_token` with a long value.
+   If the console shows `Firebase token skipped: secrets are not set` or `Firebase token failed: ...`,
+   fix the secrets (see below) and **Deploy** again.
+2. **Check it is in the flow.** Actions > Triggers > post-login: the Action must sit between Start
+   and Complete, and you must have clicked **Apply**.
+3. **Log out and back in** on the app (Profile > Sign out), with the Metro terminal open. You
+   should see one of:
+   - `Firebase sign-in OK for auth0|...`: working. Firebase console > Authentication > Users now
+     lists that UID (refresh the page).
+   - `Firebase sign-in skipped: the Auth0 ID token has no Firebase token`: the Action did not run
+     for this login (not in the flow, not deployed, or you did not log in again).
+   - `Firebase sign-in failed ... auth/invalid-custom-token`: the token was made with the wrong key
+     or email. Re-copy both secrets from the same service-account JSON.
+   - `... auth/configuration-not-found`: Authentication was never started (step 1).
+   - `... requests-to-this-api ... are-blocked`: the Firebase API key is restricted. Google Cloud
+     console > APIs & Services > Credentials > the key > allow **Identity Toolkit API**.
+4. **Auth0 > Monitoring > Logs:** open the latest *Success Login* entry; its Action details show
+   whether the Action ran and anything it logged.
+
+Common secret mistakes: pasting the private key **with** the surrounding quotes, only part of it,
+or the `private_key_id` instead of `private_key`. The value must start with
+`-----BEGIN PRIVATE KEY-----` and end with `-----END PRIVATE KEY-----
+`.
+
+A JavaScript-only change like this one can also reach installed preview/production builds through
+`eas update` without a new build (same app version).
 
 ### Step 5: Ship the build, wait for testers to update
 
