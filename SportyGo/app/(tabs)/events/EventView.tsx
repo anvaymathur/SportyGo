@@ -2,7 +2,8 @@
  * EventView Component - Event details and voting interface
  */
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { Alert, Animated } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useAuth0 } from 'react-native-auth0';
@@ -82,6 +83,27 @@ export default function EventView() {
 
     fetchEventData();
   }, [eventId]);
+
+  // Coming back from Edit Event: pick up the saved changes without showing the loading screen
+  const hasFocusedRef = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      if (!hasFocusedRef.current) {
+        hasFocusedRef.current = true; // the effect above handles the first load
+        return;
+      }
+      if (!eventId) return;
+      let cancelled = false;
+      getEvent(eventId)
+        .then((data) => {
+          if (cancelled || !data) return;
+          setEventData(data);
+          setEventStarted(hasEventStarted(data.EventDate));
+        })
+        .catch((error) => console.warn('Could not refresh event:', error));
+      return () => { cancelled = true; };
+    }, [eventId])
+  );
 
   /**
    * Sets up real-time listener for vote count updates
@@ -418,9 +440,22 @@ export default function EventView() {
               <Text color="$color">← Back</Text>
             </Button>
             {isAdmin && (
-              <Button size="$3" bg="$danger" color="$color1" borderWidth={0} onPress={handleDeleteEvent}>
-                <Text color="$color1">Delete</Text>
-              </Button>
+              <XStack gap="$2">
+                {!eventStarted && (
+                  <Button
+                    size="$3"
+                    bg="$color2"
+                    borderColor="$borderColor"
+                    borderWidth={1}
+                    onPress={() => router.push({ pathname: '/events/EditEvent' as any, params: { eventId } })}
+                  >
+                    <Text color="$color">Edit</Text>
+                  </Button>
+                )}
+                <Button size="$3" bg="$danger" color="$color1" borderWidth={0} onPress={handleDeleteEvent}>
+                  <Text color="$color1">Delete</Text>
+                </Button>
+              </XStack>
             )}
           </XStack>
 
