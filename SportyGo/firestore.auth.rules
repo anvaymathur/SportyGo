@@ -1,0 +1,209 @@
+rules_version = '2';
+
+// Firestore security rules for SportyGo, WITH per-user access control.
+//
+// These replace firestore.rules once every installed copy of the app signs in to Firebase
+// (see docs/FIREBASE_AUTH_SETUP.md for the rollout order; deploying them earlier locks out
+// older builds). The app signs in with a custom token minted at Auth0 login, so
+// request.auth.uid is the person's Auth0 user ID, the same ID used for users/{id}, OwnerId,
+// MemberIds, CreatorID and so on.
+//
+// On top of the data-shape checks from firestore.rules, they enforce:
+//   - nothing can be read or written without being signed in
+//   - a profile can only be created, edited or deleted by its own user
+//   - a group is created by its owner, edited by its owner/admins, deleted by its owner;
+//     anyone else may only add or remove themselves as a member
+//   - invite links are created and deleted by the group's owner/admins
+//   - an event is created under your own ID and deleted only by its creator
+//   - you can only cast, change or remove your own vote
+// Known limits (need server-side code to close): any signed-in user can read profiles, groups,
+// events and matches by ID; joining a group isn't tied to holding a valid invite; matches and
+// temporary players can be edited by any signed-in user.
+//
+// Tests: npm run test:rules (rules-tests/firestore.auth.rules.test.ts).
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---- helpers ----
+    function signedIn() { return request.auth != null; }
+    function me() { return request.auth.uid; }
+    function incoming() { return request.resource.data; }
+    function changedKeys() { return request.resource.data.diff(resource.data).affectedKeys(); }
+    function onlyChanges(keys) { return changedKeys().hasOnly(keys); }
+    function unchanged(key) { return !(key in changedKeys()); }
+
+    function optString(key, max) {
+      return !(key in incoming()) || incoming()[key] == null
+        || (incoming()[key] is string && incoming()[key].size() <= max);
+    }
+    function optList(key) { return !(key in incoming()) || incoming()[key] is list; }
+    function optBool(key) { return !(key in incoming()) || incoming()[key] == null || incoming()[key] is bool; }
+    function optTimestamp(key) {
+      return !(key in incoming()) || incoming()[key] == null || incoming()[key] is timestamp;
+    }
+
+    // ---- users (profiles and temporary players) ----
+    function userFields() {
+      return ['id', 'Name', 'Email', 'Groups', 'Phone', 'Address', 'PhotoUrl', 'DateOfBirth',
+              'isTemp', 'owners', 'claimedBy', 'createdAt'];
+    }
+    function validUser() {
+      return optString('Name', 200) && optString('Email', 320) && optString('Phone', 32)
+        && optString('Address', 500) && optString('PhotoUrl', 1100000) && optString('claimedBy', 512)
+        && optList('Groups') && optList('owners') && optBool('isTemp');
+    }
+    function isTempDoc(data) { return data.get('isTemp', false) == true; }
+
+    match /users/{userId} {
+      allow read: if signedIn();
+      // Your own profile, or a temporary player you manage
+      allow create: if signedIn() && incoming().keys().hasOnly(userFields()) && validUser()
+        && ((userId == me() && !isTempDoc(incoming()))
+            || (isTempDoc(incoming()) && userId != me() && me() in incoming().get('owners', [])));
+      // The email comes from the login and can't be changed (it may be filled in once if missing).
+      // Other people's profiles: only their group list, which removing them from a group or
+      // deleting a group has to update.
+      allow update: if signedIn() && onlyChanges(userFields()) && validUser()
+        && (unchanged('Email') || resource.data.get('Email', '') == '')
+        && unchanged('isTemp')
+        && (userId == me() || isTempDoc(resource.data) || onlyChanges(['Groups']));
+      allow delete: if signedIn() && (userId == me() || isTempDoc(resource.data));
+    }
+
+    // ---- groups ----
+    function groupFields() {
+      return ['id', 'Name', 'OwnerId', 'AdminIds', 'MemberIds', 'Description', 'SkillLevel',
+              'Privacy', 'HomeCourt', 'MeetingSchedule', 'PhotoUrl', 'createdAt'];
+    }
+    function validGroup() {
+      return optString('Name', 200) && optString('Description', 1000) && optString('SkillLevel', 50)
+        && optString('Privacy', 50) && optString('HomeCourt', 300) && optString('MeetingSchedule', 50)
+        && optString('PhotoUrl', 1100000) && optList('AdminIds') && optList('MemberIds');
+    }
+    function managesGroup(group) {
+      return group.OwnerId == me() || me() in group.get('AdminIds', []);
+    }
+    // The only membership change someone who doesn't manage the group may make: adding
+    // themselves (joining) or removing themselves (leaving).
+    function onlyMovesSelf() {
+      let before = resource.data.get('MemberIds', []).toSet();
+      let after = incoming().get('MemberIds', []).toSet();
+      let adminsBefore = resource.data.get('AdminIds', []).toSet();
+      let adminsAfter = incoming().get('AdminIds', []).toSet();
+      return onlyChanges(['MemberIds', 'AdminIds'])
+        && after.difference(before).union(before.difference(after)).hasOnly([me()])
+        && adminsAfter.difference(adminsBefore).size() == 0
+        && adminsBefore.difference(adminsAfter).hasOnly([me()]);
+    }
+
+    match /groups/{groupId} {
+      allow read: if signedIn();
+      // The creator owns the group and is its first member
+      allow create: if signedIn() && incoming().keys().hasOnly(groupFields()) && validGroup()
+        && incoming().OwnerId == me() && incoming().MemberIds is list
+        && incoming().OwnerId in incoming().MemberIds;
+      // Ownership can only pass to someone already in the group (account deletion hands it on),
+      // and only the owner can pass it
+      allow update: if signedIn() && onlyChanges(groupFields()) && validGroup()
+        && unchanged('id') && unchanged('createdAt')
+        && (unchanged('OwnerId')
+            || (resource.data.OwnerId == me() && incoming().OwnerId in resource.data.MemberIds))
+        && (managesGroup(resource.data) || (resource.data.OwnerId != me() && onlyMovesSelf()));
+      allow delete: if signedIn() && resource.data.OwnerId == me();
+    }
+
+    // ---- group invite links (document ID = invite code) ----
+    function inviteUsable() {
+      return !resource.data.get('expired', false)
+        && (!(resource.data.get('validUntil', null) is timestamp) || resource.data.validUntil > request.time)
+        && (!(resource.data.get('maxUses', null) is int) || resource.data.maxUses <= 0
+            || incoming().used <= resource.data.maxUses);
+    }
+    function managesGroupId(groupId) {
+      return managesGroup(get(/databases/$(database)/documents/groups/$(groupId)).data);
+    }
+
+    match /groupInvites/{inviteCode} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && incoming().keys().hasOnly(['groupId', 'inviteCode', 'inviteLink', 'validUntil', 'maxUses', 'expired', 'used'])
+        && incoming().inviteCode == inviteCode && incoming().groupId is string
+        && incoming().used == 0 && incoming().maxUses is int && incoming().maxUses > 0
+        && managesGroupId(incoming().groupId);
+      // Joining uses the link once; it can also be marked expired
+      allow update: if signedIn()
+        && ((onlyChanges(['used']) && incoming().used == resource.data.get('used', 0) + 1 && inviteUsable())
+            || (onlyChanges(['expired']) && incoming().expired == true));
+      allow delete: if signedIn() && managesGroupId(resource.data.groupId);
+    }
+
+    // ---- events ----
+    function eventFields() {
+      return ['id', 'GroupIDs', 'IndividualParticipantIDs', 'Title', 'EventDate', 'Location',
+              'CutoffDate', 'CreatorID', 'VotingEnabled', 'AttendanceRecords', 'StartedEarly',
+              'StartedEarlyAt', 'TotalCost', 'VoterIds', 'AttendeeIds'];
+    }
+    function validEvent() {
+      return optString('Title', 200) && optString('Location', 300) && optTimestamp('EventDate')
+        && optTimestamp('CutoffDate') && optBool('VotingEnabled') && optBool('StartedEarly')
+        && optList('GroupIDs') && optList('IndividualParticipantIDs') && optList('AttendanceRecords')
+        && optList('VoterIds') && optList('AttendeeIds')
+        && (!('TotalCost' in incoming()) || incoming().TotalCost is number);
+    }
+    function createdEvent(eventId) {
+      return get(/databases/$(database)/documents/events/$(eventId)).data.CreatorID == me();
+    }
+
+    match /events/{eventId} {
+      allow read: if signedIn();
+      allow create: if signedIn() && incoming().keys().hasOnly(eventFields()) && validEvent()
+        && incoming().CreatorID == me();
+      // Participants update votes, attendance and their own invitation; details are edited by
+      // the organiser in the app
+      allow update: if signedIn() && onlyChanges(eventFields()) && validEvent()
+        && unchanged('CreatorID') && unchanged('id');
+      allow delete: if signedIn() && resource.data.CreatorID == me();
+
+      // Vote tallies, split across shards; each write moves a tally by at most one vote
+      function oneStep(key) {
+        return !(key in incoming()) || (incoming()[key] - resource.data.get(key, 0)) in [-1, 0, 1];
+      }
+      match /voteShards/{shardId} {
+        allow read: if signedIn();
+        allow create: if signedIn() && incoming().keys().hasOnly(['going', 'maybe', 'not'])
+          && incoming().going == 0 && incoming().maybe == 0 && incoming().not == 0;
+        allow update: if signedIn() && onlyChanges(['going', 'maybe', 'not'])
+          && oneStep('going') && oneStep('maybe') && oneStep('not');
+        allow delete: if signedIn() && createdEvent(eventId);
+      }
+
+      // One vote per user, stored under their user ID
+      match /userVotes/{voterId} {
+        allow read: if signedIn();
+        allow create, update: if signedIn() && voterId == me()
+          && incoming().keys().hasOnly(['status', 'votedAt', 'userId'])
+          && incoming().userId == voterId && incoming().status in ['going', 'maybe', 'not'];
+        // Your own vote, or every vote when the organiser deletes the event
+        allow delete: if signedIn() && (voterId == me() || createdEvent(eventId));
+      }
+    }
+
+    // ---- match results ----
+    // [player 1 ID, player 2 ID or "", score]
+    function validTeam(team) {
+      return team is list && team.size() == 3 && team[0] is string && team[1] is string
+        && team[2] is number && team[2] >= 0 && team[2] <= 999;
+    }
+
+    match /matchHistory/{matchId} {
+      allow read: if signedIn();
+      allow create: if signedIn() && incoming().keys().hasOnly(['team1', 'team2', 'date', 'id'])
+        && validTeam(incoming().team1) && validTeam(incoming().team2) && optTimestamp('date');
+      allow update: if signedIn() && onlyChanges(['team1', 'team2', 'date'])
+        && validTeam(incoming().team1) && validTeam(incoming().team2) && optTimestamp('date');
+      allow delete: if signedIn();
+    }
+
+    // Everything else (any other collection) is denied by default.
+  }
+}

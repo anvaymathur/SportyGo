@@ -6,6 +6,8 @@ import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getAnalytics } from "firebase/analytics";
+import * as firebaseAuth from "firebase/auth";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
 
 /**
@@ -29,4 +31,15 @@ if (Platform.OS === "web") {
 const db = getFirestore(app);
 const storage = getStorage(app);
 
-export { app, db, storage };
+
+// Firebase identity for Firestore security rules. The app signs in here with a custom token
+// minted at Auth0 login (see utils/firebaseSession.ts and docs/FIREBASE_AUTH_SETUP.md).
+// getReactNativePersistence only exists in the React Native build of firebase/auth, which is
+// what Metro bundles on iOS/Android; its web typings don't list it.
+const getReactNativePersistence = (firebaseAuth as any).getReactNativePersistence;
+const auth: firebaseAuth.Auth =
+  Platform.OS === "web" || !getReactNativePersistence
+    ? firebaseAuth.getAuth(app)
+    : firebaseAuth.initializeAuth(app, { persistence: getReactNativePersistence(AsyncStorage) });
+
+export { app, db, storage, auth };
