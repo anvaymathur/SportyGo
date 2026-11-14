@@ -7,6 +7,7 @@ export default function  AuthLayout   () {
       <Stack.Screen name="EventView" />
       <Stack.Screen name="EventAttendance" />
       <Stack.Screen name="CreateGameSession" />
+      <Stack.Screen name="EditEvent" />
     </Stack>
   );
 }
