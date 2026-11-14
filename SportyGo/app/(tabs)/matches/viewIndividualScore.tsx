@@ -21,6 +21,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Alert } from "react-native";
 import {
   getMatchHistoryById,
+  getEvent,
   getUserProfile,
   deleteMatchHistory,
 } from "../../../firebase/services_firestore2";
@@ -226,6 +227,7 @@ export default function ViewIndividualScore() {
   // --- State ---
   const [loading, setLoading] = useState(true);
   const [match, setMatch] = useState<newMatchHistory | undefined>(undefined);
+  const [eventTitle, setEventTitle] = useState<string | null>(null);
 
   // Derived team data
   const [team1Names, setTeam1Names] = useState<string>("");
@@ -255,6 +257,14 @@ export default function ViewIndividualScore() {
       try {
         const data = await getMatchHistoryById(matchId);
         setMatch(data);
+        if (data?.eventId) {
+          // Best effort: the event may have been deleted since
+          getEvent(data.eventId)
+            .then((event) => setEventTitle(event?.Title ?? null))
+            .catch(() => setEventTitle(null));
+        } else {
+          setEventTitle(null);
+        }
 
         if (data) {
           // Extract valid player IDs
@@ -514,6 +524,11 @@ export default function ViewIndividualScore() {
                 <Text color="$color" fontSize="$5" fontWeight="700">
                   {formatDate(match.date)}
                 </Text>
+                {eventTitle ? (
+                  <Text color="$color9" fontSize="$3" fontWeight="600" numberOfLines={1}>
+                    {eventTitle}
+                  </Text>
+                ) : null}
                 <Text color="$color10" fontSize="$3">
                   {isDoubles ? "Doubles match" : "Singles match"}
                 </Text>

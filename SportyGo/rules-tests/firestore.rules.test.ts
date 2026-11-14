@@ -177,7 +177,7 @@ describe('events and votes', () => {
 });
 
 describe('matches', () => {
-  const match = { team1: ['a', '', 21], team2: ['b', '', 15], date: new Date(), id: '' } as any;
+  const match = { team1: ['a', '', 21], team2: ['b', '', 15], date: new Date(), id: '', eventId: 'e1' } as any;
 
   it('lets the app record, edit, migrate and delete matches', async () => {
     await assertSucceeds(svc.createMatchHistory(match));
@@ -190,6 +190,8 @@ describe('matches', () => {
   it('refuses malformed scores', async () => {
     await assertFails(addDoc(collection(mockDb, 'matchHistory'), { ...match, team1: ['a', '', 5000] }));
     await assertFails(addDoc(collection(mockDb, 'matchHistory'), { ...match, team1: ['a', 21] }));
+    await assertFails(addDoc(collection(mockDb, 'matchHistory'), { ...match, eventId: 42 }));
+    await assertFails(addDoc(collection(mockDb, 'matchHistory'), { ...match, tournament: 'free text' }));
   });
 });
 

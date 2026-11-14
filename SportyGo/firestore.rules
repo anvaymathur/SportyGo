@@ -151,10 +151,12 @@ service cloud.firestore {
 
     match /matchHistory/{matchId} {
       allow read: if true;
-      allow create: if incoming().keys().hasOnly(['team1', 'team2', 'date', 'id'])
-        && validTeam(incoming().team1) && validTeam(incoming().team2) && optTimestamp('date');
-      allow update: if onlyChanges(['team1', 'team2', 'date'])
-        && validTeam(incoming().team1) && validTeam(incoming().team2) && optTimestamp('date');
+      allow create: if incoming().keys().hasOnly(['team1', 'team2', 'date', 'id', 'eventId'])
+        && validTeam(incoming().team1) && validTeam(incoming().team2) && optTimestamp('date')
+        && optString('eventId', 128);
+      allow update: if onlyChanges(['team1', 'team2', 'date', 'eventId'])
+        && validTeam(incoming().team1) && validTeam(incoming().team2) && optTimestamp('date')
+        && optString('eventId', 128);
       allow delete: if true;
     }
 

@@ -26,7 +26,8 @@ import { useAuth0 } from "react-native-auth0";
 import { createMatchHistory } from '@/firebase/services_firestore2';
 import { useConnectedUsers } from '@/hooks/useConnectedUsers';
 import { useTempUsers } from '@/hooks/useTempUsers';
-import { newMatchHistory} from '@/firebase/types_index';
+import { EventDoc, newMatchHistory } from '@/firebase/types_index';
+import { MatchEventPicker } from '@/components/MatchEventPicker';
 import { Alert, Keyboard, Platform, TouchableWithoutFeedback } from "react-native";
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { UserContext } from '@/components/userContext';
@@ -103,7 +104,7 @@ function PlayerPicker({ value, onValueChange, items, placeholder, label }: { val
  * It guides the user through a multi-step process to record match results:
  * 1. Select Players: Choose participants for the match (Singles or Doubles).
  * 2. Game Score: Enter the final score for the match.
- * 3. Match Setup: Specify the date, time, and optional tournament name.
+ * 3. Match Setup: Specify the date and time, and the event the match was played at.
  * 
  * Data is validated at each step and finally persisted to Firestore.
  */
@@ -120,7 +121,7 @@ export default function AddScore() {
   const [date, setDate] = useState<Date>(new Date()); // Final confirmed date/time
   const [showDatePicker, setShowDatePicker] = useState(false); // Controls visibility of date picker modal
   const [showTimePicker, setShowTimePicker] = useState(false); // Controls visibility of time picker modal
-  const [tournament, setTournament] = useState(""); // Optional tournament name
+  const [matchEvent, setMatchEvent] = useState<EventDoc | null>(null); // The event the match was played at (required)
 
   // Player information.
   const [userName, setUserName] = useState(""); // Current user's name (Team 1 Player 1)
@@ -432,6 +433,10 @@ export default function AddScore() {
    * Redirects to the viewScore page upon success.
    */
   const handleSaveMatch = async () => {
+    if (!matchEvent) {
+      Alert.alert("Choose an event", "Select the event this match was played at.");
+      return;
+    }
 
     // Prevent saving with duplicate player selections
     const selectedPlayers = [userName, yourPlayer2, opponentPlayer1, opponentPlayer2]
@@ -486,7 +491,8 @@ export default function AddScore() {
         team1: [team1Player1Id, team1Player2Id, parseInt(yourScore)],
         team2: [team2Player1Id, team2Player2Id, parseInt(opponentScore)],
         date: date,
-        id: ""
+        id: "",
+        eventId: matchEvent.id,
       };
 
       // Save to Firestore
@@ -802,15 +808,16 @@ export default function AddScore() {
                     </Button>
                   </YStack>
 
-                  {/* Optional tournament metadata */}
+                  {/* Every match is recorded against an event */}
                   <YStack gap="$2">
                     <Text fontSize="$3" fontWeight="500">
-                      Tournament/Event (Optional)
+                      Event
                     </Text>
-                    <Input
-                      value={tournament}
-                      onChangeText={(text: any) => setTournament(text)}
-                      placeholder="Enter tournament name"
+                    <MatchEventPicker
+                      userId={userID || user?.sub || ''}
+                      selectedEventId={matchEvent?.id ?? null}
+                      onSelect={setMatchEvent}
+                      onCreateEvent={() => router.push('/events/CreateGameSession')}
                     />
                   </YStack>
                 </YStack>
