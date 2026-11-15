@@ -40,8 +40,10 @@ Auth0 dashboard > Actions > Library > **Create Action** > Build from scratch.
 - Name: `Firebase sign-in token`, Trigger: **Login / Post Login**, Runtime: the recommended Node.
 - Paste the contents of [`docs/auth0/firebase-token-action.js`](auth0/firebase-token-action.js).
 - Dependencies (box icon): add `jsonwebtoken`.
-- Secrets (key icon): add `FIREBASE_CLIENT_EMAIL` and `FIREBASE_PRIVATE_KEY` with the values from
-  step 2. Paste the private key exactly as it appears in the JSON, including the `\n` sequences.
+- Secrets (key icon): the simplest option is one secret, `FIREBASE_SERVICE_ACCOUNT`, holding the
+  **entire** contents of the key file from step 2. Alternatively add `FIREBASE_CLIENT_EMAIL` and
+  `FIREBASE_PRIVATE_KEY` (the `client_email` and `private_key` values). The key is accepted with
+  or without quotes, and however the secret box handles its line breaks.
 - **Deploy**, then Actions > Triggers > post-login: drag the Action into the flow and **Apply**.
 
 Also check Applications > SportyGo > Settings > Advanced > Grant Types: **Refresh Token** must be
@@ -73,10 +75,10 @@ issued **after** the Action is in the Login flow, so you must **log out and back
 4. **Auth0 > Monitoring > Logs:** open the latest *Success Login* entry; its Action details show
    whether the Action ran and anything it logged.
 
-Common secret mistakes: pasting the private key **with** the surrounding quotes, only part of it,
-or the `private_key_id` instead of `private_key`. The value must start with
-`-----BEGIN PRIVATE KEY-----` and end with `-----END PRIVATE KEY-----
-`.
+If **Test** logs `Firebase token skipped: ...`, the message says which secret is wrong. Usually
+it is the `private_key_id` pasted instead of `private_key`, or only part of the key. Each time you
+change the code or a secret, click **Deploy** again; Test runs the saved draft, logins use the
+deployed version.
 
 A JavaScript-only change like this one can also reach installed preview/production builds through
 `eas update` without a new build (same app version).
